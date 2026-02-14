@@ -4,6 +4,13 @@ import MapKit
 
 final class SearchViewController: UIViewController {
 
+    // MARK: - Sections
+
+    private enum Section: Int, CaseIterable {
+        case recentSearches = 0
+        case completions = 1
+    }
+
     // MARK: - UI Components
 
     private let searchBar: UIView = {
@@ -46,6 +53,7 @@ final class SearchViewController: UIViewController {
 
     private let viewModel: SearchViewModel
     private var cancellables = Set<AnyCancellable>()
+    private var isSearching = false
 
     var onSearchResults: (([MKMapItem]) -> Void)?
     var onDismiss: (() -> Void)?
@@ -69,6 +77,7 @@ final class SearchViewController: UIViewController {
         setupTableView()
         setupActions()
         bindViewModel()
+        viewModel.loadRecentSearches()
         searchTextField.becomeFirstResponder()
     }
 
@@ -108,6 +117,7 @@ final class SearchViewController: UIViewController {
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "CompletionCell")
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "RecentCell")
     }
 
     private func setupActions() {
@@ -126,6 +136,13 @@ final class SearchViewController: UIViewController {
             }
             .store(in: &cancellables)
 
+        viewModel.recentSearches
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+
         viewModel.errorMessage
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
@@ -133,6 +150,12 @@ final class SearchViewController: UIViewController {
                 self?.showError(message)
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Helpers
+
+    private var showRecentSection: Bool {
+        !isSearching && !viewModel.recentSearches.value.isEmpty
     }
 
     // MARK: - Actions
@@ -145,7 +168,16 @@ final class SearchViewController: UIViewController {
 
     @objc private func textFieldDidChange() {
         guard let text = searchTextField.text else { return }
+        isSearching = !text.isEmpty
         viewModel.updateQuery(text)
+
+        if text.isEmpty {
+            viewModel.loadRecentSearches()
+        }
+    }
+
+    @objc private func clearAllHistoryTapped() {
+        viewModel.clearAllRecentSearches()
     }
 
     private func handleSearchResults(_ results: [MKMapItem]) {
@@ -165,26 +197,116 @@ final class SearchViewController: UIViewController {
 
 extension SearchViewController: UITableViewDataSource {
 
+    func numberOfSections(in tableView: UITableView) -> Int {
+        Section.allCases.count
+    }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        viewModel.completions.value.count
+        guard let sec = Section(rawValue: section) else { return 0 }
+        switch sec {
+        case .recentSearches:
+            return showRecentSection ? viewModel.recentSearches.value.count : 0
+        case .completions:
+            return isSearching ? viewModel.completions.value.count : 0
+        }
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CompletionCell", for: indexPath)
-        let completion = viewModel.completions.value[indexPath.row]
+        guard let sec = Section(rawValue: indexPath.section) else { return UITableViewCell() }
 
-        var config = cell.defaultContentConfiguration()
-        config.text = completion.title
-        config.secondaryText = completion.subtitle
-        config.image = UIImage(systemName: "magnifyingglass")
-        config.imageProperties.tintColor = Theme.Colors.secondaryLabel
-        cell.contentConfiguration = config
+        switch sec {
+        case .recentSearches:
+            let cell = tableView.dequeueReusableCell(withIdentifier: "RecentCell", for: indexPath)
+            let history = viewModel.recentSearches.value[indexPath.row]
 
-        return cell
+            var config = cell.defaultContentConfiguration()
+            config.text = history.placeName
+            config.secondaryText = history.address
+            config.image = UIImage(systemName: "clock.arrow.circlepath")
+            config.imageProperties.tintColor = Theme.Colors.secondaryLabel
+            cell.contentConfiguration = config
+            return cell
+
+        case .completions:
+            let cell = tableView.dequeueReusableCell(withIdentifier: "CompletionCell", for: indexPath)
+            let completion = viewModel.completions.value[indexPath.row]
+
+            var config = cell.defaultContentConfiguration()
+            config.text = completion.title
+            config.secondaryText = completion.subtitle
+            config.image = UIImage(systemName: "magnifyingglass")
+            config.imageProperties.tintColor = Theme.Colors.secondaryLabel
+            cell.contentConfiguration = config
+            return cell
+        }
+    }
+
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        guard let sec = Section(rawValue: section), sec == .recentSearches, showRecentSection else {
+            return nil
+        }
+
+        let headerView = UIView()
+        headerView.backgroundColor = Theme.Colors.background
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = "최근 검색"
+        titleLabel.font = Theme.Fonts.headline
+        titleLabel.textColor = Theme.Colors.label
+
+        let clearButton = UIButton(type: .system)
+        clearButton.translatesAutoresizingMaskIntoConstraints = false
+        clearButton.setTitle("전체 삭제", for: .normal)
+        clearButton.titleLabel?.font = Theme.Fonts.footnote
+        clearButton.tintColor = Theme.Colors.destructive
+        clearButton.addTarget(self, action: #selector(clearAllHistoryTapped), for: .touchUpInside)
+
+        headerView.addSubview(titleLabel)
+        headerView.addSubview(clearButton)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: Theme.Spacing.lg),
+            titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            clearButton.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -Theme.Spacing.lg),
+            clearButton.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+        ])
+
+        return headerView
+    }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        guard let sec = Section(rawValue: section) else { return 0 }
+        switch sec {
+        case .recentSearches:
+            return showRecentSection ? 44 : 0
+        case .completions:
+            return isSearching && !viewModel.completions.value.isEmpty ? 44 : 0
+        }
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        viewModel.completions.value.isEmpty ? nil : "검색 결과"
+        guard let sec = Section(rawValue: section) else { return nil }
+        switch sec {
+        case .recentSearches:
+            return nil // Custom header view
+        case .completions:
+            return isSearching && !viewModel.completions.value.isEmpty ? "검색 결과" : nil
+        }
+    }
+
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        guard let sec = Section(rawValue: indexPath.section) else { return false }
+        return sec == .recentSearches
+    }
+
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        guard editingStyle == .delete,
+              let sec = Section(rawValue: indexPath.section),
+              sec == .recentSearches else { return }
+
+        let history = viewModel.recentSearches.value[indexPath.row]
+        viewModel.deleteRecentSearch(history)
     }
 }
 
@@ -194,11 +316,21 @@ extension SearchViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let completion = viewModel.completions.value[indexPath.row]
 
-        Task {
-            if let results = await viewModel.selectCompletion(completion) {
-                handleSearchResults(results)
+        guard let sec = Section(rawValue: indexPath.section) else { return }
+
+        switch sec {
+        case .recentSearches:
+            let history = viewModel.recentSearches.value[indexPath.row]
+            let results = viewModel.selectRecentSearch(history)
+            handleSearchResults(results)
+
+        case .completions:
+            let completion = viewModel.completions.value[indexPath.row]
+            Task {
+                if let results = await viewModel.selectCompletion(completion) {
+                    handleSearchResults(results)
+                }
             }
         }
     }

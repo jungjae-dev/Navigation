@@ -3,6 +3,13 @@ import Combine
 
 final class HomeViewController: UIViewController {
 
+    // MARK: - Collection Sections
+
+    private enum HomeSection: Int, CaseIterable {
+        case favorites = 0
+        case recentSearches = 1
+    }
+
     // MARK: - UI Components
 
     private let searchBarContainer: UIView = {
@@ -35,13 +42,61 @@ final class HomeViewController: UIViewController {
         return label
     }()
 
+    private let settingsButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(
+            UIImage(systemName: "gearshape.fill")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+            for: .normal
+        )
+        button.tintColor = Theme.Colors.secondaryLabel
+        button.backgroundColor = Theme.Colors.secondaryBackground
+        button.layer.cornerRadius = 20
+        button.layer.shadowColor = Theme.Shadow.color
+        button.layer.shadowOpacity = Theme.Shadow.opacity
+        button.layer.shadowOffset = Theme.Shadow.offset
+        button.layer.shadowRadius = Theme.Shadow.radius
+        return button
+    }()
+
+    private lazy var bottomPanel: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = Theme.Colors.background.withAlphaComponent(0.95)
+        view.layer.cornerRadius = Theme.CornerRadius.large
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.layer.shadowColor = Theme.Shadow.color
+        view.layer.shadowOpacity = Theme.Shadow.opacity
+        view.layer.shadowOffset = CGSize(width: 0, height: -2)
+        view.layer.shadowRadius = Theme.Shadow.radius
+        return view
+    }()
+
+    private lazy var collectionView: UICollectionView = {
+        let layout = createCompositionalLayout()
+        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        cv.translatesAutoresizingMaskIntoConstraints = false
+        cv.backgroundColor = .clear
+        cv.delegate = self
+        cv.dataSource = self
+        cv.register(FavoriteCell.self, forCellWithReuseIdentifier: FavoriteCell.reuseIdentifier)
+        cv.register(RecentSearchCell.self, forCellWithReuseIdentifier: RecentSearchCell.reuseIdentifier)
+        cv.register(HomeSectionHeaderView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: HomeSectionHeaderView.reuseIdentifier)
+        return cv
+    }()
+
     // MARK: - Properties
 
     private let viewModel: HomeViewModel
     private let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
+    private var bottomPanelHeightConstraint: NSLayoutConstraint!
 
     var onSearchBarTapped: (() -> Void)?
+    var onFavoriteTapped: ((FavoritePlace) -> Void)?
+    var onRecentSearchTapped: ((SearchHistory) -> Void)?
+    var onSettingsTapped: (() -> Void)?
 
     // MARK: - Init
 
@@ -61,8 +116,15 @@ final class HomeViewController: UIViewController {
         super.viewDidLoad()
         setupMapChild()
         setupSearchBar()
+        setupSettingsButton()
+        setupBottomPanel()
         bindViewModel()
         handleInitialPermission()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.loadHomeData()
     }
 
     // MARK: - Setup
@@ -120,8 +182,86 @@ final class HomeViewController: UIViewController {
         searchBarContainer.isUserInteractionEnabled = true
     }
 
-    @objc private func searchBarTapped() {
-        onSearchBarTapped?()
+    private func setupSettingsButton() {
+        view.addSubview(settingsButton)
+
+        NSLayoutConstraint.activate([
+            settingsButton.topAnchor.constraint(equalTo: searchBarContainer.bottomAnchor, constant: Theme.Spacing.sm),
+            settingsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            settingsButton.widthAnchor.constraint(equalToConstant: 40),
+            settingsButton.heightAnchor.constraint(equalToConstant: 40),
+        ])
+
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+    }
+
+    private func setupBottomPanel() {
+        view.addSubview(bottomPanel)
+        bottomPanel.addSubview(collectionView)
+
+        bottomPanelHeightConstraint = bottomPanel.heightAnchor.constraint(equalToConstant: 0)
+
+        NSLayoutConstraint.activate([
+            bottomPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomPanel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            bottomPanelHeightConstraint,
+
+            collectionView.topAnchor.constraint(equalTo: bottomPanel.topAnchor, constant: Theme.Spacing.lg),
+            collectionView.leadingAnchor.constraint(equalTo: bottomPanel.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: bottomPanel.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: bottomPanel.safeAreaLayoutGuide.bottomAnchor),
+        ])
+    }
+
+    // MARK: - Compositional Layout
+
+    private func createCompositionalLayout() -> UICollectionViewCompositionalLayout {
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, _ in
+            guard let section = HomeSection(rawValue: sectionIndex) else { return nil }
+            switch section {
+            case .favorites:
+                return self?.createFavoritesSection()
+            case .recentSearches:
+                return self?.createRecentSearchesSection()
+            }
+        }
+    }
+
+    private func createFavoritesSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(72), heightDimension: .absolute(72))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(widthDimension: .absolute(72), heightDimension: .absolute(72))
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.orthogonalScrollingBehavior = .continuous
+        section.interGroupSpacing = Theme.Spacing.sm
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: Theme.Spacing.lg, bottom: Theme.Spacing.md, trailing: Theme.Spacing.lg)
+
+        let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .absolute(36))
+        let header = NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize, elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
+        section.boundarySupplementaryItems = [header]
+
+        return section
+    }
+
+    private func createRecentSearchesSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .absolute(52))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .absolute(52))
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: Theme.Spacing.md, trailing: 0)
+
+        let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .absolute(36))
+        let header = NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize, elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
+        section.boundarySupplementaryItems = [header]
+
+        return section
     }
 
     // MARK: - Binding
@@ -134,6 +274,41 @@ final class HomeViewController: UIViewController {
                 self?.handleAuthStatusChange(status)
             }
             .store(in: &cancellables)
+
+        Publishers.CombineLatest(viewModel.favorites, viewModel.recentSearches)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] favorites, searches in
+                self?.updateBottomPanel(hasFavorites: !favorites.isEmpty, hasSearches: !searches.isEmpty)
+                self?.collectionView.reloadData()
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Bottom Panel
+
+    private func updateBottomPanel(hasFavorites: Bool, hasSearches: Bool) {
+        let hasContent = hasFavorites || hasSearches
+
+        let favHeight: CGFloat = hasFavorites ? (36 + 72 + Theme.Spacing.md) : 0
+        let searchCount = min(viewModel.recentSearches.value.count, 5)
+        let searchHeight: CGFloat = hasSearches ? (36 + CGFloat(searchCount) * 52 + Theme.Spacing.md) : 0
+        let safeArea: CGFloat = view.safeAreaInsets.bottom
+        let totalHeight = hasContent ? (Theme.Spacing.lg + favHeight + searchHeight + safeArea) : 0
+
+        UIView.animate(withDuration: 0.3) {
+            self.bottomPanelHeightConstraint.constant = totalHeight
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    // MARK: - Actions
+
+    @objc private func searchBarTapped() {
+        onSearchBarTapped?()
+    }
+
+    @objc private func settingsTapped() {
+        onSettingsTapped?()
     }
 
     // MARK: - Permission Handling
@@ -176,5 +351,139 @@ final class HomeViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
 
         present(alert, animated: true)
+    }
+}
+
+// MARK: - UICollectionViewDataSource
+
+extension HomeViewController: UICollectionViewDataSource {
+
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        HomeSection.allCases.count
+    }
+
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        guard let sec = HomeSection(rawValue: section) else { return 0 }
+        switch sec {
+        case .favorites:
+            return viewModel.favorites.value.count
+        case .recentSearches:
+            return min(viewModel.recentSearches.value.count, 5)
+        }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        guard let sec = HomeSection(rawValue: indexPath.section) else {
+            return UICollectionViewCell()
+        }
+
+        switch sec {
+        case .favorites:
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: FavoriteCell.reuseIdentifier, for: indexPath
+            ) as? FavoriteCell else { return UICollectionViewCell() }
+
+            let favorite = viewModel.favorites.value[indexPath.item]
+            cell.configure(with: favorite)
+            return cell
+
+        case .recentSearches:
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: RecentSearchCell.reuseIdentifier, for: indexPath
+            ) as? RecentSearchCell else { return UICollectionViewCell() }
+
+            let history = viewModel.recentSearches.value[indexPath.item]
+            cell.configure(with: history)
+            return cell
+        }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+        guard kind == UICollectionView.elementKindSectionHeader,
+              let header = collectionView.dequeueReusableSupplementaryView(
+                ofKind: kind, withReuseIdentifier: HomeSectionHeaderView.reuseIdentifier, for: indexPath
+              ) as? HomeSectionHeaderView,
+              let sec = HomeSection(rawValue: indexPath.section) else {
+            return UICollectionReusableView()
+        }
+
+        switch sec {
+        case .favorites:
+            header.configure(title: "즐겨찾기", showIcon: true, iconName: "star.fill")
+        case .recentSearches:
+            header.configure(title: "최근 검색", showIcon: true, iconName: "clock.arrow.circlepath")
+        }
+
+        return header
+    }
+}
+
+// MARK: - UICollectionViewDelegate
+
+extension HomeViewController: UICollectionViewDelegate {
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let sec = HomeSection(rawValue: indexPath.section) else { return }
+
+        switch sec {
+        case .favorites:
+            let favorite = viewModel.favorites.value[indexPath.item]
+            onFavoriteTapped?(favorite)
+
+        case .recentSearches:
+            let history = viewModel.recentSearches.value[indexPath.item]
+            onRecentSearchTapped?(history)
+        }
+    }
+}
+
+// MARK: - Section Header View
+
+final class HomeSectionHeaderView: UICollectionReusableView {
+
+    static let reuseIdentifier = "HomeSectionHeader"
+
+    private let iconImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.contentMode = .scaleAspectFit
+        iv.tintColor = Theme.Colors.primary
+        return iv
+    }()
+
+    private let titleLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.headline
+        label.textColor = Theme.Colors.label
+        return label
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        addSubview(iconImageView)
+        addSubview(titleLabel)
+
+        NSLayoutConstraint.activate([
+            iconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Spacing.lg),
+            iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 16),
+            iconImageView.heightAnchor.constraint(equalToConstant: 16),
+
+            titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.xs),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(title: String, showIcon: Bool, iconName: String) {
+        titleLabel.text = title
+        iconImageView.isHidden = !showIcon
+        iconImageView.image = UIImage(systemName: iconName)?
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
     }
 }
