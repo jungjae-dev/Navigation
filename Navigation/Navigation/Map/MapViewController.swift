@@ -21,6 +21,15 @@ final class MapViewController: UIViewController {
     /// Callback when a search result marker is tapped. Returns the index.
     var onAnnotationSelected: ((Int) -> Void)?
 
+    // MARK: - Navigation Mode State
+
+    private var isNavigationMode = false
+    private var navigationRouteOverlay: MKPolyline?
+    private var panGestureRecognizer: UIPanGestureRecognizer?
+
+    /// Called when the user pans/interacts with the map during navigation
+    var onUserInteraction: (() -> Void)?
+
     // MARK: - Init
 
     init(locationService: LocationService) {
@@ -192,6 +201,74 @@ final class MapViewController: UIViewController {
         clearRoutes()
     }
 
+    // MARK: - Public: Navigation Mode
+
+    /// Configure map for turn-by-turn navigation (3D camera, disable compass)
+    func configureForNavigation() {
+        isNavigationMode = true
+        mapView.showsCompass = false
+        mapView.showsScale = false
+        mapView.isPitchEnabled = false
+        mapView.isRotateEnabled = false
+
+        // Add pan gesture recognizer to detect user interaction
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleMapPan(_:)))
+        pan.delegate = self
+        mapView.addGestureRecognizer(pan)
+        panGestureRecognizer = pan
+    }
+
+    /// Restore map to standard mode (2D, compass visible)
+    func configureForStandard() {
+        isNavigationMode = false
+        mapView.showsCompass = true
+        mapView.showsScale = true
+        mapView.isPitchEnabled = true
+        mapView.isRotateEnabled = true
+
+        // Remove navigation pan gesture
+        if let pan = panGestureRecognizer {
+            mapView.removeGestureRecognizer(pan)
+            panGestureRecognizer = nil
+        }
+
+        // Reset camera to 2D
+        let camera = MKMapCamera()
+        camera.pitch = 0
+        camera.heading = 0
+        mapView.setCamera(camera, animated: false)
+    }
+
+    /// Apply a camera directly (used by interpolation system)
+    func applyCamera(_ camera: MKMapCamera, animated: Bool) {
+        mapView.setCamera(camera, animated: animated)
+    }
+
+    /// Show a single route for navigation (replaces any existing routes)
+    func showSingleRoute(_ route: MKRoute) {
+        clearRoutes()
+        clearNavigationRoute()
+
+        navigationRouteOverlay = route.polyline
+        routeIsPrimary[route.polyline] = true
+        mapView.addOverlay(route.polyline, level: .aboveRoads)
+    }
+
+    /// Clear navigation-specific route overlay
+    func clearNavigationRoute() {
+        if let overlay = navigationRouteOverlay {
+            mapView.removeOverlay(overlay)
+            routeIsPrimary.removeValue(forKey: overlay)
+        }
+        navigationRouteOverlay = nil
+    }
+
+    @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
+        if gesture.state == .began {
+            onUserInteraction?()
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func fitAnnotations(_ annotations: [MKAnnotation]) {
@@ -212,12 +289,36 @@ final class MapViewController: UIViewController {
     }
 }
 
+// MARK: - UIGestureRecognizerDelegate
+
+extension MapViewController: UIGestureRecognizerDelegate {
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        true
+    }
+}
+
 // MARK: - MKMapViewDelegate
 
 extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation { return nil }
+
+        if annotation is VehicleAnnotation {
+            let identifier = "Vehicle"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
+                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            view.annotation = annotation
+            view.image = UIImage(systemName: "circle.fill")?
+                .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 12))
+            view.canShowCallout = false
+            return view
+        }
 
         if let searchResult = annotation as? SearchResultAnnotation {
             let identifier = "SearchResult"
