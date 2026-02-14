@@ -85,6 +85,14 @@ final class LocationService: NSObject {
         locationManager.distanceFilter = 5
         locationManager.activityType = .fitness
     }
+
+    func configureForStandard() {
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.distanceFilter = 10
+        locationManager.activityType = .automotiveNavigation
+        locationManager.allowsBackgroundLocationUpdates = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+    }
 }
 
 // MARK: - CLLocationManagerDelegate

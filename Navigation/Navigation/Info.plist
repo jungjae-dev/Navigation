@@ -6,6 +6,11 @@
 	<string>현재 위치를 지도에 표시하고 경로 안내에 사용합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>백그라운드에서도 경로 안내를 계속 제공하기 위해 위치 권한이 필요합니다.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

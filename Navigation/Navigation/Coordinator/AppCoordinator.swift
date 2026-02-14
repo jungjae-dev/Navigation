@@ -21,6 +21,16 @@ final class AppCoordinator: Coordinator {
     private var homeViewController: HomeViewController!
     private var currentDrawer: SearchResultDrawerViewController?
 
+    // MARK: - Sprint 3: Navigation Services
+
+    private var navigationViewController: NavigationViewController?
+    private var guidanceEngine: GuidanceEngine?
+    private var voiceService: VoiceGuidanceService?
+    private var offRouteDetector: OffRouteDetector?
+    private var mapInterpolator: MapInterpolator?
+    private var mapCamera: MapCamera?
+    private var turnPointPopupService: TurnPointPopupService?
+
     // MARK: - Init
 
     init(window: UIWindow) {
@@ -217,12 +227,113 @@ final class AppCoordinator: Coordinator {
         mapViewController.didMove(toParent: homeViewController)
     }
 
-    // MARK: - Navigation (Sprint 3 Stub)
+    // MARK: - Navigation Flow (Sprint 3)
 
     private func startNavigation(with route: MKRoute) {
-        print("🧭 [Sprint 3] Start navigation with route: \(route.name)")
-        print("   Distance: \(route.formattedDistance)")
-        print("   ETA: \(route.formattedTravelTime)")
-        print("   Steps: \(route.steps.count)")
+        // 1. Configure location service for navigation
+        locationService.configureForNavigation()
+
+        // 2. Create all navigation services
+        let voice = VoiceGuidanceService()
+        let offRoute = OffRouteDetector()
+        let camera = MapCamera()
+
+        let engine = GuidanceEngine(
+            locationService: locationService,
+            routeService: routeService,
+            voiceService: voice,
+            offRouteDetector: offRoute
+        )
+
+        let interpolator = MapInterpolator(mapCamera: camera)
+        let popup = TurnPointPopupService(
+            guidanceEngine: engine,
+            locationService: locationService
+        )
+
+        // Store references
+        self.voiceService = voice
+        self.offRouteDetector = offRoute
+        self.guidanceEngine = engine
+        self.mapCamera = camera
+        self.mapInterpolator = interpolator
+        self.turnPointPopupService = popup
+
+        // 3. Remove map from RoutePreviewVC
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // 4. Configure map for navigation mode
+        mapViewController.clearAll()
+        mapViewController.configureForNavigation()
+        mapViewController.showSingleRoute(route)
+
+        // 5. Create NavigationViewModel
+        let navViewModel = NavigationViewModel(
+            guidanceEngine: engine,
+            mapInterpolator: interpolator,
+            turnPointPopupService: popup,
+            locationService: locationService,
+            mapCamera: camera
+        )
+
+        // 6. Create NavigationViewController
+        let navVC = NavigationViewController(
+            viewModel: navViewModel,
+            mapViewController: mapViewController,
+            turnPointPopupService: popup
+        )
+        self.navigationViewController = navVC
+
+        navVC.onDismiss = { [weak self] in
+            self?.dismissNavigation()
+        }
+
+        // 7. Start all services
+        interpolator.start(mapViewController: mapViewController)
+        navViewModel.startNavigation(with: route)
+
+        // 8. Push NavigationVC (replaces RoutePreviewVC)
+        navigationController.pushViewController(navVC, animated: true)
+    }
+
+    private func dismissNavigation() {
+        // 1. Stop all services
+        guidanceEngine?.stopNavigation()
+        mapInterpolator?.stop()
+        voiceService?.stop()
+        offRouteDetector?.reset()
+        turnPointPopupService?.reset()
+
+        // 2. Restore location service to standard mode
+        locationService.configureForStandard()
+
+        // 3. Remove map from NavigationVC
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // 4. Restore map to standard mode
+        mapViewController.configureForStandard()
+        mapViewController.clearAll()
+        mapViewController.clearNavigationRoute()
+
+        // 5. Pop to HomeVC
+        navigationController.popToViewController(homeViewController, animated: true)
+
+        // 6. Re-attach map to Home after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.returnMapToHome()
+        }
+
+        // 7. Clear references
+        navigationViewController = nil
+        guidanceEngine = nil
+        voiceService = nil
+        offRouteDetector = nil
+        mapInterpolator = nil
+        mapCamera = nil
+        turnPointPopupService = nil
     }
 }
