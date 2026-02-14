@@ -41,6 +41,18 @@ final class RoutePreviewViewController: UIViewController {
         return label
     }()
 
+    private let favoriteButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(
+            UIImage(systemName: "star")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)),
+            for: .normal
+        )
+        button.tintColor = Theme.Colors.primary
+        return button
+    }()
+
     private let tableView: UITableView = {
         let tableView = UITableView()
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -129,6 +141,7 @@ final class RoutePreviewViewController: UIViewController {
         view.addSubview(backButton)
         view.addSubview(bottomContainer)
         bottomContainer.addSubview(destinationLabel)
+        bottomContainer.addSubview(favoriteButton)
         bottomContainer.addSubview(tableView)
         bottomContainer.addSubview(startButton)
         bottomContainer.addSubview(loadingIndicator)
@@ -145,7 +158,12 @@ final class RoutePreviewViewController: UIViewController {
 
             destinationLabel.topAnchor.constraint(equalTo: bottomContainer.topAnchor, constant: Theme.Spacing.xl),
             destinationLabel.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
-            destinationLabel.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
+            destinationLabel.trailingAnchor.constraint(equalTo: favoriteButton.leadingAnchor, constant: -Theme.Spacing.sm),
+
+            favoriteButton.centerYAnchor.constraint(equalTo: destinationLabel.centerYAnchor),
+            favoriteButton.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
+            favoriteButton.widthAnchor.constraint(equalToConstant: 40),
+            favoriteButton.heightAnchor.constraint(equalToConstant: 40),
 
             tableView.topAnchor.constraint(equalTo: destinationLabel.bottomAnchor, constant: Theme.Spacing.md),
             tableView.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor),
@@ -172,6 +190,7 @@ final class RoutePreviewViewController: UIViewController {
     private func setupActions() {
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
         startButton.addTarget(self, action: #selector(startNavigationTapped), for: .touchUpInside)
+        favoriteButton.addTarget(self, action: #selector(favoriteTapped), for: .touchUpInside)
     }
 
     // MARK: - Binding
@@ -224,6 +243,16 @@ final class RoutePreviewViewController: UIViewController {
                 self?.present(alert, animated: true)
             }
             .store(in: &cancellables)
+
+        viewModel.isFavorite
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isFav in
+                let imageName = isFav ? "star.fill" : "star"
+                let image = UIImage(systemName: imageName)?
+                    .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+                self?.favoriteButton.setImage(image, for: .normal)
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Actions
@@ -237,6 +266,10 @@ final class RoutePreviewViewController: UIViewController {
     @objc private func startNavigationTapped() {
         guard let selectedRoute = viewModel.getSelectedRoute() else { return }
         onStartNavigation?(selectedRoute)
+    }
+
+    @objc private func favoriteTapped() {
+        viewModel.toggleFavorite()
     }
 }
 

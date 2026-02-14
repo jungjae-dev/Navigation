@@ -59,6 +59,18 @@ final class AppCoordinator: Coordinator {
             self?.showSearch()
         }
 
+        homeVC.onFavoriteTapped = { [weak self] favorite in
+            self?.showRoutePreviewFromFavorite(favorite)
+        }
+
+        homeVC.onRecentSearchTapped = { [weak self] history in
+            self?.showRoutePreviewFromHistory(history)
+        }
+
+        homeVC.onSettingsTapped = { [weak self] in
+            self?.showSettings()
+        }
+
         navigationController.setViewControllers([homeVC], animated: false)
 
         window.rootViewController = navigationController
@@ -129,6 +141,65 @@ final class AppCoordinator: Coordinator {
         navigationController.present(drawerVC, animated: true)
     }
 
+    // MARK: - Settings Flow
+
+    private func showSettings() {
+        let settingsVM = SettingsViewModel()
+        let settingsVC = SettingsViewController(viewModel: settingsVM)
+
+        settingsVC.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+            self?.navigationController.isNavigationBarHidden = true
+        }
+
+        navigationController.isNavigationBarHidden = false
+        navigationController.pushViewController(settingsVC, animated: true)
+    }
+
+    // MARK: - Favorite / Recent Search → Route Preview
+
+    private func showRoutePreviewFromFavorite(_ favorite: FavoritePlace) {
+        let coordinate = favorite.coordinate
+
+        // Show destination pin on map
+        mapViewController.showDestination(
+            coordinate: coordinate,
+            title: favorite.name,
+            subtitle: favorite.address
+        )
+
+        let userCoordinate = locationService.locationPublisher.value?.coordinate
+            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+
+        moveMapToRoutePreview(
+            origin: userCoordinate,
+            destination: coordinate,
+            destinationName: favorite.name,
+            destinationAddress: favorite.address
+        )
+    }
+
+    private func showRoutePreviewFromHistory(_ history: SearchHistory) {
+        let coordinate = history.coordinate
+
+        // Show destination pin on map
+        mapViewController.showDestination(
+            coordinate: coordinate,
+            title: history.placeName,
+            subtitle: history.address
+        )
+
+        let userCoordinate = locationService.locationPublisher.value?.coordinate
+            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+
+        moveMapToRoutePreview(
+            origin: userCoordinate,
+            destination: coordinate,
+            destinationName: history.placeName,
+            destinationAddress: history.address
+        )
+    }
+
     // MARK: - Route Preview Flow
 
     private func showRoutePreview(to mapItem: MKMapItem) {
@@ -157,14 +228,16 @@ final class AppCoordinator: Coordinator {
         moveMapToRoutePreview(
             origin: userCoordinate,
             destination: coordinate,
-            destinationName: mapItem.name
+            destinationName: mapItem.name,
+            destinationAddress: subtitle
         )
     }
 
     private func moveMapToRoutePreview(
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
-        destinationName: String?
+        destinationName: String?,
+        destinationAddress: String? = nil
     ) {
         // Remove map from Home
         mapViewController.willMove(toParent: nil)
@@ -176,7 +249,8 @@ final class AppCoordinator: Coordinator {
             routeService: routeService,
             origin: origin,
             destination: destination,
-            destinationName: destinationName
+            destinationName: destinationName,
+            destinationAddress: destinationAddress
         )
 
         let routePreviewVC = RoutePreviewViewController(

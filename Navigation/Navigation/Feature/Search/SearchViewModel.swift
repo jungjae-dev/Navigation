@@ -9,21 +9,29 @@ final class SearchViewModel {
     let completions: CurrentValueSubject<[MKLocalSearchCompletion], Never>
     let isLoading: CurrentValueSubject<Bool, Never>
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
+    let recentSearches = CurrentValueSubject<[SearchHistory], Never>([])
 
     // MARK: - Private
 
     private let searchService: SearchService
+    private let dataService: DataService
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
-    init(searchService: SearchService) {
+    init(searchService: SearchService, dataService: DataService = .shared) {
         self.searchService = searchService
+        self.dataService = dataService
         self.completions = searchService.completionsPublisher
         self.isLoading = searchService.isSearchingPublisher
     }
 
     // MARK: - Actions
+
+    func loadRecentSearches() {
+        let searches = dataService.fetchRecentSearches(limit: 20)
+        recentSearches.send(searches)
+    }
 
     func updateSearchRegion(_ region: MKCoordinateRegion) {
         searchService.updateRegion(region)
@@ -35,7 +43,14 @@ final class SearchViewModel {
 
     func selectCompletion(_ completion: MKLocalSearchCompletion) async -> [MKMapItem]? {
         do {
-            return try await searchService.search(for: completion)
+            let results = try await searchService.search(for: completion)
+
+            // Save to history
+            if let firstItem = results.first {
+                dataService.saveSearchHistory(query: completion.title, mapItem: firstItem)
+            }
+
+            return results
         } catch {
             errorMessage.send("검색 실패: \(error.localizedDescription)")
             return nil
@@ -45,11 +60,36 @@ final class SearchViewModel {
     func executeSearch(query: String) async -> [MKMapItem]? {
         guard !query.isEmpty else { return nil }
         do {
-            return try await searchService.search(query: query)
+            let results = try await searchService.search(query: query)
+
+            // Save to history
+            if let firstItem = results.first {
+                dataService.saveSearchHistory(query: query, mapItem: firstItem)
+            }
+
+            return results
         } catch {
             errorMessage.send("검색 실패: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    func selectRecentSearch(_ history: SearchHistory) -> [MKMapItem] {
+        // Create MKMapItem from saved history
+        let location = CLLocation(latitude: history.latitude, longitude: history.longitude)
+        let mapItem = MKMapItem(location: location, address: nil)
+        mapItem.name = history.placeName
+        return [mapItem]
+    }
+
+    func deleteRecentSearch(_ history: SearchHistory) {
+        dataService.deleteSearchHistory(history)
+        loadRecentSearches()
+    }
+
+    func clearAllRecentSearches() {
+        dataService.clearAllSearchHistory()
+        recentSearches.send([])
     }
 
     func clearSearch() {
