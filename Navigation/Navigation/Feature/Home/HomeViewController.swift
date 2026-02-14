@@ -41,6 +41,8 @@ final class HomeViewController: UIViewController {
     private let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
 
+    var onSearchBarTapped: (() -> Void)?
+
     // MARK: - Init
 
     init(viewModel: HomeViewModel, mapViewController: MapViewController) {
@@ -112,6 +114,14 @@ final class HomeViewController: UIViewController {
                 equalTo: searchBarContainer.trailingAnchor, constant: -Theme.Spacing.md
             ),
         ])
+
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(searchBarTapped))
+        searchBarContainer.addGestureRecognizer(tapGesture)
+        searchBarContainer.isUserInteractionEnabled = true
+    }
+
+    @objc private func searchBarTapped() {
+        onSearchBarTapped?()
     }
 
     // MARK: - Binding
