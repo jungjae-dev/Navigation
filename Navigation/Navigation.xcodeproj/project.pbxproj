@@ -11,7 +11,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		667442E62F410F4D008BE162 /* Exceptions for "Navigation" folder in "Navigation" target */ = {
+		667442F02F410F4A008BE162 /* Exceptions for "Navigation" folder in "Navigation" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -24,7 +24,7 @@
 		667442D62F410F4A008BE162 /* Navigation */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				667442E62F410F4D008BE162 /* Exceptions for "Navigation" folder in "Navigation" target */,
+				667442F02F410F4A008BE162 /* Exceptions for "Navigation" folder in "Navigation" target */,
 			);
 			path = Navigation;
 			sourceTree = "<group>";

@@ -16,17 +16,16 @@ final class AppCoordinator: Coordinator {
     private let locationService: LocationService
     private let searchService: SearchService
     private let routeService: RouteService
+    private let sessionManager = NavigationSessionManager.shared
 
     private var mapViewController: MapViewController!
     private var homeViewController: HomeViewController!
     private var currentDrawer: SearchResultDrawerViewController?
+    private var cancellables = Set<AnyCancellable>()
 
-    // MARK: - Sprint 3: Navigation Services
+    // MARK: - iPhone-only Navigation Services
 
     private var navigationViewController: NavigationViewController?
-    private var guidanceEngine: GuidanceEngine?
-    private var voiceService: VoiceGuidanceService?
-    private var offRouteDetector: OffRouteDetector?
     private var mapInterpolator: MapInterpolator?
     private var mapCamera: MapCamera?
     private var turnPointPopupService: TurnPointPopupService?
@@ -59,22 +58,104 @@ final class AppCoordinator: Coordinator {
             self?.showSearch()
         }
 
-        homeVC.onFavoriteTapped = { [weak self] favorite in
-            self?.showRoutePreviewFromFavorite(favorite)
-        }
-
-        homeVC.onRecentSearchTapped = { [weak self] history in
-            self?.showRoutePreviewFromHistory(history)
-        }
-
-        homeVC.onSettingsTapped = { [weak self] in
-            self?.showSettings()
-        }
-
         navigationController.setViewControllers([homeVC], animated: false)
 
         window.rootViewController = navigationController
         window.makeKeyAndVisible()
+
+        bindSessionManager()
+    }
+
+    // MARK: - Session Manager Binding (CarPlay ↔ iPhone sync)
+
+    private func bindSessionManager() {
+        sessionManager.navigationCommandPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] command in
+                switch command {
+                case .started(let source):
+                    if source == .carPlay {
+                        // Navigation started from CarPlay → show on iPhone
+                        self?.handleCarPlayNavigationStarted()
+                    }
+                case .stopped:
+                    // Navigation stopped (from either side)
+                    if self?.navigationViewController != nil {
+                        self?.cleanUpNavigationUI()
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleCarPlayNavigationStarted() {
+        guard let session = sessionManager.activeSessionPublisher.value else { return }
+
+        // If already showing navigation, skip
+        guard navigationViewController == nil else { return }
+
+        // Dismiss any presented VCs (search, drawer)
+        navigationController.dismiss(animated: false)
+        currentDrawer = nil
+
+        // Pop to home if needed
+        if navigationController.topViewController !== homeViewController {
+            navigationController.popToViewController(homeViewController, animated: false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.returnMapToHome()
+                self?.presentNavigationFromSession(session)
+            }
+        } else {
+            presentNavigationFromSession(session)
+        }
+    }
+
+    private func presentNavigationFromSession(_ session: NavigationSession) {
+        let camera = MapCamera()
+        let interpolator = MapInterpolator(mapCamera: camera)
+        let popup = TurnPointPopupService(
+            guidanceEngine: session.guidanceEngine,
+            locationService: locationService
+        )
+
+        self.mapCamera = camera
+        self.mapInterpolator = interpolator
+        self.turnPointPopupService = popup
+
+        // Remove map from Home
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // Configure map for navigation
+        mapViewController.clearAll()
+        mapViewController.configureForNavigation()
+        mapViewController.showSingleRoute(session.route)
+
+        // Create NavigationViewModel with shared GuidanceEngine
+        let navViewModel = NavigationViewModel(
+            guidanceEngine: session.guidanceEngine,
+            mapInterpolator: interpolator,
+            turnPointPopupService: popup,
+            locationService: locationService,
+            mapCamera: camera
+        )
+
+        let navVC = NavigationViewController(
+            viewModel: navViewModel,
+            mapViewController: mapViewController,
+            turnPointPopupService: popup
+        )
+        self.navigationViewController = navVC
+
+        navVC.onDismiss = { [weak self] in
+            self?.dismissNavigation()
+        }
+
+        interpolator.start(mapViewController: mapViewController)
+        navViewModel.startNavigation(with: session.route)
+
+        navigationController.pushViewController(navVC, animated: true)
     }
 
     // MARK: - Search Flow
@@ -141,65 +222,6 @@ final class AppCoordinator: Coordinator {
         navigationController.present(drawerVC, animated: true)
     }
 
-    // MARK: - Settings Flow
-
-    private func showSettings() {
-        let settingsVM = SettingsViewModel()
-        let settingsVC = SettingsViewController(viewModel: settingsVM)
-
-        settingsVC.onDismiss = { [weak self] in
-            self?.navigationController.popViewController(animated: true)
-            self?.navigationController.isNavigationBarHidden = true
-        }
-
-        navigationController.isNavigationBarHidden = false
-        navigationController.pushViewController(settingsVC, animated: true)
-    }
-
-    // MARK: - Favorite / Recent Search → Route Preview
-
-    private func showRoutePreviewFromFavorite(_ favorite: FavoritePlace) {
-        let coordinate = favorite.coordinate
-
-        // Show destination pin on map
-        mapViewController.showDestination(
-            coordinate: coordinate,
-            title: favorite.name,
-            subtitle: favorite.address
-        )
-
-        let userCoordinate = locationService.locationPublisher.value?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
-
-        moveMapToRoutePreview(
-            origin: userCoordinate,
-            destination: coordinate,
-            destinationName: favorite.name,
-            destinationAddress: favorite.address
-        )
-    }
-
-    private func showRoutePreviewFromHistory(_ history: SearchHistory) {
-        let coordinate = history.coordinate
-
-        // Show destination pin on map
-        mapViewController.showDestination(
-            coordinate: coordinate,
-            title: history.placeName,
-            subtitle: history.address
-        )
-
-        let userCoordinate = locationService.locationPublisher.value?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
-
-        moveMapToRoutePreview(
-            origin: userCoordinate,
-            destination: coordinate,
-            destinationName: history.placeName,
-            destinationAddress: history.address
-        )
-    }
-
     // MARK: - Route Preview Flow
 
     private func showRoutePreview(to mapItem: MKMapItem) {
@@ -228,16 +250,14 @@ final class AppCoordinator: Coordinator {
         moveMapToRoutePreview(
             origin: userCoordinate,
             destination: coordinate,
-            destinationName: mapItem.name,
-            destinationAddress: subtitle
+            destinationName: mapItem.name
         )
     }
 
     private func moveMapToRoutePreview(
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
-        destinationName: String?,
-        destinationAddress: String? = nil
+        destinationName: String?
     ) {
         // Remove map from Home
         mapViewController.willMove(toParent: nil)
@@ -249,8 +269,7 @@ final class AppCoordinator: Coordinator {
             routeService: routeService,
             origin: origin,
             destination: destination,
-            destinationName: destinationName,
-            destinationAddress: destinationAddress
+            destinationName: destinationName
         )
 
         let routePreviewVC = RoutePreviewViewController(
@@ -263,7 +282,12 @@ final class AppCoordinator: Coordinator {
         }
 
         routePreviewVC.onStartNavigation = { [weak self] route in
-            self?.startNavigation(with: route)
+            let mapItem = MKMapItem(
+                location: CLLocation(latitude: destination.latitude, longitude: destination.longitude),
+                address: nil
+            )
+            mapItem.name = destinationName
+            self?.startNavigation(with: route, destination: mapItem)
         }
 
         navigationController.pushViewController(routePreviewVC, animated: true)
@@ -301,58 +325,58 @@ final class AppCoordinator: Coordinator {
         mapViewController.didMove(toParent: homeViewController)
     }
 
-    // MARK: - Navigation Flow (Sprint 3)
+    // MARK: - Navigation Flow
 
-    private func startNavigation(with route: MKRoute) {
-        // 1. Configure location service for navigation
-        locationService.configureForNavigation()
+    private func startNavigation(with route: MKRoute, destination: MKMapItem? = nil) {
+        // 1. Resolve destination
+        let lastCoord = route.polyline.coordinates.last ?? CLLocationCoordinate2D()
+        let resolvedDestination = destination
+            ?? MKMapItem(location: CLLocation(latitude: lastCoord.latitude, longitude: lastCoord.longitude), address: nil)
 
-        // 2. Create all navigation services
-        let voice = VoiceGuidanceService()
-        let offRoute = OffRouteDetector()
-        let camera = MapCamera()
-
-        let engine = GuidanceEngine(
-            locationService: locationService,
-            routeService: routeService,
-            voiceService: voice,
-            offRouteDetector: offRoute
+        // 2. Start shared navigation session via SessionManager
+        //    This creates GuidanceEngine, VoiceService, OffRouteDetector,
+        //    configures location, and starts guidance.
+        //    CarPlay will auto-detect via navigationCommandPublisher.
+        sessionManager.startNavigation(
+            route: route,
+            destination: resolvedDestination,
+            source: .phone
         )
 
+        guard let session = sessionManager.activeSessionPublisher.value else { return }
+
+        // 3. Create iPhone-only services
+        let camera = MapCamera()
         let interpolator = MapInterpolator(mapCamera: camera)
         let popup = TurnPointPopupService(
-            guidanceEngine: engine,
+            guidanceEngine: session.guidanceEngine,
             locationService: locationService
         )
 
-        // Store references
-        self.voiceService = voice
-        self.offRouteDetector = offRoute
-        self.guidanceEngine = engine
         self.mapCamera = camera
         self.mapInterpolator = interpolator
         self.turnPointPopupService = popup
 
-        // 3. Remove map from RoutePreviewVC
+        // 4. Remove map from RoutePreviewVC
         mapViewController.willMove(toParent: nil)
         mapViewController.view.removeFromSuperview()
         mapViewController.removeFromParent()
 
-        // 4. Configure map for navigation mode
+        // 5. Configure map for navigation mode
         mapViewController.clearAll()
         mapViewController.configureForNavigation()
         mapViewController.showSingleRoute(route)
 
-        // 5. Create NavigationViewModel
+        // 6. Create NavigationViewModel with shared GuidanceEngine
         let navViewModel = NavigationViewModel(
-            guidanceEngine: engine,
+            guidanceEngine: session.guidanceEngine,
             mapInterpolator: interpolator,
             turnPointPopupService: popup,
             locationService: locationService,
             mapCamera: camera
         )
 
-        // 6. Create NavigationViewController
+        // 7. Create NavigationViewController
         let navVC = NavigationViewController(
             viewModel: navViewModel,
             mapViewController: mapViewController,
@@ -364,48 +388,47 @@ final class AppCoordinator: Coordinator {
             self?.dismissNavigation()
         }
 
-        // 7. Start all services
+        // 8. Start iPhone-only services
         interpolator.start(mapViewController: mapViewController)
         navViewModel.startNavigation(with: route)
 
-        // 8. Push NavigationVC (replaces RoutePreviewVC)
+        // 9. Push NavigationVC (replaces RoutePreviewVC)
         navigationController.pushViewController(navVC, animated: true)
     }
 
     private func dismissNavigation() {
-        // 1. Stop all services
-        guidanceEngine?.stopNavigation()
+        // Clean up iPhone-only UI first (before stop triggers observer)
+        cleanUpNavigationUI()
+
+        // Stop shared navigation session (notifies CarPlay too)
+        sessionManager.stopNavigation()
+    }
+
+    private func cleanUpNavigationUI() {
+        // 1. Stop iPhone-only services
         mapInterpolator?.stop()
-        voiceService?.stop()
-        offRouteDetector?.reset()
         turnPointPopupService?.reset()
 
-        // 2. Restore location service to standard mode
-        locationService.configureForStandard()
-
-        // 3. Remove map from NavigationVC
+        // 2. Remove map from NavigationVC
         mapViewController.willMove(toParent: nil)
         mapViewController.view.removeFromSuperview()
         mapViewController.removeFromParent()
 
-        // 4. Restore map to standard mode
+        // 3. Restore map to standard mode
         mapViewController.configureForStandard()
         mapViewController.clearAll()
         mapViewController.clearNavigationRoute()
 
-        // 5. Pop to HomeVC
+        // 4. Pop to HomeVC
         navigationController.popToViewController(homeViewController, animated: true)
 
-        // 6. Re-attach map to Home after animation
+        // 5. Re-attach map to Home after animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.returnMapToHome()
         }
 
-        // 7. Clear references
+        // 6. Clear iPhone-only references
         navigationViewController = nil
-        guidanceEngine = nil
-        voiceService = nil
-        offRouteDetector = nil
         mapInterpolator = nil
         mapCamera = nil
         turnPointPopupService = nil
