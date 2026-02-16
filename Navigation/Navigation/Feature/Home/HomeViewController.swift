@@ -448,6 +448,75 @@ extension HomeViewController: UICollectionViewDelegate {
             onRecentSearchTapped?(history)
         }
     }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard let sec = HomeSection(rawValue: indexPath.section) else { return nil }
+
+        switch sec {
+        case .favorites:
+            let favorite = viewModel.favorites.value[indexPath.item]
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+                let editAction = UIAction(
+                    title: "편집",
+                    image: UIImage(systemName: "pencil")
+                ) { _ in
+                    self?.showFavoriteEditAlert(for: favorite)
+                }
+
+                let deleteAction = UIAction(
+                    title: "삭제",
+                    image: UIImage(systemName: "trash"),
+                    attributes: .destructive
+                ) { _ in
+                    self?.viewModel.deleteFavorite(favorite)
+                }
+
+                return UIMenu(title: favorite.name, children: [editAction, deleteAction])
+            }
+
+        case .recentSearches:
+            let history = viewModel.recentSearches.value[indexPath.item]
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+                let navigateAction = UIAction(
+                    title: "재안내",
+                    image: UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                ) { _ in
+                    self?.onRecentSearchTapped?(history)
+                }
+
+                let deleteAction = UIAction(
+                    title: "삭제",
+                    image: UIImage(systemName: "trash"),
+                    attributes: .destructive
+                ) { _ in
+                    self?.viewModel.deleteSearchHistory(history)
+                }
+
+                return UIMenu(title: history.placeName, children: [navigateAction, deleteAction])
+            }
+        }
+    }
+
+    private func showFavoriteEditAlert(for favorite: FavoritePlace) {
+        let alert = UIAlertController(title: "즐겨찾기 편집", message: nil, preferredStyle: .alert)
+
+        alert.addTextField { textField in
+            textField.text = favorite.name
+            textField.placeholder = "이름"
+        }
+
+        alert.addAction(UIAlertAction(title: "저장", style: .default) { [weak self] _ in
+            let newName = alert.textFields?.first?.text ?? favorite.name
+            self?.viewModel.editFavorite(favorite, name: newName, category: favorite.category)
+        })
+
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        present(alert, animated: true)
+    }
 }
 
 // MARK: - Section Header View

@@ -58,6 +58,9 @@ final class NavigationViewModel {
 
     // MARK: - Public
 
+    /// The currently active route
+    var currentRoute: MKRoute? { route }
+
     func startNavigation(with route: MKRoute, transportMode: TransportMode = .automobile) {
         self.route = route
         guidanceEngine.startNavigation(with: route, transportMode: transportMode)

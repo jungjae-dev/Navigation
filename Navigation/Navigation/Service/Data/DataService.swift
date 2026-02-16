@@ -151,6 +151,17 @@ final class DataService {
         save()
     }
 
+    func updateFavorite(_ place: FavoritePlace) {
+        save()
+    }
+
+    func reorderFavorites(_ places: [FavoritePlace]) {
+        for (index, place) in places.enumerated() {
+            place.sortOrder = index
+        }
+        save()
+    }
+
     func isFavorite(latitude: Double, longitude: Double) -> Bool {
         let favorites = fetchFavorites()
         let threshold = 0.0001 // ~11m

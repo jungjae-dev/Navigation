@@ -33,6 +33,21 @@ final class RoutePreviewViewController: UIViewController {
         return view
     }()
 
+    private let transportModeSegment: UISegmentedControl = {
+        let segment = UISegmentedControl(items: [
+            TransportMode.automobile.displayName,
+            TransportMode.walking.displayName,
+        ])
+        segment.translatesAutoresizingMaskIntoConstraints = false
+        segment.selectedSegmentIndex = 0
+        segment.selectedSegmentTintColor = Theme.Colors.primary
+        let normalAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Colors.label]
+        let selectedAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white]
+        segment.setTitleTextAttributes(normalAttrs, for: .normal)
+        segment.setTitleTextAttributes(selectedAttrs, for: .selected)
+        return segment
+    }()
+
     private let destinationLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -73,6 +88,19 @@ final class RoutePreviewViewController: UIViewController {
         return button
     }()
 
+    private let virtualDriveButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("가상 주행", for: .normal)
+        button.titleLabel?.font = Theme.Fonts.subheadline
+        button.backgroundColor = Theme.Colors.secondaryBackground
+        button.setTitleColor(Theme.Colors.primary, for: .normal)
+        button.layer.cornerRadius = Theme.CornerRadius.medium
+        button.layer.borderColor = Theme.Colors.primary.cgColor
+        button.layer.borderWidth = 1
+        return button
+    }()
+
     private let loadingIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .medium)
         indicator.translatesAutoresizingMaskIntoConstraints = false
@@ -86,7 +114,8 @@ final class RoutePreviewViewController: UIViewController {
     private let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
 
-    var onStartNavigation: ((MKRoute) -> Void)?
+    var onStartNavigation: ((MKRoute, TransportMode) -> Void)?
+    var onStartVirtualDrive: ((MKRoute, TransportMode) -> Void)?
     var onDismiss: (() -> Void)?
 
     // MARK: - Init
@@ -140,9 +169,11 @@ final class RoutePreviewViewController: UIViewController {
 
         view.addSubview(backButton)
         view.addSubview(bottomContainer)
+        bottomContainer.addSubview(transportModeSegment)
         bottomContainer.addSubview(destinationLabel)
         bottomContainer.addSubview(favoriteButton)
         bottomContainer.addSubview(tableView)
+        bottomContainer.addSubview(virtualDriveButton)
         bottomContainer.addSubview(startButton)
         bottomContainer.addSubview(loadingIndicator)
 
@@ -156,7 +187,13 @@ final class RoutePreviewViewController: UIViewController {
             bottomContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            destinationLabel.topAnchor.constraint(equalTo: bottomContainer.topAnchor, constant: Theme.Spacing.xl),
+            // Transport mode segment
+            transportModeSegment.topAnchor.constraint(equalTo: bottomContainer.topAnchor, constant: Theme.Spacing.lg),
+            transportModeSegment.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
+            transportModeSegment.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
+            transportModeSegment.heightAnchor.constraint(equalToConstant: 32),
+
+            destinationLabel.topAnchor.constraint(equalTo: transportModeSegment.bottomAnchor, constant: Theme.Spacing.md),
             destinationLabel.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
             destinationLabel.trailingAnchor.constraint(equalTo: favoriteButton.leadingAnchor, constant: -Theme.Spacing.sm),
 
@@ -170,8 +207,14 @@ final class RoutePreviewViewController: UIViewController {
             tableView.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor),
             tableView.heightAnchor.constraint(equalToConstant: 180),
 
+            virtualDriveButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
+            virtualDriveButton.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
+            virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
+            virtualDriveButton.heightAnchor.constraint(equalToConstant: 56),
+            virtualDriveButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.lg),
+
             startButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
-            startButton.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
+            startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
             startButton.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
             startButton.heightAnchor.constraint(equalToConstant: 56),
             startButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.lg),
@@ -190,7 +233,15 @@ final class RoutePreviewViewController: UIViewController {
     private func setupActions() {
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
         startButton.addTarget(self, action: #selector(startNavigationTapped), for: .touchUpInside)
+        virtualDriveButton.addTarget(self, action: #selector(virtualDriveTapped), for: .touchUpInside)
         favoriteButton.addTarget(self, action: #selector(favoriteTapped), for: .touchUpInside)
+        transportModeSegment.addTarget(self, action: #selector(transportModeChanged), for: .valueChanged)
+
+        // Set initial segment selection
+        transportModeSegment.selectedSegmentIndex = viewModel.transportMode == .automobile ? 0 : 1
+
+        // Accessibility
+        transportModeSegment.accessibilityLabel = "이동수단 선택"
     }
 
     // MARK: - Binding
@@ -226,10 +277,14 @@ final class RoutePreviewViewController: UIViewController {
                     self?.loadingIndicator.startAnimating()
                     self?.startButton.isEnabled = false
                     self?.startButton.alpha = 0.5
+                    self?.virtualDriveButton.isEnabled = false
+                    self?.virtualDriveButton.alpha = 0.5
                 } else {
                     self?.loadingIndicator.stopAnimating()
                     self?.startButton.isEnabled = true
                     self?.startButton.alpha = 1.0
+                    self?.virtualDriveButton.isEnabled = true
+                    self?.virtualDriveButton.alpha = 1.0
                 }
             }
             .store(in: &cancellables)
@@ -265,11 +320,32 @@ final class RoutePreviewViewController: UIViewController {
 
     @objc private func startNavigationTapped() {
         guard let selectedRoute = viewModel.getSelectedRoute() else { return }
-        onStartNavigation?(selectedRoute)
+        onStartNavigation?(selectedRoute, viewModel.transportMode)
+    }
+
+    @objc private func virtualDriveTapped() {
+        guard let selectedRoute = viewModel.getSelectedRoute() else { return }
+        onStartVirtualDrive?(selectedRoute, viewModel.transportMode)
     }
 
     @objc private func favoriteTapped() {
         viewModel.toggleFavorite()
+    }
+
+    @objc private func transportModeChanged() {
+        let mode: TransportMode = transportModeSegment.selectedSegmentIndex == 0 ? .automobile : .walking
+        viewModel.setTransportMode(mode)
+        Task { [weak self] in
+            await self?.viewModel.calculateRoutes()
+        }
+    }
+}
+
+extension RoutePreviewViewController {
+
+    /// The currently selected transport mode for starting navigation
+    var selectedTransportMode: TransportMode {
+        viewModel.transportMode
     }
 }
 

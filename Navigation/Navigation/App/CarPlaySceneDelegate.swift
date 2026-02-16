@@ -1,5 +1,6 @@
 import UIKit
 import CarPlay
+import MapKit
 import Combine
 
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
@@ -13,6 +14,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     private var searchHandler: CarPlaySearchHandler?
     private var navigationHandler: CarPlayNavigationHandler?
+    private var favoritesHandler: CarPlayFavoritesHandler?
 
     private let sessionManager = NavigationSessionManager.shared
     private var cancellables = Set<AnyCancellable>()
@@ -29,9 +31,10 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             self.carPlayWindow = window
 
             setupCarPlayMap(in: window)
-            setupMapTemplate(with: interfaceController)
             setupSearchHandler()
+            setupFavoritesHandler()
             setupNavigationHandler()
+            setupMapTemplate(with: interfaceController)
             observeNavigationSession()
         }
     }
@@ -67,6 +70,15 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
         template.leadingNavigationBarButtons = [searchButton]
 
+        // Favorites & Recents buttons
+        let favoritesButton = CPBarButton(title: "즐겨찾기") { [weak self] _ in
+            self?.showFavorites()
+        }
+        let recentsButton = CPBarButton(title: "최근") { [weak self] _ in
+            self?.showRecents()
+        }
+        template.trailingNavigationBarButtons = [favoritesButton, recentsButton]
+
         self.mapTemplate = template
         controller.setRootTemplate(template, animated: false, completion: nil)
     }
@@ -86,6 +98,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         self.searchHandler = handler
+    }
+
+    private func setupFavoritesHandler() {
+        let handler = CarPlayFavoritesHandler(locationService: LocationService.shared)
+
+        handler.onDestinationSelected = { [weak self] mapItem in
+            self?.handleFavoritesDestination(mapItem)
+        }
+
+        self.favoritesHandler = handler
     }
 
     private func setupNavigationHandler() {
@@ -122,6 +144,65 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         searchHandler.mapTemplate = mapTemplate
 
         interfaceController.pushTemplate(searchTemplate, animated: true, completion: nil)
+    }
+
+    // MARK: - Favorites & Recents
+
+    private func showFavorites() {
+        guard let favoritesHandler, let interfaceController else { return }
+        let template = favoritesHandler.createFavoritesTemplate()
+        interfaceController.pushTemplate(template, animated: true, completion: nil)
+    }
+
+    private func showRecents() {
+        guard let favoritesHandler, let interfaceController else { return }
+        let template = favoritesHandler.createRecentsTemplate()
+        interfaceController.pushTemplate(template, animated: true, completion: nil)
+    }
+
+    private func handleFavoritesDestination(_ mapItem: MKMapItem) {
+        guard let interfaceController, let mapTemplate else { return }
+
+        // Pop favorites/recents template back to map
+        interfaceController.popToRootTemplate(animated: true, completion: nil)
+
+        // Calculate route and start navigation
+        guard let userLocation = LocationService.shared.locationPublisher.value?.coordinate else { return }
+        let destination = mapItem.location.coordinate
+
+        Task { [weak self] in
+            guard let self else { return }
+            let routeService = RouteService()
+
+            do {
+                let routes = try await routeService.calculateRoutes(
+                    from: userLocation,
+                    to: destination
+                )
+
+                guard let primaryRoute = routes.first else { return }
+
+                // Show route on CarPlay map
+                self.carPlayMapVC?.showRoute(primaryRoute)
+
+                // Store routes for startedTrip delegate
+                self.searchHandler?.calculatedRoutes = routes
+
+                // Build trip preview
+                let origin = MKMapItem.forCurrentLocation()
+                let routeChoices = routes.map { route -> CPRouteChoice in
+                    CPRouteChoice(
+                        summaryVariants: [route.formattedTravelTime + " · " + route.formattedDistance],
+                        additionalInformationVariants: [route.formattedArrivalTime],
+                        selectionSummaryVariants: [route.name]
+                    )
+                }
+                let trip = CPTrip(origin: origin, destination: mapItem, routeChoices: routeChoices)
+                mapTemplate.showTripPreviews([trip], textConfiguration: nil)
+            } catch {
+                print("[CarPlay] Favorite route calculation failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Navigation
@@ -190,6 +271,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         carPlayMapVC = nil
         searchHandler = nil
         navigationHandler = nil
+        favoritesHandler = nil
         mapTemplate = nil
         interfaceController = nil
         carPlayWindow = nil
