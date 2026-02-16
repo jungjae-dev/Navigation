@@ -33,8 +33,10 @@ final class NavigationViewController: UIViewController {
     private let viewModel: NavigationViewModel
     private let mapViewController: MapViewController
     private let turnPointPopupService: TurnPointPopupService
+    private let hapticService = HapticService.shared
     private var cancellables = Set<AnyCancellable>()
     private var turnPointPopupView: TurnPointPopupView?
+    private var vehicle3DOverlay: Vehicle3DOverlayView?
 
     var onDismiss: (() -> Void)?
 
@@ -61,6 +63,7 @@ final class NavigationViewController: UIViewController {
         super.viewDidLoad()
         setupMapChild()
         setupOverlayUI()
+        setup3DOverlay()
         setupActions()
         bindViewModel()
         bindPopup()
@@ -108,6 +111,24 @@ final class NavigationViewController: UIViewController {
             recenterButton.widthAnchor.constraint(equalToConstant: 48),
             recenterButton.heightAnchor.constraint(equalToConstant: 48),
         ])
+    }
+
+    private func setup3DOverlay() {
+        let settings = SettingsViewModel()
+        guard settings.vehicle3DEnabled.value else { return }
+
+        let overlay = Vehicle3DOverlayView()
+        view.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.centerYAnchor, constant: 30),
+            overlay.widthAnchor.constraint(equalToConstant: 80),
+            overlay.heightAnchor.constraint(equalToConstant: 80),
+        ])
+
+        self.vehicle3DOverlay = overlay
+        overlay.show()
     }
 
     private func setupActions() {
@@ -242,15 +263,34 @@ final class NavigationViewController: UIViewController {
     private func handleNavigationState(_ state: NavigationState) {
         switch state {
         case .arrived:
+            hapticService.triggerArrival()
             showArrivedAlert()
         case .rerouting:
+            hapticService.triggerRerouting()
             maneuverBanner.update(
                 instruction: "경로를 재탐색 중입니다...",
                 distance: "--",
                 iconName: "arrow.triangle.2.circlepath"
             )
+        case .parkingApproach:
+            hapticService.triggerManeuver()
+            maneuverBanner.update(
+                instruction: "목적지 부근입니다. 주차를 준비하세요.",
+                distance: "200m 이내",
+                iconName: "parkingsign.circle.fill"
+            )
+            activateParkingGuidance()
         default:
             break
+        }
+    }
+
+    private func activateParkingGuidance() {
+        let parkingService = ParkingGuidanceService()
+        if let route = viewModel.currentRoute,
+           let lastCoord = route.polyline.coordinates.last {
+            parkingService.configure(destination: lastCoord)
+            parkingService.activate(on: mapViewController)
         }
     }
 

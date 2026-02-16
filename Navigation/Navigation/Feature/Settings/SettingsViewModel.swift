@@ -10,6 +10,10 @@ final class SettingsViewModel {
         static let voiceEnabled = "settings_voice_enabled"
         static let voiceSpeed = "settings_voice_speed"
         static let mapType = "settings_map_type"
+        static let defaultTransportMode = "settings_default_transport_mode"
+        static let hapticEnabled = "settings_haptic_enabled"
+        static let vehiclePreset = "settings_vehicle_preset"
+        static let vehicle3DEnabled = "settings_vehicle_3d_enabled"
     }
 
     // MARK: - Voice Speed
@@ -65,6 +69,10 @@ final class SettingsViewModel {
     let voiceEnabled = CurrentValueSubject<Bool, Never>(true)
     let voiceSpeed = CurrentValueSubject<VoiceSpeed, Never>(.normal)
     let mapType = CurrentValueSubject<MapTypeOption, Never>(.standard)
+    let defaultTransportMode = CurrentValueSubject<TransportMode, Never>(.automobile)
+    let hapticEnabled = CurrentValueSubject<Bool, Never>(true)
+    let vehiclePreset = CurrentValueSubject<VehiclePreset, Never>(.sedan)
+    let vehicle3DEnabled = CurrentValueSubject<Bool, Never>(false)
     let favoriteCount = CurrentValueSubject<Int, Never>(0)
     let searchHistoryCount = CurrentValueSubject<Int, Never>(0)
 
@@ -98,6 +106,26 @@ final class SettingsViewModel {
         let mapRaw = defaults.integer(forKey: Keys.mapType)
         mapType.send(MapTypeOption(rawValue: mapRaw) ?? .standard)
 
+        // Default transport mode
+        if let modeRaw = defaults.string(forKey: Keys.defaultTransportMode) {
+            defaultTransportMode.send(TransportMode(rawValue: modeRaw) ?? .automobile)
+        }
+
+        // Haptic enabled (default: true)
+        if defaults.object(forKey: Keys.hapticEnabled) != nil {
+            hapticEnabled.send(defaults.bool(forKey: Keys.hapticEnabled))
+        } else {
+            hapticEnabled.send(true)
+        }
+
+        // Vehicle preset
+        if let presetRaw = defaults.string(forKey: Keys.vehiclePreset) {
+            vehiclePreset.send(VehiclePreset(rawValue: presetRaw) ?? .sedan)
+        }
+
+        // Vehicle 3D enabled (default: false)
+        vehicle3DEnabled.send(defaults.bool(forKey: Keys.vehicle3DEnabled))
+
         // Data counts
         favoriteCount.send(dataService.fetchFavorites().count)
         searchHistoryCount.send(dataService.fetchRecentSearches(limit: 1000).count)
@@ -118,6 +146,28 @@ final class SettingsViewModel {
     func setMapType(_ type: MapTypeOption) {
         mapType.send(type)
         defaults.set(type.rawValue, forKey: Keys.mapType)
+    }
+
+    func setDefaultTransportMode(_ mode: TransportMode) {
+        defaultTransportMode.send(mode)
+        defaults.set(mode.rawValue, forKey: Keys.defaultTransportMode)
+    }
+
+    func setHapticEnabled(_ enabled: Bool) {
+        hapticEnabled.send(enabled)
+        defaults.set(enabled, forKey: Keys.hapticEnabled)
+        HapticService.shared.setEnabled(enabled)
+    }
+
+    func setVehiclePreset(_ preset: VehiclePreset) {
+        vehiclePreset.send(preset)
+        defaults.set(preset.rawValue, forKey: Keys.vehiclePreset)
+        VehicleIconService.shared.selectPreset(preset)
+    }
+
+    func setVehicle3DEnabled(_ enabled: Bool) {
+        vehicle3DEnabled.send(enabled)
+        defaults.set(enabled, forKey: Keys.vehicle3DEnabled)
     }
 
     func clearSearchHistory() {

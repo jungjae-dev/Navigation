@@ -30,6 +30,11 @@ final class AppCoordinator: Coordinator {
     private var mapCamera: MapCamera?
     private var turnPointPopupService: TurnPointPopupService?
 
+    // MARK: - Virtual Drive
+
+    private var virtualDriveEngine: VirtualDriveEngine?
+    private var virtualDriveControlView: VirtualDriveControlView?
+
     // MARK: - Init
 
     init(window: UIWindow) {
@@ -56,6 +61,18 @@ final class AppCoordinator: Coordinator {
 
         homeVC.onSearchBarTapped = { [weak self] in
             self?.showSearch()
+        }
+
+        homeVC.onSettingsTapped = { [weak self] in
+            self?.showSettings()
+        }
+
+        homeVC.onFavoriteTapped = { [weak self] favorite in
+            self?.showRoutePreviewForFavorite(favorite)
+        }
+
+        homeVC.onRecentSearchTapped = { [weak self] history in
+            self?.showRoutePreviewForHistory(history)
         }
 
         navigationController.setViewControllers([homeVC], animated: false)
@@ -156,6 +173,39 @@ final class AppCoordinator: Coordinator {
         navViewModel.startNavigation(with: session.route)
 
         navigationController.pushViewController(navVC, animated: true)
+    }
+
+    // MARK: - Settings Flow
+
+    private func showSettings() {
+        let settingsVM = SettingsViewModel()
+        let settingsVC = SettingsViewController(viewModel: settingsVM)
+
+        settingsVC.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+        }
+
+        navigationController.pushViewController(settingsVC, animated: true)
+    }
+
+    // MARK: - Favorite / History Quick Navigate
+
+    private func showRoutePreviewForFavorite(_ favorite: FavoritePlace) {
+        let destination = CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude)
+        let userCoordinate = locationService.locationPublisher.value?.coordinate
+            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+
+        mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
+        moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: favorite.name)
+    }
+
+    private func showRoutePreviewForHistory(_ history: SearchHistory) {
+        let destination = history.coordinate
+        let userCoordinate = locationService.locationPublisher.value?.coordinate
+            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+
+        mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
+        moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: history.placeName)
     }
 
     // MARK: - Search Flow
@@ -281,13 +331,17 @@ final class AppCoordinator: Coordinator {
             self?.dismissRoutePreview()
         }
 
-        routePreviewVC.onStartNavigation = { [weak self] route in
+        routePreviewVC.onStartNavigation = { [weak self] route, transportMode in
             let mapItem = MKMapItem(
                 location: CLLocation(latitude: destination.latitude, longitude: destination.longitude),
                 address: nil
             )
             mapItem.name = destinationName
-            self?.startNavigation(with: route, destination: mapItem)
+            self?.startNavigation(with: route, destination: mapItem, transportMode: transportMode)
+        }
+
+        routePreviewVC.onStartVirtualDrive = { [weak self] route, transportMode in
+            self?.startVirtualDrive(with: route, transportMode: transportMode)
         }
 
         navigationController.pushViewController(routePreviewVC, animated: true)
@@ -327,7 +381,7 @@ final class AppCoordinator: Coordinator {
 
     // MARK: - Navigation Flow
 
-    private func startNavigation(with route: MKRoute, destination: MKMapItem? = nil) {
+    private func startNavigation(with route: MKRoute, destination: MKMapItem? = nil, transportMode: TransportMode = .automobile) {
         // 1. Resolve destination
         let lastCoord = route.polyline.coordinates.last ?? CLLocationCoordinate2D()
         let resolvedDestination = destination
@@ -347,6 +401,7 @@ final class AppCoordinator: Coordinator {
 
         // 3. Create iPhone-only services
         let camera = MapCamera()
+        camera.transportMode = transportMode
         let interpolator = MapInterpolator(mapCamera: camera)
         let popup = TurnPointPopupService(
             guidanceEngine: session.guidanceEngine,
@@ -390,7 +445,7 @@ final class AppCoordinator: Coordinator {
 
         // 8. Start iPhone-only services
         interpolator.start(mapViewController: mapViewController)
-        navViewModel.startNavigation(with: route)
+        navViewModel.startNavigation(with: route, transportMode: transportMode)
 
         // 9. Push NavigationVC (replaces RoutePreviewVC)
         navigationController.pushViewController(navVC, animated: true)
@@ -402,6 +457,155 @@ final class AppCoordinator: Coordinator {
 
         // Stop shared navigation session (notifies CarPlay too)
         sessionManager.stopNavigation()
+    }
+
+    // MARK: - Virtual Drive Flow
+
+    private func startVirtualDrive(with route: MKRoute, transportMode: TransportMode = .automobile) {
+        // 1. Create virtual drive engine
+        let engine = VirtualDriveEngine()
+        engine.load(route: route, transportMode: transportMode)
+        self.virtualDriveEngine = engine
+
+        // 2. Remove map from RoutePreviewVC
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // 3. Configure map for navigation-like view
+        let camera = MapCamera()
+        camera.transportMode = transportMode
+        let interpolator = MapInterpolator(mapCamera: camera)
+
+        self.mapCamera = camera
+        self.mapInterpolator = interpolator
+
+        mapViewController.clearAll()
+        mapViewController.configureForNavigation()
+        mapViewController.showSingleRoute(route)
+
+        // 4. Create a container VC for map + controls
+        let containerVC = UIViewController()
+        containerVC.view.backgroundColor = Theme.Colors.background
+
+        // Add map as child
+        containerVC.addChild(mapViewController)
+        containerVC.view.addSubview(mapViewController.view)
+        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            mapViewController.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
+            mapViewController.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
+            mapViewController.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
+            mapViewController.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
+        ])
+        mapViewController.didMove(toParent: containerVC)
+
+        // 5. Start interpolation
+        interpolator.start(mapViewController: mapViewController)
+
+        // 6. Feed simulated locations into interpolator
+        engine.simulatedLocationPublisher
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] location in
+                let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
+                self?.mapInterpolator?.updateTarget(
+                    location: location,
+                    heading: heading
+                )
+            }
+            .store(in: &cancellables)
+
+        // 7. Add back button
+        let backButton = UIButton(type: .system)
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        backButton.tintColor = Theme.Colors.label
+        backButton.backgroundColor = Theme.Colors.secondaryBackground
+        backButton.layer.cornerRadius = 20
+        backButton.layer.shadowColor = Theme.Shadow.color
+        backButton.layer.shadowOpacity = Theme.Shadow.opacity
+        backButton.layer.shadowOffset = Theme.Shadow.offset
+        backButton.layer.shadowRadius = Theme.Shadow.radius
+        containerVC.view.addSubview(backButton)
+
+        NSLayoutConstraint.activate([
+            backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
+            backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+        ])
+
+        backButton.addAction(UIAction { [weak self] _ in
+            self?.stopVirtualDrive()
+        }, for: .touchUpInside)
+
+        // 8. Add virtual drive control overlay
+        let controlView = VirtualDriveControlView()
+        controlView.bind(to: engine)
+        self.virtualDriveControlView = controlView
+        containerVC.view.addSubview(controlView)
+
+        NSLayoutConstraint.activate([
+            controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
+            controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
+            controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+        ])
+
+        controlView.onPlayPause = { [weak engine] in
+            guard let engine else { return }
+            switch engine.playStatePublisher.value {
+            case .playing:
+                engine.pause()
+            case .idle, .paused, .finished:
+                engine.play()
+            }
+        }
+
+        controlView.onStop = { [weak self] in
+            self?.stopVirtualDrive()
+        }
+
+        controlView.onSpeedCycle = { [weak engine] in
+            engine?.cycleSpeed()
+        }
+
+        // 9. Push container VC
+        navigationController.pushViewController(containerVC, animated: true)
+
+        // 10. Auto-play
+        engine.play()
+    }
+
+    private func stopVirtualDrive() {
+        virtualDriveEngine?.stop()
+        virtualDriveEngine = nil
+
+        virtualDriveControlView?.removeFromSuperview()
+        virtualDriveControlView = nil
+
+        // Stop interpolation
+        mapInterpolator?.stop()
+        mapInterpolator = nil
+        mapCamera = nil
+
+        // Remove map from container
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // Restore map to standard mode
+        mapViewController.configureForStandard()
+        mapViewController.clearAll()
+        mapViewController.clearNavigationRoute()
+
+        // Pop to home
+        navigationController.popToViewController(homeViewController, animated: true)
+
+        // Re-attach map to Home after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.returnMapToHome()
+        }
     }
 
     private func cleanUpNavigationUI() {

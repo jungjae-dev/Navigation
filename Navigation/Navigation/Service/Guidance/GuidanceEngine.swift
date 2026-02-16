@@ -9,6 +9,7 @@ enum NavigationState: Sendable {
     case preparing
     case navigating
     case rerouting
+    case parkingApproach
     case arrived
     case stopped
 }
@@ -83,6 +84,7 @@ final class GuidanceEngine {
         self.announcedThresholds = []
         self.transportMode = transportMode
         self.rerouteDebounceDate = nil
+        self.hasSentParkingApproach = false
 
         // Get destination coordinate from last step
         if let lastStep = steps.last {
@@ -138,8 +140,12 @@ final class GuidanceEngine {
 
     // MARK: - Core Logic
 
+    private let parkingApproachThreshold: CLLocationDistance = 200.0
+    private var hasSentParkingApproach = false
+
     private func handleLocationUpdate(_ location: CLLocation) {
-        guard navigationStatePublisher.value == .navigating,
+        let currentState = navigationStatePublisher.value
+        guard currentState == .navigating || currentState == .parkingApproach,
               let route = route else { return }
 
         // 1. Check arrival
@@ -147,17 +153,31 @@ final class GuidanceEngine {
             return
         }
 
-        // 2. Check off-route
-        let isOffRoute = offRouteDetector.checkLocation(location)
-        if isOffRoute {
-            handleOffRoute(from: location)
-            return
+        // 2. Check parking approach (before off-route, only once)
+        if !hasSentParkingApproach, currentState == .navigating, let dest = destination {
+            let distToDest = DistanceCalculator.distance(from: location.coordinate, to: dest)
+            if distToDest < parkingApproachThreshold {
+                hasSentParkingApproach = true
+                navigationStatePublisher.send(.parkingApproach)
+
+                let text = GuidanceTextBuilder.buildText(for: .parkingApproach)
+                voiceService.speak(text)
+            }
         }
 
-        // 3. Update step progress
+        // 3. Check off-route (skip during parking approach)
+        if currentState == .navigating {
+            let isOffRoute = offRouteDetector.checkLocation(location)
+            if isOffRoute {
+                handleOffRoute(from: location)
+                return
+            }
+        }
+
+        // 4. Update step progress
         updateStepProgress(location: location)
 
-        // 4. Calculate and publish progress
+        // 5. Calculate and publish progress
         let progress = calculateProgress(location: location, route: route)
         routeProgressPublisher.send(progress)
     }

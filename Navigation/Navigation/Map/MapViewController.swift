@@ -263,6 +263,40 @@ final class MapViewController: UIViewController {
         navigationRouteOverlay = nil
     }
 
+    // MARK: - Parking Guidance
+
+    private var parkingEntryAnnotation: MKPointAnnotation?
+
+    /// Configure map for parking guidance mode (3D buildings, high pitch)
+    func configureForParkingGuidance() {
+        mapView.showsBuildings = true
+        mapView.isPitchEnabled = true
+    }
+
+    /// Set map camera directly
+    func setCamera(_ camera: MKMapCamera, animated: Bool) {
+        mapView.setCamera(camera, animated: animated)
+    }
+
+    /// Show a parking entry marker at the destination
+    func showParkingEntryMarker(at coordinate: CLLocationCoordinate2D) {
+        removeParkingEntryMarker()
+
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = coordinate
+        annotation.title = "주차 진입"
+        mapView.addAnnotation(annotation)
+        parkingEntryAnnotation = annotation
+    }
+
+    /// Remove the parking entry marker
+    func removeParkingEntryMarker() {
+        if let annotation = parkingEntryAnnotation {
+            mapView.removeAnnotation(annotation)
+            parkingEntryAnnotation = nil
+        }
+    }
+
     @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
         if gesture.state == .began {
             onUserInteraction?()
@@ -308,14 +342,25 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation { return nil }
 
-        if annotation is VehicleAnnotation {
+        if let vehicleAnnotation = annotation as? VehicleAnnotation {
             let identifier = "Vehicle"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
                 ?? MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             view.annotation = annotation
-            view.image = UIImage(systemName: "circle.fill")?
-                .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 12))
+
+            let iconService = VehicleIconService.shared
+            if let vehicleImage = iconService.currentVehicleImage(size: 28) {
+                view.image = vehicleImage
+            } else {
+                view.image = UIImage(systemName: "circle.fill")?
+                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
+                    .withConfiguration(UIImage.SymbolConfiguration(pointSize: 12))
+            }
+
+            // Rotate annotation view based on heading
+            let rotation = vehicleAnnotation.heading * .pi / 180.0
+            view.transform = CGAffineTransform(rotationAngle: rotation)
+
             view.canShowCallout = false
             return view
         }

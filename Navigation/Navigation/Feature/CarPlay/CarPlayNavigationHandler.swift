@@ -82,6 +82,9 @@ final class CarPlayNavigationHandler {
 
         case .preparing:
             break
+
+        case .parkingApproach:
+            break // Continue normal navigation on CarPlay
         }
     }
 

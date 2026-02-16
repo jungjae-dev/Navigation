@@ -12,6 +12,7 @@ final class RoutePreviewViewModel {
     let isCalculating = CurrentValueSubject<Bool, Never>(false)
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
     let isFavorite = CurrentValueSubject<Bool, Never>(false)
+    let transportModePublisher = CurrentValueSubject<TransportMode, Never>(.automobile)
 
     // MARK: - Properties
 
@@ -24,7 +25,6 @@ final class RoutePreviewViewModel {
     private let dataService: DataService
     private let origin: CLLocationCoordinate2D
     private let destination: CLLocationCoordinate2D
-    private let transportMode: TransportMode
 
     // MARK: - Init
 
@@ -43,12 +43,24 @@ final class RoutePreviewViewModel {
         self.destination = destination
         self.destinationName = destinationName
         self.destinationAddress = destinationAddress
-        self.transportMode = transportMode
+        self.transportModePublisher.send(transportMode)
 
         // Check initial favorite state
         isFavorite.send(
             dataService.isFavorite(latitude: destination.latitude, longitude: destination.longitude)
         )
+    }
+
+    // MARK: - Transport Mode
+
+    var transportMode: TransportMode {
+        transportModePublisher.value
+    }
+
+    func setTransportMode(_ mode: TransportMode) {
+        transportModePublisher.send(mode)
+        routes.send([])
+        selectedRouteIndex.send(0)
     }
 
     // MARK: - Actions
@@ -61,7 +73,7 @@ final class RoutePreviewViewModel {
             let calculatedRoutes = try await routeService.calculateRoutes(
                 from: origin,
                 to: destination,
-                transportType: transportMode.mkTransportType
+                transportType: transportModePublisher.value.mkTransportType
             )
             routes.send(calculatedRoutes)
         } catch {

@@ -19,19 +19,21 @@ final class CarPlaySearchHandler: NSObject {
     private let routeService: RouteService
     private let locationService: LocationService
     private let searchService: SearchService
+    private let dataService: DataService
 
     // MARK: - State
 
     private var searchResults: [MKMapItem] = []
     private var selectedDestination: MKMapItem?
-    private(set) var calculatedRoutes: [MKRoute] = []
+    var calculatedRoutes: [MKRoute] = []
 
     // MARK: - Init
 
-    init(routeService: RouteService, locationService: LocationService) {
+    init(routeService: RouteService, locationService: LocationService, dataService: DataService = .shared) {
         self.routeService = routeService
         self.locationService = locationService
         self.searchService = SearchService()
+        self.dataService = dataService
         super.init()
     }
 }
@@ -47,7 +49,26 @@ extension CarPlaySearchHandler: CPSearchTemplateDelegate {
     ) {
         MainActor.assumeIsolated {
             guard !searchText.isEmpty else {
-                completionHandler([])
+                // Show recent searches when empty
+                let recents = self.dataService.fetchRecentSearches(limit: 8)
+                let items = recents.map { history -> CPListItem in
+                    let item = CPListItem(
+                        text: history.placeName,
+                        detailText: history.address,
+                        image: UIImage(systemName: "clock.arrow.circlepath")
+                    )
+                    item.handler = { [weak self] _, completion in
+                        let mapItem = MKMapItem(
+                            location: CLLocation(latitude: history.latitude, longitude: history.longitude),
+                            address: nil
+                        )
+                        mapItem.name = history.placeName
+                        self?.handleResultSelected(mapItem)
+                        completion()
+                    }
+                    return item
+                }
+                completionHandler(items)
                 return
             }
 

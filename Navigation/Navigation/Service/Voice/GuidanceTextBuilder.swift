@@ -13,6 +13,7 @@ enum GuidanceTextBuilder {
         case rerouted
         case arrived
         case straightAhead(distance: Int)
+        case parkingApproach
     }
 
     // MARK: - Text Generation
@@ -43,6 +44,9 @@ enum GuidanceTextBuilder {
         case .straightAhead(let distance):
             let distText = formatDistanceForVoice(Double(distance))
             return "\(distText) 직진하세요"
+
+        case .parkingApproach:
+            return "목적지 부근에 도착합니다. 주차 안내를 시작합니다."
         }
     }
 

@@ -56,4 +56,32 @@ final class HomeViewModel {
         dataService.deleteSearchHistory(item)
         loadHomeData()
     }
+
+    func editFavorite(_ place: FavoritePlace, name: String, category: String) {
+        place.name = name
+        place.category = category
+        dataService.updateFavorite(place)
+        loadHomeData()
+    }
+
+    func setQuickFavorite(type: String, coordinate: CLLocationCoordinate2D, address: String) {
+        // Check if quick favorite (home/work) already exists
+        let existing = dataService.fetchFavorites().first { $0.category == type }
+        if let existing {
+            existing.latitude = coordinate.latitude
+            existing.longitude = coordinate.longitude
+            existing.address = address
+            dataService.updateFavorite(existing)
+        } else {
+            let name = type == "home" ? "집" : "회사"
+            dataService.saveFavoriteFromCoordinate(
+                name: name,
+                address: address,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                category: type
+            )
+        }
+        loadHomeData()
+    }
 }
