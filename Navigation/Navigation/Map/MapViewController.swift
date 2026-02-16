@@ -263,6 +263,37 @@ final class MapViewController: UIViewController {
         navigationRouteOverlay = nil
     }
 
+    // MARK: - Generic Overlay
+
+    /// Add a generic polyline overlay to the map
+    func addOverlay(_ polyline: MKPolyline) {
+        mapView.addOverlay(polyline, level: .aboveRoads)
+    }
+
+    // MARK: - Debug Overlay
+
+    private var debugOverlayView: DebugOverlayView?
+
+    func showDebugOverlay() {
+        guard debugOverlayView == nil else { return }
+        let overlay = DebugOverlayView()
+        overlay.bind(to: locationService)
+        view.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.sm),
+            overlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.sm),
+        ])
+
+        debugOverlayView = overlay
+    }
+
+    func hideDebugOverlay() {
+        debugOverlayView?.unbind()
+        debugOverlayView?.removeFromSuperview()
+        debugOverlayView = nil
+    }
+
     // MARK: - Parking Guidance
 
     private var parkingEntryAnnotation: MKPointAnnotation?

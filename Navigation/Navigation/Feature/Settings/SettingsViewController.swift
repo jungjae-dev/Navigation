@@ -14,6 +14,11 @@ final class SettingsViewController: UIViewController {
         case haptic = 4
         case data = 5
         case info = 6
+        case devTools = 7
+    }
+
+    private enum DevToolsRow: Int, CaseIterable {
+        case open = 0
     }
 
     private enum VoiceRow: Int, CaseIterable {
@@ -64,6 +69,7 @@ final class SettingsViewController: UIViewController {
     private var photoPickerHelper: PhotoPickerHelper?
 
     var onDismiss: (() -> Void)?
+    var onShowDevTools: (() -> Void)?
 
     // MARK: - Init
 
@@ -414,6 +420,7 @@ extension SettingsViewController: UITableViewDataSource {
         case .haptic: return HapticRow.allCases.count
         case .data: return DataRow.allCases.count
         case .info: return InfoRow.allCases.count
+        case .devTools: return DevToolsRow.allCases.count
         }
     }
 
@@ -427,6 +434,7 @@ extension SettingsViewController: UITableViewDataSource {
         case .haptic: return "햅틱"
         case .data: return "데이터"
         case .info: return "정보"
+        case .devTools: return "개발자"
         }
     }
 
@@ -561,6 +569,16 @@ extension SettingsViewController: UITableViewDataSource {
                 config.imageProperties.tintColor = Theme.Colors.secondaryLabel
                 cell.selectionStyle = .none
             }
+
+        case .devTools:
+            guard let row = DevToolsRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .open:
+                config.text = "개발자 도구"
+                config.image = UIImage(systemName: "wrench.and.screwdriver.fill")
+                config.imageProperties.tintColor = .systemOrange
+                cell.accessoryType = .disclosureIndicator
+            }
         }
 
         cell.contentConfiguration = config
@@ -618,6 +636,12 @@ extension SettingsViewController: UITableViewDelegate {
 
         case .info:
             break
+
+        case .devTools:
+            guard let row = DevToolsRow(rawValue: indexPath.row) else { return }
+            if row == .open {
+                onShowDevTools?()
+            }
         }
     }
 }

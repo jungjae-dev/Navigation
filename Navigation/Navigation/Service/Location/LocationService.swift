@@ -40,6 +40,11 @@ final class LocationService: NSObject {
     private let locationManager = CLLocationManager()
     private var isUpdating = false
 
+    // MARK: - Location Override (for GPX playback)
+
+    private(set) var isOverrideActive = false
+    private var overrideCancellable: AnyCancellable?
+
     // MARK: - Init
 
     private override init() {
@@ -94,6 +99,24 @@ final class LocationService: NSObject {
         locationManager.allowsBackgroundLocationUpdates = false
         locationManager.pausesLocationUpdatesAutomatically = true
     }
+
+    // MARK: - Location Override
+
+    /// Start injecting virtual locations. Real GPS updates are suppressed.
+    func startLocationOverride(from source: PassthroughSubject<CLLocation, Never>) {
+        isOverrideActive = true
+        overrideCancellable = source
+            .sink { [weak self] location in
+                self?.locationPublisher.send(location)
+            }
+    }
+
+    /// Stop injecting virtual locations. Resume real GPS.
+    func stopLocationOverride() {
+        overrideCancellable?.cancel()
+        overrideCancellable = nil
+        isOverrideActive = false
+    }
 }
 
 // MARK: - CLLocationManagerDelegate
@@ -110,6 +133,8 @@ extension LocationService: CLLocationManagerDelegate {
         }
 
         MainActor.assumeIsolated {
+            // Suppress real GPS during override (GPX playback)
+            guard !isOverrideActive else { return }
             locationPublisher.send(location)
         }
     }

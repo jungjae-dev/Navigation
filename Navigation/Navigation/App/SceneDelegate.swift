@@ -21,7 +21,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func setupSwiftData() {
         do {
-            let schema = Schema([FavoritePlace.self, SearchHistory.self])
+            let schema = Schema([FavoritePlace.self, SearchHistory.self, GPXRecord.self])
             let config = ModelConfiguration(isStoredInMemoryOnly: false)
             let container = try ModelContainer(for: schema, configurations: [config])
             DataService.shared.configure(with: container)

@@ -9,10 +9,13 @@ final class GPXSimulator {
     let simulatedLocationPublisher = PassthroughSubject<CLLocation, Never>()
     let isPlayingPublisher = CurrentValueSubject<Bool, Never>(false)
     let progressPublisher = CurrentValueSubject<Double, Never>(0.0)
+    let speedMultiplierPublisher = CurrentValueSubject<Double, Never>(1.0)
 
     // MARK: - Configuration
 
-    var speedMultiplier: Double = 1.0
+    var speedMultiplier: Double = 1.0 {
+        didSet { speedMultiplierPublisher.send(speedMultiplier) }
+    }
 
     // MARK: - State
 
