@@ -182,6 +182,57 @@ final class DataService {
         }
     }
 
+    // MARK: - GPX Records
+
+    func saveGPXRecord(
+        fileName: String,
+        filePath: String,
+        duration: TimeInterval,
+        distance: Double,
+        pointCount: Int,
+        fileSize: Int64
+    ) {
+        guard let context = modelContext else { return }
+
+        let record = GPXRecord(
+            fileName: fileName,
+            filePath: filePath,
+            duration: duration,
+            distance: distance,
+            pointCount: pointCount,
+            fileSize: fileSize
+        )
+
+        context.insert(record)
+        save()
+    }
+
+    func fetchGPXRecords() -> [GPXRecord] {
+        guard let context = modelContext else { return [] }
+
+        let descriptor = FetchDescriptor<GPXRecord>(
+            sortBy: [SortDescriptor(\.recordedAt, order: .reverse)]
+        )
+
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            print("[DataService] fetchGPXRecords error: \(error)")
+            return []
+        }
+    }
+
+    func deleteGPXRecord(_ record: GPXRecord) {
+        guard let context = modelContext else { return }
+
+        // Delete the file from disk
+        let fileURL = record.fileURL
+        try? FileManager.default.removeItem(at: fileURL)
+
+        context.delete(record)
+        save()
+    }
+
     // MARK: - Private
 
     private func save() {

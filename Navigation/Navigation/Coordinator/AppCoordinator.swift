@@ -81,6 +81,30 @@ final class AppCoordinator: Coordinator {
         window.makeKeyAndVisible()
 
         bindSessionManager()
+        setupDebugOverlayObserver()
+    }
+
+    // MARK: - Debug Overlay
+
+    private func setupDebugOverlayObserver() {
+        // Apply initial state
+        if UserDefaults.standard.bool(forKey: "devtools_debug_overlay_enabled") {
+            mapViewController.showDebugOverlay()
+        }
+
+        // Observe changes
+        NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            let enabled = UserDefaults.standard.bool(forKey: "devtools_debug_overlay_enabled")
+            if enabled {
+                self?.mapViewController.showDebugOverlay()
+            } else {
+                self?.mapViewController.hideDebugOverlay()
+            }
+        }
     }
 
     // MARK: - Session Manager Binding (CarPlay ↔ iPhone sync)
@@ -185,7 +209,50 @@ final class AppCoordinator: Coordinator {
             self?.navigationController.popViewController(animated: true)
         }
 
+        settingsVC.onShowDevTools = { [weak self] in
+            self?.showDevTools()
+        }
+
         navigationController.pushViewController(settingsVC, animated: true)
+    }
+
+    // MARK: - DevTools Flow
+
+    private func showDevTools() {
+        let devToolsVM = DevToolsViewModel()
+        let devToolsVC = DevToolsViewController(viewModel: devToolsVM)
+
+        devToolsVC.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+        }
+
+        devToolsVC.onShowFileList = { [weak self] in
+            self?.showGPXFileList()
+        }
+
+        devToolsVC.onSelectFileForPlayback = { [weak self] in
+            self?.showGPXFileListForPlayback()
+        }
+
+        navigationController.pushViewController(devToolsVC, animated: true)
+    }
+
+    private func showGPXFileList() {
+        let fileListVC = GPXFileListViewController()
+
+        fileListVC.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+        }
+
+        fileListVC.onSelectFile = { [weak self] record in
+            self?.startGPXPlayback(record: record)
+        }
+
+        navigationController.pushViewController(fileListVC, animated: true)
+    }
+
+    private func showGPXFileListForPlayback() {
+        showGPXFileList()
     }
 
     // MARK: - Favorite / History Quick Navigate
@@ -603,6 +670,138 @@ final class AppCoordinator: Coordinator {
         navigationController.popToViewController(homeViewController, animated: true)
 
         // Re-attach map to Home after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.returnMapToHome()
+        }
+    }
+
+    // MARK: - GPX Playback Flow
+
+    private var gpxSimulator: GPXSimulator?
+    private var gpxPlaybackControlView: GPXPlaybackControlView?
+
+    private func startGPXPlayback(record: GPXRecord) {
+        let simulator = GPXSimulator()
+        guard simulator.load(gpxFileURL: record.fileURL) else { return }
+        self.gpxSimulator = simulator
+
+        // Inject simulated locations into LocationService
+        LocationService.shared.startLocationOverride(from: simulator.simulatedLocationPublisher)
+
+        // Remove map from current parent
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // Configure map
+        mapViewController.clearAll()
+        mapViewController.configureForStandard()
+
+        // Show the GPX track as a polyline overlay
+        let parser = GPXParser()
+        let locations = parser.parse(fileURL: record.fileURL)
+        if locations.count >= 2 {
+            let coordinates = locations.map { $0.coordinate }
+            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+            mapViewController.addOverlay(polyline)
+        }
+
+        // Create container VC
+        let containerVC = UIViewController()
+        containerVC.view.backgroundColor = Theme.Colors.background
+
+        containerVC.addChild(mapViewController)
+        containerVC.view.addSubview(mapViewController.view)
+        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            mapViewController.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
+            mapViewController.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
+            mapViewController.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
+            mapViewController.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
+        ])
+        mapViewController.didMove(toParent: containerVC)
+
+        // Back button
+        let backButton = UIButton(type: .system)
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        backButton.tintColor = Theme.Colors.label
+        backButton.backgroundColor = Theme.Colors.secondaryBackground
+        backButton.layer.cornerRadius = 20
+        backButton.layer.shadowColor = Theme.Shadow.color
+        backButton.layer.shadowOpacity = Theme.Shadow.opacity
+        backButton.layer.shadowOffset = Theme.Shadow.offset
+        backButton.layer.shadowRadius = Theme.Shadow.radius
+        containerVC.view.addSubview(backButton)
+
+        NSLayoutConstraint.activate([
+            backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
+            backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+        ])
+
+        backButton.addAction(UIAction { [weak self] _ in
+            self?.stopGPXPlayback()
+        }, for: .touchUpInside)
+
+        // Playback control overlay
+        let controlView = GPXPlaybackControlView()
+        controlView.bind(to: simulator)
+        self.gpxPlaybackControlView = controlView
+        containerVC.view.addSubview(controlView)
+
+        NSLayoutConstraint.activate([
+            controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
+            controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
+            controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+        ])
+
+        controlView.onPlayPause = { [weak simulator] in
+            guard let simulator else { return }
+            if simulator.isPlayingPublisher.value {
+                simulator.pause()
+            } else {
+                simulator.play()
+            }
+        }
+
+        controlView.onStop = { [weak self] in
+            self?.stopGPXPlayback()
+        }
+
+        controlView.onSpeedCycle = { [weak simulator] in
+            guard let simulator else { return }
+            let speeds: [Double] = [0.5, 1.0, 2.0, 4.0]
+            let currentIdx = speeds.firstIndex(of: simulator.speedMultiplier) ?? 1
+            simulator.speedMultiplier = speeds[(currentIdx + 1) % speeds.count]
+        }
+
+        navigationController.pushViewController(containerVC, animated: true)
+        simulator.play()
+    }
+
+    private func stopGPXPlayback() {
+        gpxSimulator?.stop()
+        gpxSimulator = nil
+
+        gpxPlaybackControlView?.removeFromSuperview()
+        gpxPlaybackControlView = nil
+
+        LocationService.shared.stopLocationOverride()
+
+        // Remove map from container
+        mapViewController.willMove(toParent: nil)
+        mapViewController.view.removeFromSuperview()
+        mapViewController.removeFromParent()
+
+        // Restore map
+        mapViewController.configureForStandard()
+        mapViewController.clearAll()
+
+        // Pop to home
+        navigationController.popToViewController(homeViewController, animated: true)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.returnMapToHome()
         }
