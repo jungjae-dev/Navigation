@@ -56,6 +56,13 @@ final class ManeuverBannerView: UIView {
     // MARK: - Setup
 
     private func setupUI() {
+        isAccessibilityElement = true
+        accessibilityTraits = .updatesFrequently
+
+        iconImageView.isAccessibilityElement = false
+        distanceLabel.isAccessibilityElement = false
+        instructionLabel.isAccessibilityElement = false
+
         addSubview(containerView)
         containerView.addSubview(iconImageView)
         containerView.addSubview(distanceLabel)
@@ -90,5 +97,7 @@ final class ManeuverBannerView: UIView {
         distanceLabel.text = distance
         iconImageView.image = UIImage(systemName: iconName)?
             .withConfiguration(UIImage.SymbolConfiguration(pointSize: 36, weight: .bold))
+
+        accessibilityLabel = "\(distance) 후 \(instruction)"
     }
 }

@@ -327,7 +327,8 @@ extension SearchViewController: UITableViewDelegate {
 
         case .completions:
             let completion = viewModel.completions.value[indexPath.row]
-            Task {
+            Task { [weak self] in
+                guard let self else { return }
                 if let results = await viewModel.selectCompletion(completion) {
                     handleSearchResults(results)
                 }
@@ -343,7 +344,8 @@ extension SearchViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         guard let query = textField.text, !query.isEmpty else { return false }
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             if let results = await viewModel.executeSearch(query: query) {
                 handleSearchResults(results)
             }

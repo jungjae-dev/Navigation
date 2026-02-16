@@ -119,6 +119,12 @@ final class NavigationBottomBar: UIView {
 
     private func setupActions() {
         endButton.addTarget(self, action: #selector(endTapped), for: .touchUpInside)
+        endButton.accessibilityLabel = "안내 종료"
+        endButton.accessibilityHint = "네비게이션 안내를 종료합니다"
+
+        etaLabel.accessibilityTraits = .updatesFrequently
+        distanceLabel.accessibilityTraits = .updatesFrequently
+        timeLabel.accessibilityTraits = .updatesFrequently
     }
 
     // MARK: - Public
@@ -127,6 +133,10 @@ final class NavigationBottomBar: UIView {
         etaLabel.text = eta
         distanceLabel.text = distance
         timeLabel.text = time
+
+        etaLabel.accessibilityLabel = "도착 예정 \(eta)"
+        distanceLabel.accessibilityLabel = "남은 거리 \(distance)"
+        timeLabel.accessibilityLabel = "남은 시간 \(time)"
     }
 
     // MARK: - Actions

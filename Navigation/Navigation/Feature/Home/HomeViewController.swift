@@ -118,6 +118,7 @@ final class HomeViewController: UIViewController {
         setupSearchBar()
         setupSettingsButton()
         setupBottomPanel()
+        setupAccessibility()
         bindViewModel()
         handleInitialPermission()
     }
@@ -262,6 +263,18 @@ final class HomeViewController: UIViewController {
         section.boundarySupplementaryItems = [header]
 
         return section
+    }
+
+    // MARK: - Accessibility
+
+    private func setupAccessibility() {
+        searchBarContainer.isAccessibilityElement = true
+        searchBarContainer.accessibilityLabel = "검색"
+        searchBarContainer.accessibilityHint = "탭하여 장소를 검색합니다"
+        searchBarContainer.accessibilityTraits = .searchField
+
+        settingsButton.accessibilityLabel = "설정"
+        settingsButton.accessibilityHint = "앱 설정을 엽니다"
     }
 
     // MARK: - Binding

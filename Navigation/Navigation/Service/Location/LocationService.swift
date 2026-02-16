@@ -33,6 +33,7 @@ final class LocationService: NSObject {
     let locationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
     let headingPublisher = CurrentValueSubject<CLHeading?, Never>(nil)
     let authStatusPublisher = CurrentValueSubject<LocationAuthStatus, Never>(.notDetermined)
+    let locationErrorPublisher = PassthroughSubject<Error, Never>()
 
     // MARK: - Private
 
@@ -133,6 +134,8 @@ extension LocationService: CLLocationManagerDelegate {
         if let clError = error as? CLError, clError.code == .locationUnknown {
             return
         }
-        print("[LocationService] Error: \(error.localizedDescription)")
+        MainActor.assumeIsolated {
+            locationErrorPublisher.send(error)
+        }
     }
 }

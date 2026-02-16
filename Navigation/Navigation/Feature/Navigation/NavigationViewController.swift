@@ -111,6 +111,8 @@ final class NavigationViewController: UIViewController {
     }
 
     private func setupActions() {
+        recenterButton.accessibilityLabel = "현재 위치로 이동"
+        recenterButton.accessibilityHint = "지도를 현재 위치로 이동합니다"
         recenterButton.addTarget(self, action: #selector(recenterTapped), for: .touchUpInside)
 
         bottomBar.onEndNavigation = { [weak self] in
@@ -169,6 +171,15 @@ final class NavigationViewController: UIViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 self?.handleNavigationState(state)
+            }
+            .store(in: &cancellables)
+
+        // Error messages
+        viewModel.errorMessage
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.showErrorToast(message)
             }
             .store(in: &cancellables)
     }
@@ -253,6 +264,46 @@ final class NavigationViewController: UIViewController {
             self?.endNavigation()
         })
         present(alert, animated: true)
+    }
+
+    // MARK: - Error Toast
+
+    private func showErrorToast(_ message: String) {
+        let toastLabel = UILabel()
+        toastLabel.text = message
+        toastLabel.font = Theme.Fonts.caption
+        toastLabel.textColor = .white
+        toastLabel.textAlignment = .center
+        toastLabel.backgroundColor = UIColor.systemRed.withAlphaComponent(0.9)
+        toastLabel.layer.cornerRadius = 8
+        toastLabel.clipsToBounds = true
+        toastLabel.translatesAutoresizingMaskIntoConstraints = false
+        toastLabel.alpha = 0
+
+        view.addSubview(toastLabel)
+
+        NSLayoutConstraint.activate([
+            toastLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toastLabel.topAnchor.constraint(equalTo: maneuverBanner.bottomAnchor, constant: Theme.Spacing.sm),
+            toastLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            toastLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            toastLabel.heightAnchor.constraint(equalToConstant: 36),
+        ])
+
+        // Add padding
+        toastLabel.layoutMargins = UIEdgeInsets(top: 4, left: 12, bottom: 4, right: 12)
+
+        UIView.animate(withDuration: 0.3) {
+            toastLabel.alpha = 1
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            UIView.animate(withDuration: 0.3) {
+                toastLabel.alpha = 0
+            } completion: { _ in
+                toastLabel.removeFromSuperview()
+            }
+        }
     }
 
     // MARK: - Actions
