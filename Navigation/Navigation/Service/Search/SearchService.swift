@@ -7,6 +7,7 @@ final class SearchService: NSObject {
 
     let completionsPublisher = CurrentValueSubject<[MKLocalSearchCompletion], Never>([])
     let isSearchingPublisher = CurrentValueSubject<Bool, Never>(false)
+    let errorPublisher = PassthroughSubject<Error, Never>()
 
     // MARK: - Private
 
@@ -98,6 +99,8 @@ extension SearchService: MKLocalSearchCompleterDelegate {
     }
 
     nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("[SearchService] Completer error: \(error.localizedDescription)")
+        MainActor.assumeIsolated {
+            errorPublisher.send(error)
+        }
     }
 }

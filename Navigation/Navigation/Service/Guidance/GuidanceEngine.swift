@@ -34,6 +34,7 @@ final class GuidanceEngine {
     let routeProgressPublisher = CurrentValueSubject<RouteProgress?, Never>(nil)
     let currentStepPublisher = CurrentValueSubject<MKRoute.Step?, Never>(nil)
     let currentRoutePublisher = CurrentValueSubject<MKRoute?, Never>(nil)
+    let errorPublisher = PassthroughSubject<Error, Never>()
 
     // MARK: - Dependencies
 
@@ -335,6 +336,7 @@ final class GuidanceEngine {
         } catch {
             // Reroute failed — continue with current route
             navigationStatePublisher.send(.navigating)
+            errorPublisher.send(error)
         }
     }
 

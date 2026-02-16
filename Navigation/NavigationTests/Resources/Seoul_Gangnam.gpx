@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Navigation Test"
+     xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Seoul City Hall to Gangnam Station</name>
+    <trkseg>
+      <trkpt lat="37.5665" lon="126.9780">
+        <ele>30</ele>
+        <time>2025-01-01T09:00:00Z</time>
+      </trkpt>
+      <trkpt lat="37.5630" lon="126.9800">
+        <ele>28</ele>
+        <time>2025-01-01T09:00:30Z</time>
+      </trkpt>
+      <trkpt lat="37.5580" lon="126.9830">
+        <ele>25</ele>
+        <time>2025-01-01T09:01:00Z</time>
+      </trkpt>
+      <trkpt lat="37.5520" lon="126.9870">
+        <ele>22</ele>
+        <time>2025-01-01T09:01:30Z</time>
+      </trkpt>
+      <trkpt lat="37.5450" lon="126.9920">
+        <ele>20</ele>
+        <time>2025-01-01T09:02:00Z</time>
+      </trkpt>
+      <trkpt lat="37.5380" lon="126.9970">
+        <ele>18</ele>
+        <time>2025-01-01T09:02:30Z</time>
+      </trkpt>
+      <trkpt lat="37.5300" lon="127.0020">
+        <ele>20</ele>
+        <time>2025-01-01T09:03:00Z</time>
+      </trkpt>
+      <trkpt lat="37.5220" lon="127.0080">
+        <ele>22</ele>
+        <time>2025-01-01T09:03:30Z</time>
+      </trkpt>
+      <trkpt lat="37.5140" lon="127.0150">
+        <ele>24</ele>
+        <time>2025-01-01T09:04:00Z</time>
+      </trkpt>
+      <trkpt lat="37.5060" lon="127.0220">
+        <ele>26</ele>
+        <time>2025-01-01T09:04:30Z</time>
+      </trkpt>
+      <trkpt lat="37.4979" lon="127.0276">
+        <ele>28</ele>
+        <time>2025-01-01T09:05:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

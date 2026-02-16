@@ -24,6 +24,13 @@ final class SearchViewModel {
         self.dataService = dataService
         self.completions = searchService.completionsPublisher
         self.isLoading = searchService.isSearchingPublisher
+
+        searchService.errorPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.errorMessage.send("검색 오류: \(error.localizedDescription)")
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Actions

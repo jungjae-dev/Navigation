@@ -15,6 +15,7 @@ final class NavigationViewModel {
     let remainingTime = CurrentValueSubject<String, Never>("-- 분")
     let showRecenterButton = CurrentValueSubject<Bool, Never>(false)
     let navigationState = CurrentValueSubject<NavigationState, Never>(.preparing)
+    let errorMessage = CurrentValueSubject<String?, Never>(nil)
 
     // MARK: - Dependencies
 
@@ -52,6 +53,7 @@ final class NavigationViewModel {
 
         bindGuidanceEngine()
         bindMapCamera()
+        bindErrors()
     }
 
     // MARK: - Public
@@ -108,6 +110,19 @@ final class NavigationViewModel {
             .compactMap { $0 }
             .sink { [weak self] step in
                 self?.updateManeuver(with: step)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func bindErrors() {
+        guidanceEngine.errorPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.errorMessage.send("재경로 탐색 실패. 기존 경로로 안내합니다.")
+                // Auto-dismiss after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                    self?.errorMessage.send(nil)
+                }
             }
             .store(in: &cancellables)
     }
