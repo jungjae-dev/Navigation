@@ -129,11 +129,14 @@ final class MapViewController: UIViewController {
 
         let annotations = mapItems.map { SearchResultAnnotation(mapItem: $0) }
         searchResultAnnotations = annotations
+
+        // 첫 번째 마커를 addAnnotations 전에 포커스 설정 (viewFor에서 색상 반영)
+        annotations.first?.isFocused = true
         mapView.addAnnotations(annotations)
 
         if let first = annotations.first {
-            first.isFocused = true
             fitAnnotations(annotations)
+            mapView.selectAnnotation(first, animated: false)
         }
     }
 
@@ -494,6 +497,18 @@ extension MapViewController: MKMapViewDelegate {
               let index = searchResultAnnotations.firstIndex(where: { $0 === searchAnnotation }) else {
             return
         }
+
+        // 탭된 마커의 focus 상태 즉시 업데이트 (색상 변경)
+        for ann in searchResultAnnotations {
+            ann.isFocused = false
+        }
+        searchAnnotation.isFocused = true
+        for ann in searchResultAnnotations {
+            if let view = mapView.view(for: ann) as? MKMarkerAnnotationView {
+                view.markerTintColor = ann.isFocused ? Theme.Colors.primary : .systemGray
+            }
+        }
+
         onAnnotationSelected?(index)
     }
 }

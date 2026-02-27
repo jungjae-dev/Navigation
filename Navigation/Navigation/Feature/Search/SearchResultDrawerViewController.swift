@@ -3,13 +3,36 @@ import MapKit
 
 final class SearchResultDrawerViewController: UIViewController {
 
+    // MARK: - Constants
+
+    static let titleBarHeight: CGFloat = 44
+
     // MARK: - UI Components
 
-    private let handleBar: UIView = {
+    private let titleLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.headline
+        label.textColor = Theme.Colors.label
+        return label
+    }()
+
+    private let closeButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(
+            UIImage(systemName: "xmark.circle.fill")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+            for: .normal
+        )
+        button.tintColor = Theme.Colors.secondaryLabel
+        return button
+    }()
+
+    private let titleSeparator: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = Theme.Colors.separator
-        view.layer.cornerRadius = 2
         return view
     }()
 
@@ -29,6 +52,7 @@ final class SearchResultDrawerViewController: UIViewController {
 
     var onItemSelected: ((MKMapItem, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
+    var onClose: (() -> Void)?
 
     // MARK: - Lifecycle
 
@@ -43,20 +67,34 @@ final class SearchResultDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        view.addSubview(handleBar)
+        view.addSubview(titleLabel)
+        view.addSubview(closeButton)
+        view.addSubview(titleSeparator)
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            handleBar.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.sm),
-            handleBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            handleBar.widthAnchor.constraint(equalToConstant: 36),
-            handleBar.heightAnchor.constraint(equalToConstant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight / 2),
 
-            tableView.topAnchor.constraint(equalTo: handleBar.bottomAnchor, constant: Theme.Spacing.sm),
+            closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            titleSeparator.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight),
+            titleSeparator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            titleSeparator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            titleSeparator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+
+            tableView.topAnchor.constraint(equalTo: titleSeparator.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+    }
+
+    @objc private func closeTapped() {
+        onClose?()
     }
 
     private func setupTableView() {
@@ -71,6 +109,11 @@ final class SearchResultDrawerViewController: UIViewController {
         searchResults = results
         highlightedIndex = 0
         tableView.reloadData()
+    }
+
+    func mapItem(at index: Int) -> MKMapItem? {
+        guard index < searchResults.count else { return nil }
+        return searchResults[index]
     }
 
     func scrollToIndex(_ index: Int, animated: Bool = true) {

@@ -99,14 +99,10 @@ final class AppCoordinator: NSObject, Coordinator {
         homeDrawer = drawerVC
 
         drawerVC.onFavoriteTapped = { [weak self] favorite in
-            self?.dismissHomeDrawer {
-                self?.showRoutePreviewForFavorite(favorite)
-            }
+            self?.showRoutePreviewForFavorite(favorite)
         }
         drawerVC.onRecentSearchTapped = { [weak self] history in
-            self?.dismissHomeDrawer {
-                self?.showRoutePreviewForHistory(history)
-            }
+            self?.showRoutePreviewForHistory(history)
         }
 
         configureSheetDetents(for: drawerVC)
@@ -140,36 +136,65 @@ final class AppCoordinator: NSObject, Coordinator {
             return
         }
 
-        dismissHomeDrawer { [weak self] in
-            guard let self else { return }
-
-            let detailVC = POIDetailViewController(mapItem: mapItem)
-            self.poiDetailDrawer = detailVC
-
-            detailVC.onRouteTapped = { [weak self] mapItem in
-                self?.dismissPOIDetail {
-                    self?.showRoutePreview(to: mapItem)
-                }
+        let presenter: UIViewController = homeDrawer ?? navigationController
+        presentPOIDetail(mapItem, from: presenter) { [weak self] mapItem in
+            // 홈 → POI 상세 → 경로: 홈 드로어 + POI 상세 모두 dismiss
+            self?.dismissAllDrawers {
+                self?.showRoutePreview(to: mapItem)
             }
-
-            if let sheet = detailVC.sheetPresentationController {
-                let poiDetent = UISheetPresentationController.Detent.custom(
-                    identifier: .init("poiDetail")
-                ) { _ in 280 }
-                sheet.detents = [poiDetent]
-                sheet.prefersGrabberVisible = true
-                sheet.largestUndimmedDetentIdentifier = .init("poiDetail")
-                sheet.delegate = self
-            }
-
-            self.navigationController.present(detailVC, animated: true)
-            let containerView = self.navigationController.view!
-            self.homeViewController.updateMapControlBottomOffset(280)
-            self.homeViewController.updateMapInsets(
-                top: self.mapTopInset(in: containerView),
-                bottom: 280
-            )
         }
+    }
+
+    private func showPOIDetailFromDrawer(_ mapItem: MKMapItem) {
+        guard let drawer = currentDrawer else { return }
+
+        // 이미 POI 시트가 떠있으면 내용만 업데이트
+        if let existing = poiDetailDrawer {
+            existing.update(with: mapItem)
+            return
+        }
+
+        presentPOIDetail(mapItem, from: drawer) { [weak self] mapItem in
+            // 검색결과 → POI 상세 → 경로: 모든 드로어 dismiss
+            self?.dismissAllDrawers {
+                self?.showRoutePreview(to: mapItem)
+            }
+        }
+    }
+
+    private func presentPOIDetail(
+        _ mapItem: MKMapItem,
+        from presenter: UIViewController,
+        onRoute: @escaping (MKMapItem) -> Void
+    ) {
+        let detailVC = POIDetailViewController(mapItem: mapItem)
+        poiDetailDrawer = detailVC
+
+        detailVC.onRouteTapped = { mapItem in
+            onRoute(mapItem)
+        }
+
+        detailVC.onClose = { [weak self] in
+            self?.dismissPOIDetailWithCleanup()
+        }
+
+        if let sheet = detailVC.sheetPresentationController {
+            let poiDetent = UISheetPresentationController.Detent.custom(
+                identifier: .init("poiDetail")
+            ) { _ in 320 }
+            sheet.detents = [poiDetent]
+            sheet.prefersGrabberVisible = true
+            sheet.largestUndimmedDetentIdentifier = .init("poiDetail")
+            sheet.delegate = self
+        }
+
+        presenter.present(detailVC, animated: true)
+        let containerView = navigationController.view!
+        homeViewController.updateMapControlBottomOffset(320)
+        homeViewController.updateMapInsets(
+            top: mapTopInset(in: containerView),
+            bottom: 320
+        )
     }
 
     private func dismissPOIDetail(animated: Bool = false, completion: (() -> Void)? = nil) {
@@ -180,6 +205,75 @@ final class AppCoordinator: NSObject, Coordinator {
         drawer.dismiss(animated: animated) { [weak self] in
             self?.poiDetailDrawer = nil
             completion?()
+        }
+    }
+
+    /// Close button tapped on search result drawer → dismiss search results (and POI detail if stacked)
+    private func dismissSearchResultDrawerWithCleanup() {
+        poiDetailDrawer = nil
+        currentDrawer?.dismiss(animated: true) { [weak self] in
+            self?.currentDrawer = nil
+            self?.mapViewController.clearSearchResults()
+            self?.mapViewController.onAnnotationSelected = nil
+            // 홈 드로어 인셋 복원
+            guard let self, let containerView = self.navigationController.view else { return }
+            let height = self.drawerHeight(for: Self.mediumDetentId, in: containerView)
+            self.homeViewController.updateMapControlBottomOffset(height)
+            self.homeViewController.updateMapInsets(
+                top: self.mapTopInset(in: containerView),
+                bottom: height
+            )
+        }
+    }
+
+    /// Close button tapped on POI detail → dismiss only POI detail
+    private func dismissPOIDetailWithCleanup() {
+        poiDetailDrawer?.dismiss(animated: true) { [weak self] in
+            self?.poiDetailDrawer = nil
+            // 이전 드로어(검색결과 or 홈) 인셋 복원
+            guard let self, let containerView = self.navigationController.view else { return }
+            if let sheet = self.currentDrawer?.sheetPresentationController {
+                let detentId = sheet.selectedDetentIdentifier ?? Self.mediumDetentId
+                let effectiveDetent = (detentId == Self.largeDetentId) ? Self.mediumDetentId : detentId
+                let height = self.drawerHeight(for: effectiveDetent, in: containerView)
+                self.homeViewController.updateMapControlBottomOffset(height)
+                self.homeViewController.updateMapInsets(
+                    top: self.mapTopInset(in: containerView),
+                    bottom: height
+                )
+            } else {
+                let height = self.drawerHeight(for: Self.mediumDetentId, in: containerView)
+                self.homeViewController.updateMapControlBottomOffset(height)
+                self.homeViewController.updateMapInsets(
+                    top: self.mapTopInset(in: containerView),
+                    bottom: height
+                )
+            }
+        }
+    }
+
+    private func dismissAllDrawers(animated: Bool = false, completion: (() -> Void)? = nil) {
+        // POI 상세 → 검색결과/홈 드로어 순서로 dismiss
+        // 최상위 presenter를 dismiss하면 그 위의 presented VC도 함께 dismiss됨
+        // homeDrawer가 있으면 homeDrawer dismiss → 검색결과 + POI 상세 모두 dismiss
+        // homeDrawer가 없으면 navigationController의 presented dismiss
+        if let home = homeDrawer {
+            home.dismiss(animated: animated) { [weak self] in
+                self?.homeDrawer = nil
+                self?.currentDrawer = nil
+                self?.poiDetailDrawer = nil
+                self?.mapViewController.clearSearchResults()
+                self?.mapViewController.onAnnotationSelected = nil
+                completion?()
+            }
+        } else {
+            navigationController.dismiss(animated: animated) { [weak self] in
+                self?.currentDrawer = nil
+                self?.poiDetailDrawer = nil
+                self?.mapViewController.clearSearchResults()
+                self?.mapViewController.onAnnotationSelected = nil
+                completion?()
+            }
         }
     }
 
@@ -291,6 +385,7 @@ final class AppCoordinator: NSObject, Coordinator {
         navigationController.dismiss(animated: false)
         currentDrawer = nil
         homeDrawer = nil
+        poiDetailDrawer = nil
 
         // Pop to home if needed
         if navigationController.topViewController !== homeViewController {
@@ -418,39 +513,33 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Favorite / History Quick Navigate
 
     private func showRoutePreviewForFavorite(_ favorite: FavoritePlace) {
-        let destination = CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude)
-        let userCoordinate = locationService.locationPublisher.value?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+        dismissAllDrawers { [weak self] in
+            guard let self else { return }
+            let destination = CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude)
+            let userCoordinate = self.locationService.locationPublisher.value?.coordinate
+                ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
 
-        mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
-        moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: favorite.name)
+            self.mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
+            self.moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: favorite.name)
+        }
     }
 
     private func showRoutePreviewForHistory(_ history: SearchHistory) {
-        let destination = history.coordinate
-        let userCoordinate = locationService.locationPublisher.value?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+        dismissAllDrawers { [weak self] in
+            guard let self else { return }
+            let destination = history.coordinate
+            let userCoordinate = self.locationService.locationPublisher.value?.coordinate
+                ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
 
-        mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
-        moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: history.placeName)
+            self.mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
+            self.moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: history.placeName)
+        }
     }
 
     // MARK: - Search Flow
 
     private func showSearch() {
-        // Dismiss whichever drawer is currently presented (home or search result)
-        let dismissAction: (@escaping () -> Void) -> Void
-        if currentDrawer != nil {
-            dismissAction = { [weak self] completion in
-                self?.dismissSearchResultDrawer(animated: false, completion: completion)
-            }
-        } else {
-            dismissAction = { [weak self] completion in
-                self?.dismissHomeDrawer(completion: completion)
-            }
-        }
-
-        dismissAction { [weak self] in
+        let presentSearchVC = { [weak self] in
             guard let self else { return }
 
             let mapRegion = self.mapViewController.mapView.region
@@ -463,18 +552,40 @@ final class AppCoordinator: NSObject, Coordinator {
             searchVC.modalPresentationStyle = .fullScreen
 
             searchVC.onDismiss = { [weak self] in
-                self?.navigationController.dismiss(animated: true) {
-                    self?.presentHomeDrawer()
-                }
+                // 검색 VC만 dismiss → 홈 드로어 자동 복귀
+                let presenter: UIViewController? = self?.homeDrawer ?? self?.navigationController
+                presenter?.dismiss(animated: true)
             }
 
             searchVC.onSearchResults = { [weak self] results in
-                self?.navigationController.dismiss(animated: true) {
+                // 검색 VC만 dismiss → 홈 드로어 위에 검색결과 드로어 present
+                let presenter: UIViewController? = self?.homeDrawer ?? self?.navigationController
+                presenter?.dismiss(animated: true) {
                     self?.showSearchResults(results)
                 }
             }
 
-            self.navigationController.present(searchVC, animated: false)
+            // 홈 드로어 위에 검색 VC present (홈 드로어 유지)
+            let presenter: UIViewController = self.homeDrawer ?? self.navigationController
+            presenter.present(searchVC, animated: false)
+        }
+
+        // 홈 드로어 위의 중첩 드로어만 dismiss (홈 드로어는 유지)
+        if currentDrawer != nil {
+            poiDetailDrawer = nil
+            currentDrawer?.dismiss(animated: false) { [weak self] in
+                self?.currentDrawer = nil
+                self?.mapViewController.clearSearchResults()
+                self?.mapViewController.onAnnotationSelected = nil
+                presentSearchVC()
+            }
+        } else if poiDetailDrawer != nil {
+            poiDetailDrawer?.dismiss(animated: false) { [weak self] in
+                self?.poiDetailDrawer = nil
+                presentSearchVC()
+            }
+        } else {
+            presentSearchVC()
         }
     }
 
@@ -482,14 +593,24 @@ final class AppCoordinator: NSObject, Coordinator {
         // Show markers on map
         mapViewController.showSearchResults(results)
 
-        // Create drawer
+        // Ensure home drawer exists as base layer
+        presentHomeDrawer()
+
+        // Create search result drawer
         let drawerVC = SearchResultDrawerViewController()
         drawerVC.updateResults(results)
         currentDrawer = drawerVC
 
-        // Drawer → Map sync: item tapped → show route preview
-        drawerVC.onItemSelected = { [weak self] mapItem, _ in
-            self?.showRoutePreview(to: mapItem)
+        // Drawer close button
+        drawerVC.onClose = { [weak self] in
+            self?.dismissSearchResultDrawerWithCleanup()
+        }
+
+        // Drawer → Map sync: item tapped → 리스트 하이라이트 + 지도 포커스 + POI 상세
+        drawerVC.onItemSelected = { [weak self] mapItem, index in
+            self?.currentDrawer?.scrollToIndex(index, animated: false)
+            self?.mapViewController.focusAnnotation(at: index)
+            self?.showPOIDetailFromDrawer(mapItem)
         }
 
         // Drawer → Map sync: scroll changes focused annotation
@@ -497,19 +618,27 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.mapViewController.focusAnnotation(at: index)
         }
 
-        // Map → Drawer sync: annotation tapped → scroll drawer
+        // Map → Drawer sync: annotation tapped → scroll drawer + update POI detail (if open)
         mapViewController.onAnnotationSelected = { [weak self] index in
             self?.currentDrawer?.scrollToIndex(index)
+            if let mapItem = self?.currentDrawer?.mapItem(at: index),
+               let existing = self?.poiDetailDrawer {
+                existing.update(with: mapItem)
+            }
         }
 
-        // Present as sheet (unified detents with home drawer)
+        // Present as sheet on top of home drawer
         configureSheetDetents(for: drawerVC)
 
-        navigationController.present(drawerVC, animated: true)
-        let containerView = navigationController.view!
-        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: containerView)
-        homeViewController.updateMapControlBottomOffset(initialHeight)
-        homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: initialHeight)
+        // homeDrawer present animation이 완료된 후에 그 위에 검색결과 present
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, let homeDrawer = self.homeDrawer else { return }
+            homeDrawer.present(drawerVC, animated: true)
+            let containerView = self.navigationController.view!
+            let initialHeight = self.drawerHeight(for: Self.mediumDetentId, in: containerView)
+            self.homeViewController.updateMapControlBottomOffset(initialHeight)
+            self.homeViewController.updateMapInsets(top: self.mapTopInset(in: containerView), bottom: initialHeight)
+        }
     }
 
     private func dismissSearchResultDrawer(animated: Bool = true, completion: (() -> Void)? = nil) {
@@ -528,11 +657,6 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Route Preview Flow
 
     private func showRoutePreview(to mapItem: MKMapItem) {
-        // Dismiss drawer
-        currentDrawer?.dismiss(animated: true) { [weak self] in
-            self?.currentDrawer = nil
-        }
-
         // Clear search markers
         mapViewController.clearSearchResults()
 
@@ -1054,17 +1178,18 @@ extension AppCoordinator: UISheetPresentationControllerDelegate {
         MainActor.assumeIsolated {
             let dismissed = presentationController.presentedViewController
 
+            if dismissed is POIDetailViewController {
+                // POI 상세 스와이프 dismiss → 이전 시트(홈/검색결과)가 자동 복귀
+                poiDetailDrawer = nil
+                return
+            }
+
             if dismissed is SearchResultDrawerViewController {
-                // Search result drawer dismissed by drag → clean up and show home drawer
+                // 검색결과 드로어 스와이프 dismiss → 홈 드로어가 자동 복귀
                 currentDrawer = nil
                 mapViewController.clearSearchResults()
                 mapViewController.onAnnotationSelected = nil
-                presentHomeDrawer()
-            }
-
-            if dismissed is POIDetailViewController {
-                poiDetailDrawer = nil
-                presentHomeDrawer()
+                // 홈 드로어는 아래에 살아있으므로 presentHomeDrawer 불필요
             }
         }
     }

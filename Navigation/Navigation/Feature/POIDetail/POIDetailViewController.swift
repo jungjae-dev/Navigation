@@ -6,12 +6,29 @@ final class POIDetailViewController: UIViewController {
     // MARK: - Callbacks
 
     var onRouteTapped: ((MKMapItem) -> Void)?
+    var onClose: (() -> Void)?
 
     // MARK: - Properties
 
     private(set) var mapItem: MKMapItem
 
+    // MARK: - Constants
+
+    static let titleBarHeight: CGFloat = 44
+
     // MARK: - UI Components
+
+    private let closeButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(
+            UIImage(systemName: "xmark.circle.fill")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+            for: .normal
+        )
+        button.tintColor = Theme.Colors.secondaryLabel
+        return button
+    }()
 
     private let categoryImageView: UIImageView = {
         let imageView = UIImageView()
@@ -120,16 +137,21 @@ final class POIDetailViewController: UIViewController {
         mainStack.spacing = Theme.Spacing.lg
         mainStack.translatesAutoresizingMaskIntoConstraints = false
 
+        view.addSubview(closeButton)
         view.addSubview(mainStack)
 
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.xl),
+            closeButton.centerYAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight / 2),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            mainStack.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight),
             mainStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             mainStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
 
             routeButton.heightAnchor.constraint(equalToConstant: 48),
         ])
 
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         phoneButton.addTarget(self, action: #selector(phoneTapped), for: .touchUpInside)
         websiteButton.addTarget(self, action: #selector(websiteTapped), for: .touchUpInside)
         routeButton.addTarget(self, action: #selector(routeTapped), for: .touchUpInside)
@@ -170,6 +192,10 @@ final class POIDetailViewController: UIViewController {
     }
 
     // MARK: - Actions
+
+    @objc private func closeTapped() {
+        onClose?()
+    }
 
     @objc private func phoneTapped() {
         guard let phone = mapItem.phoneNumber,
