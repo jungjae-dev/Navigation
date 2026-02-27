@@ -22,6 +22,7 @@ final class HomeDrawerViewController: UIViewController {
         cv.register(FavoriteCell.self, forCellWithReuseIdentifier: FavoriteCell.reuseIdentifier)
         cv.register(RecentSearchCell.self, forCellWithReuseIdentifier: RecentSearchCell.reuseIdentifier)
         cv.register(HomeSectionHeaderView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: HomeSectionHeaderView.reuseIdentifier)
+        cv.alwaysBounceVertical = false
         return cv
     }()
 
@@ -281,6 +282,18 @@ extension HomeDrawerViewController: UICollectionViewDelegate {
                 return UIMenu(title: history.placeName, children: [navigateAction, deleteAction])
             }
         }
+    }
+
+    func scrollViewWillEndDragging(
+        _ scrollView: UIScrollView,
+        withVelocity velocity: CGPoint,
+        targetContentOffset: UnsafeMutablePointer<CGPoint>
+    ) {
+        DrawerScrollHelper.handleScrollEdgeTransition(
+            scrollView: scrollView,
+            velocity: velocity,
+            sheet: sheetPresentationController
+        )
     }
 }
 

@@ -258,6 +258,10 @@ final class HomeViewController: UIViewController {
         }
     }
 
+    func updateMapInsets(top: CGFloat, bottom: CGFloat) {
+        mapViewController.updateMapInsets(top: top, bottom: bottom)
+    }
+
     // MARK: - Actions
 
     @objc private func searchBarTapped() {

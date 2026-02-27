@@ -18,6 +18,7 @@ final class SearchResultDrawerViewController: UIViewController {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = Theme.Colors.background
         tableView.separatorStyle = .singleLine
+        tableView.alwaysBounceVertical = false
         return tableView
     }()
 
@@ -129,5 +130,17 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
             return
         }
         focusTracker.notifyScroll(toIndex: topIndexPath.row)
+    }
+
+    func scrollViewWillEndDragging(
+        _ scrollView: UIScrollView,
+        withVelocity velocity: CGPoint,
+        targetContentOffset: UnsafeMutablePointer<CGPoint>
+    ) {
+        DrawerScrollHelper.handleScrollEdgeTransition(
+            scrollView: scrollView,
+            velocity: velocity,
+            sheet: sheetPresentationController
+        )
     }
 }

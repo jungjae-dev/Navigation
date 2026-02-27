@@ -43,6 +43,7 @@ final class SearchService: NSObject {
 
         let request = MKLocalSearch.Request(completion: completion)
         request.region = completer.region
+        request.regionPriority = .required
 
         let search = MKLocalSearch(request: request)
         currentSearch = search
@@ -68,6 +69,7 @@ final class SearchService: NSObject {
         } else {
             request.region = completer.region
         }
+        request.regionPriority = .required
 
         let search = MKLocalSearch(request: request)
         currentSearch = search

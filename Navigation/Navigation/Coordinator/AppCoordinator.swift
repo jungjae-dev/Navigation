@@ -107,8 +107,10 @@ final class AppCoordinator: NSObject, Coordinator {
         configureSheetDetents(for: drawerVC)
 
         navigationController.present(drawerVC, animated: true)
-        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: navigationController.view)
+        let containerView = navigationController.view!
+        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: containerView)
         homeViewController.updateMapControlBottomOffset(initialHeight)
+        homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: initialHeight)
     }
 
     private func dismissHomeDrawer(animated: Bool = false, completion: (() -> Void)? = nil) {
@@ -122,10 +124,14 @@ final class AppCoordinator: NSObject, Coordinator {
         }
     }
 
+    /// Top map inset: below search bar (safeArea + spacing + searchBarHeight + spacing)
+    private func mapTopInset(in containerView: UIView) -> CGFloat {
+        return containerView.safeAreaInsets.top + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+    }
+
     /// Maximum drawer height (below search bar with margin)
     private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
-        let safeTop = containerView.safeAreaInsets.top
-        let searchBarBottom = safeTop + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+        let searchBarBottom = mapTopInset(in: containerView)
         return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm
     }
 
@@ -167,7 +173,7 @@ final class AppCoordinator: NSObject, Coordinator {
         sheet.selectedDetentIdentifier = Self.mediumDetentId
         sheet.prefersGrabberVisible = true
         sheet.largestUndimmedDetentIdentifier = Self.largeDetentId
-        sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+        sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         sheet.delegate = self
     }
 
@@ -388,9 +394,12 @@ final class AppCoordinator: NSObject, Coordinator {
         dismissAction { [weak self] in
             guard let self else { return }
 
+            let mapRegion = self.mapViewController.mapView.region
+
             let searchViewModel = SearchViewModel(
                 searchService: self.searchService
             )
+            searchViewModel.updateSearchRegion(mapRegion)
             let searchVC = SearchViewController(viewModel: searchViewModel)
             searchVC.modalPresentationStyle = .fullScreen
 
@@ -438,8 +447,10 @@ final class AppCoordinator: NSObject, Coordinator {
         configureSheetDetents(for: drawerVC)
 
         navigationController.present(drawerVC, animated: true)
-        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: navigationController.view)
+        let containerView = navigationController.view!
+        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: containerView)
         homeViewController.updateMapControlBottomOffset(initialHeight)
+        homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: initialHeight)
     }
 
     private func dismissSearchResultDrawer(animated: Bool = true, completion: (() -> Void)? = nil) {
@@ -496,6 +507,7 @@ final class AppCoordinator: NSObject, Coordinator {
         mapViewController.willMove(toParent: nil)
         mapViewController.view.removeFromSuperview()
         mapViewController.removeFromParent()
+        mapViewController.resetMapInsets()
 
         // Create RoutePreview
         let routePreviewVM = RoutePreviewViewModel(
@@ -973,6 +985,7 @@ extension AppCoordinator: UISheetPresentationControllerDelegate {
             let height = drawerHeight(for: effectiveDetent, in: containerView)
 
             homeViewController.updateMapControlBottomOffset(height)
+            homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: height)
         }
     }
 

@@ -97,6 +97,16 @@ final class MapViewController: UIViewController {
         mapView.setRegion(region, animated: false)
     }
 
+    // MARK: - Public: Map Insets
+
+    func updateMapInsets(top: CGFloat, bottom: CGFloat) {
+        mapView.layoutMargins = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+    }
+
+    func resetMapInsets() {
+        mapView.layoutMargins = .zero
+    }
+
     // MARK: - Public: General
 
     func moveToLocation(_ coordinate: CLLocationCoordinate2D, animated: Bool = true) {
@@ -374,12 +384,12 @@ final class MapViewController: UIViewController {
             rect = rect.union(pointRect)
         }
 
-        let padding = UIEdgeInsets(top: 80, left: 40, bottom: 80, right: 40)
+        let padding = UIEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
         mapView.setVisibleMapRect(rect, edgePadding: padding, animated: true)
     }
 
     private func fitPolyline(_ polyline: MKPolyline) {
-        let padding = UIEdgeInsets(top: 80, left: 40, bottom: 200, right: 40)
+        let padding = UIEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
         mapView.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: true)
     }
 }
