@@ -93,7 +93,13 @@ final class SettingsViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
         viewModel.refreshDataCounts()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
     // MARK: - Setup
@@ -107,16 +113,6 @@ final class SettingsViewController: UIViewController {
         navigationItem.standardAppearance = appearance
         navigationItem.scrollEdgeAppearance = appearance
         navigationItem.title = "설정"
-
-        // Back button
-        let backButton = UIBarButtonItem(
-            image: UIImage(systemName: "chevron.left"),
-            style: .plain,
-            target: self,
-            action: #selector(backTapped)
-        )
-        backButton.tintColor = Theme.Colors.label
-        navigationItem.leftBarButtonItem = backButton
 
         view.addSubview(tableView)
 
@@ -178,10 +174,6 @@ final class SettingsViewController: UIViewController {
     }
 
     // MARK: - Actions
-
-    @objc private func backTapped() {
-        onDismiss?()
-    }
 
     @objc private func voiceSwitchChanged(_ sender: UISwitch) {
         viewModel.setVoiceEnabled(sender.isOn)
