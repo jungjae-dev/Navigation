@@ -64,6 +64,8 @@ final class HomeDrawerViewController: UIViewController {
 
     var onFavoriteTapped: ((FavoritePlace) -> Void)?
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
+    var onDetentChanged: ((DrawerDetent) -> Void)?
+    var onHeightChanged: ((CGFloat) -> Void)?
 
     // MARK: - Init
 
@@ -145,6 +147,7 @@ final class HomeDrawerViewController: UIViewController {
             let newHeight = panStartHeight - translation.y
             heightConstraint.constant = max(minHeight, min(maxHeight, newHeight))
             containerView.layoutIfNeeded()
+            onHeightChanged?(heightConstraint.constant)
 
         case .ended, .cancelled:
             let velocity = gesture.velocity(in: containerView)
@@ -209,6 +212,8 @@ final class HomeDrawerViewController: UIViewController {
             heightConstraint.constant = targetHeight
             container.layoutIfNeeded()
         }
+
+        onDetentChanged?(detent)
     }
 
     // MARK: - Compositional Layout

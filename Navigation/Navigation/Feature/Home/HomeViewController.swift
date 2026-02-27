@@ -1,4 +1,5 @@
 import UIKit
+import MapKit
 import Combine
 
 final class HomeViewController: UIViewController {
@@ -55,6 +56,10 @@ final class HomeViewController: UIViewController {
 
     // MARK: - Properties
 
+    private var mapControlButtons: MapControlButtonsView!
+    private var mapControlBottomConstraint: NSLayoutConstraint!
+    private var compassButton: MKCompassButton!
+
     private let viewModel: HomeViewModel
     private let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
@@ -84,6 +89,8 @@ final class HomeViewController: UIViewController {
         setupMapChild()
         setupSearchBar()
         setupSettingsButton()
+        setupCompassButton()
+        setupMapControlButtons()
         setupDrawer()
         setupAccessibility()
         bindViewModel()
@@ -164,6 +171,52 @@ final class HomeViewController: UIViewController {
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
     }
 
+    private func setupMapControlButtons() {
+        let buttons = MapControlButtonsView()
+        self.mapControlButtons = buttons
+        view.addSubview(buttons)
+
+        mapControlBottomConstraint = buttons.bottomAnchor.constraint(
+            equalTo: view.bottomAnchor,
+            constant: -(200 + Theme.Spacing.md)
+        )
+
+        NSLayoutConstraint.activate([
+            buttons.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg
+            ),
+            mapControlBottomConstraint,
+        ])
+
+        buttons.onCurrentLocationTapped = { [weak self] in
+            self?.handleCurrentLocationTapped()
+        }
+        buttons.onMapModeTapped = { [weak self] in
+            self?.handleMapModeTapped()
+        }
+
+        mapViewController.onTrackingModeChanged = { [weak self] mode in
+            self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
+        }
+    }
+
+    private func setupCompassButton() {
+        let compass = MKCompassButton(mapView: mapViewController.mapView)
+        compass.translatesAutoresizingMaskIntoConstraints = false
+        compass.compassVisibility = .adaptive
+        self.compassButton = compass
+        view.addSubview(compass)
+
+        NSLayoutConstraint.activate([
+            compass.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor, constant: Theme.Spacing.lg
+            ),
+            compass.topAnchor.constraint(
+                equalTo: searchBarContainer.bottomAnchor, constant: Theme.Spacing.sm
+            ),
+        ])
+    }
+
     private func setupDrawer() {
         let drawer = HomeDrawerViewController(viewModel: viewModel)
         self.homeDrawer = drawer
@@ -185,6 +238,13 @@ final class HomeViewController: UIViewController {
         ])
 
         drawer.didMove(toParent: self)
+
+        drawer.onDetentChanged = { [weak self] detent in
+            self?.updateMapControlPosition(for: detent)
+        }
+        drawer.onHeightChanged = { [weak self] height in
+            self?.updateMapControlPositionDuringPan(height: height)
+        }
     }
 
     // MARK: - Accessibility
@@ -209,6 +269,44 @@ final class HomeViewController: UIViewController {
                 self?.handleAuthStatusChange(status)
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Map Control Actions
+
+    private func handleCurrentLocationTapped() {
+        let newMode = mapViewController.cycleUserTrackingMode()
+        mapControlButtons.updateCurrentLocationIcon(for: newMode)
+    }
+
+    private func handleMapModeTapped() {
+        let isSatellite = mapViewController.cycleMapType()
+        mapControlButtons.updateMapModeIcon(isSatellite: isSatellite)
+    }
+
+    // MARK: - Drawer Position Tracking
+
+    private func updateMapControlPosition(for detent: HomeDrawerViewController.DrawerDetent) {
+        let drawerHeight: CGFloat = switch detent {
+        case .small, .medium:
+            detent.height(in: view)
+        case .large:
+            HomeDrawerViewController.DrawerDetent.medium.height(in: view)
+        }
+
+        UIView.animate(
+            withDuration: 0.35, delay: 0,
+            usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5,
+            options: .curveEaseInOut
+        ) {
+            self.mapControlBottomConstraint.constant = -(drawerHeight + Theme.Spacing.md)
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    private func updateMapControlPositionDuringPan(height: CGFloat) {
+        let mediumHeight = HomeDrawerViewController.DrawerDetent.medium.height(in: view)
+        let effectiveHeight = min(height, mediumHeight)
+        mapControlBottomConstraint.constant = -(effectiveHeight + Theme.Spacing.md)
     }
 
     // MARK: - Actions
