@@ -224,10 +224,14 @@ private static let smallDetentId = UISheetPresentationController.Detent.Identifi
 private static let mediumDetentId = UISheetPresentationController.Detent.Identifier("drawerMedium")
 private static let largeDetentId = UISheetPresentationController.Detent.Identifier("drawerLarge")
 
+/// Top map inset: 검색바 하단 (safeArea + spacing + searchBarHeight + spacing)
+private func mapTopInset(in containerView: UIView) -> CGFloat {
+    return containerView.safeAreaInsets.top + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+}
+
 /// 드로어 최대 높이 (검색바 하단 + 마진 아래)
 private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
-    let safeTop = containerView.safeAreaInsets.top
-    let searchBarBottom = safeTop + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+    let searchBarBottom = mapTopInset(in: containerView)
     return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm
 }
 
@@ -251,16 +255,16 @@ private func configureSheetDetents(for viewController: UIViewController) {
     sheet.selectedDetentIdentifier = Self.mediumDetentId       // 초기: 중간
     sheet.prefersGrabberVisible = true                         // 시스템 grabber
     sheet.largestUndimmedDetentIdentifier = Self.largeDetentId // 딤 처리 없음
-    sheet.prefersScrollingExpandsWhenScrolledToEdge = true     // 스크롤 → 확장
+    sheet.prefersScrollingExpandsWhenScrolledToEdge = false    // 스크롤-detent 전환은 DrawerScrollHelper가 수동 처리
     sheet.delegate = self                                      // detent 변경 감지
 }
 ```
 
 ---
 
-## 6. 지도 컨트롤 버튼 연동
+## 6. 지도 연동
 
-### 6.1 버튼 위치 업데이트
+### 6.1 지도 컨트롤 버튼 위치 업데이트
 
 지도 컨트롤 버튼(현재 위치, 지도 모드)은 드로어 detent에 따라 위치가 변경된다.
 
@@ -270,14 +274,38 @@ HomeViewController.mapControlBottomConstraint
     값:   -(drawerHeight + Theme.Spacing.md)
 ```
 
-### 6.2 업데이트 시점
+### 6.2 지도 인셋 (Map Insets)
 
-| 시점 | 호출 위치 |
-|------|----------|
-| 드로어 최초 present | `presentHomeDrawer()` / `showSearchResults()` |
-| detent 변경 (드래그) | `sheetPresentationControllerDidChangeSelectedDetentIdentifier` |
+드로어 높이에 따라 지도의 유효 콘텐츠 영역을 동적으로 조정한다. `mapView.layoutMargins`를 사용하여 상단(검색바 아래)과 하단(드로어 높이)만큼 인셋을 적용한다.
 
-### 6.3 large detent 시 버튼 위치
+```swift
+// MapViewController
+func updateMapInsets(top: CGFloat, bottom: CGFloat) {
+    mapView.layoutMargins = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+}
+
+func resetMapInsets() {
+    mapView.layoutMargins = .zero
+}
+```
+
+이로 인해 `fitAnnotations`/`fitPolyline` 등에서 사용하던 하드코딩 padding(top: 80, bottom: 200)을 줄이고(40pt), layoutMargins가 실제 오프셋을 담당하도록 변경했다.
+
+```
+HomeViewController.updateMapInsets(top:bottom:)
+    └── MapViewController.updateMapInsets(top:bottom:)
+            └── mapView.layoutMargins = UIEdgeInsets(top: mapTopInset, left: 0, bottom: drawerHeight, right: 0)
+```
+
+### 6.3 업데이트 시점
+
+| 시점 | 호출 위치 | 업데이트 항목 |
+|------|----------|-------------|
+| 드로어 최초 present | `presentHomeDrawer()` / `showSearchResults()` | 버튼 위치 + 지도 인셋 |
+| detent 변경 (드래그) | `sheetPresentationControllerDidChangeSelectedDetentIdentifier` | 버튼 위치 + 지도 인셋 |
+| 경로 미리보기 전환 | `showRoutePreview()` | `resetMapInsets()` |
+
+### 6.4 large detent 시 버튼 위치
 
 large detent에서는 버튼이 너무 높이 올라가므로, medium 높이로 cap한다:
 
@@ -295,7 +323,7 @@ homeViewController.updateMapControlBottomOffset(height)
 
 **위치**: `Navigation/Navigation/Feature/Home/HomeDrawerViewController.swift`
 
-콘텐츠만 담당하는 순수 VC. 제스처/드래그 로직 없음 (시스템 UISheetPresentationController가 처리).
+콘텐츠만 담당하는 순수 VC. 드래그 detent 전환은 `DrawerScrollHelper`가 처리.
 
 **구조:**
 
@@ -309,7 +337,11 @@ final class HomeDrawerViewController: UIViewController {
     }
 
     // MARK: - UI
-    private lazy var collectionView: UICollectionView = { ... }()
+    private lazy var collectionView: UICollectionView = {
+        // ...
+        cv.alwaysBounceVertical = false  // 스크롤 끝에서 불필요한 바운스 방지
+        return cv
+    }()
 
     // MARK: - Properties
     private let viewModel: HomeViewModel
@@ -336,11 +368,50 @@ final class HomeDrawerViewController: UIViewController {
 extension HomeDrawerViewController: UICollectionViewDataSource { ... }
 
 // MARK: - UICollectionViewDelegate
-extension HomeDrawerViewController: UICollectionViewDelegate { ... }
+extension HomeDrawerViewController: UICollectionViewDelegate {
+    // ...
+
+    // 스크롤 끝 도달 시 DrawerScrollHelper로 detent 전환
+    func scrollViewWillEndDragging(_:withVelocity:targetContentOffset:) {
+        DrawerScrollHelper.handleScrollEdgeTransition(
+            scrollView: scrollView,
+            velocity: velocity,
+            sheet: sheetPresentationController
+        )
+    }
+}
 
 // MARK: - HomeSectionHeaderView
 final class HomeSectionHeaderView: UICollectionReusableView { ... }
 ```
+
+### 7.1.1 DrawerScrollHelper (공통 유틸리티)
+
+**위치**: `Navigation/Navigation/Common/Util/DrawerScrollHelper.swift`
+
+`prefersScrollingExpandsWhenScrolledToEdge = false`로 설정한 뒤, 스크롤이 끝(top/bottom)에 도달했을 때 velocity 기반으로 detent를 수동 전환하는 헬퍼. HomeDrawerVC와 SearchResultDrawerVC가 공유한다.
+
+```swift
+enum DrawerScrollHelper {
+    private static let detentOrder: [Detent.Identifier] = [
+        .init("small"), .init("drawerMedium"), .init("drawerLarge")
+    ]
+    private static let velocityThreshold: CGFloat = 0.5
+
+    /// 스크롤이 끝에 도달했을 때, 속도에 따라 드로어 detent를 전환
+    static func handleScrollEdgeTransition(
+        scrollView: UIScrollView,
+        velocity: CGPoint,
+        sheet: UISheetPresentationController?
+    )
+    // - 상단 도달 + 아래로 스와이프 → 이전(작은) detent로 축소
+    // - 하단 도달 + 위로 스와이프 → 다음(큰) detent로 확장
+}
+```
+
+**시스템 동작 대비 장점:**
+- `prefersScrollingExpandsWhenScrolledToEdge = true`(시스템 기본)는 스크롤과 detent 확장이 동시에 발생하여 의도치 않은 전환이 잦음
+- 수동 처리로 velocity threshold를 두어, 명시적인 스와이프 의도가 있을 때만 전환
 
 ### 7.2 HomeViewController.swift
 
@@ -362,6 +433,11 @@ func updateMapControlBottomOffset(_ height: CGFloat) {
         self.view.layoutIfNeeded()
     }
 }
+
+// AppCoordinator가 detent 변경 시 호출 — 지도 인셋 업데이트
+func updateMapInsets(top: CGFloat, bottom: CGFloat) {
+    mapViewController.updateMapInsets(top: top, bottom: bottom)
+}
 ```
 
 ### 7.3 AppCoordinator.swift — 드로어 lifecycle 관리
@@ -378,10 +454,11 @@ private var currentDrawer: SearchResultDrawerViewController?
 
 | 메서드 | 역할 |
 |--------|------|
-| `presentHomeDrawer()` | HomeDrawerVC 생성, 콜백 설정, configureSheetDetents, present |
+| `presentHomeDrawer()` | HomeDrawerVC 생성, 콜백 설정, configureSheetDetents, present, 지도 인셋 설정 |
 | `dismissHomeDrawer(animated:completion:)` | 드로어 dismiss + homeDrawer = nil |
 | `configureSheetDetents(for:)` | 통합 detent 설정 (홈/검색결과 공유) |
-| `drawerMaxHeight(in:)` | 드로어 최대 높이 계산 |
+| `mapTopInset(in:)` | 검색바 하단 위치 계산 (지도 인셋 top + drawerMaxHeight 공용) |
+| `drawerMaxHeight(in:)` | 드로어 최대 높이 계산 (mapTopInset 활용) |
 | `drawerHeight(for:in:)` | detent ID별 높이 반환 |
 | `dismissSearchResultDrawer(animated:completion:)` | 검색결과 드로어 dismiss + cleanup |
 
@@ -390,7 +467,7 @@ private var currentDrawer: SearchResultDrawerViewController?
 ```swift
 extension AppCoordinator: UISheetPresentationControllerDelegate {
 
-    // detent 변경 → 지도 버튼 위치 업데이트
+    // detent 변경 → 지도 버튼 위치 + 지도 인셋 업데이트
     func sheetPresentationControllerDidChangeSelectedDetentIdentifier(_:) { ... }
 
     // 검색결과 드로어 drag-dismiss → 홈 드로어 re-present
@@ -432,6 +509,7 @@ HomeDrawerViewController.view (UISheetPresentationController가 관리)
     ├── leading/trailing = view
     ├── bottomAnchor = view.safeAreaLayoutGuide.bottom
     ├── backgroundColor = .clear
+    ├── alwaysBounceVertical = false
     │
     ├── Section 0: 즐겨찾기 (수평 스크롤)
     │   ├── 헤더: "⭐ 즐겨찾기" (36pt)
@@ -474,10 +552,11 @@ HomeDrawerViewController.view (UISheetPresentationController가 관리)
 
 ```
 Navigation/Navigation/Feature/Home/
-├── HomeDrawerViewController.swift  ← 콘텐츠 전용 VC (제스처 로직 없음)
+├── HomeDrawerViewController.swift  ← 콘텐츠 전용 VC
 │   - HomeSection enum
-│   - UICollectionView + CompositionalLayout
+│   - UICollectionView + CompositionalLayout (alwaysBounceVertical = false)
 │   - UICollectionViewDataSource/Delegate
+│   - scrollViewWillEndDragging → DrawerScrollHelper로 detent 전환
 │   - ContextMenu (즐겨찾기 편집/삭제)
 │   - HomeSectionHeaderView
 │   - isModalInPresentation = true
@@ -488,20 +567,34 @@ Navigation/Navigation/Feature/Home/
 │   - MKCompassButton
 │   - MapControlButtonsView (하단, safeArea 기준)
 │   - updateMapControlBottomOffset(_:) 퍼블릭 메서드
+│   - updateMapInsets(top:bottom:) 퍼블릭 메서드
 │
 ├── MapControlButtonsView.swift     ← 변경 없음
 ├── HomeViewModel.swift             ← 변경 없음
 ├── FavoriteCell.swift              ← 변경 없음
 └── RecentSearchCell.swift          ← 변경 없음
 
+Navigation/Navigation/Common/Util/
+└── DrawerScrollHelper.swift        ← 스크롤-detent 전환 공통 유틸리티
+    - detentOrder: [small, drawerMedium, drawerLarge]
+    - velocityThreshold: 0.5
+    - handleScrollEdgeTransition(scrollView:velocity:sheet:)
+
+Navigation/Navigation/Map/
+└── MapViewController.swift         ← 지도 인셋 관리 추가
+    - updateMapInsets(top:bottom:) — mapView.layoutMargins 설정
+    - resetMapInsets() — mapView.layoutMargins = .zero
+    - fitAnnotations/fitPolyline padding 축소 (80/200 → 40, layoutMargins가 오프셋 담당)
+
 Navigation/Navigation/Coordinator/
 └── AppCoordinator.swift            ← 드로어 lifecycle 관리 추가
     - NSObject 상속 (UISheetPresentationControllerDelegate)
     - homeViewModel, homeDrawer, currentDrawer 프로퍼티
     - presentHomeDrawer(), dismissHomeDrawer()
-    - configureSheetDetents(for:) — 통합 detent 설정
+    - configureSheetDetents(for:) — 통합 detent 설정 (prefersScrollingExpandsWhenScrolledToEdge = false)
+    - mapTopInset(in:) — 검색바 하단 위치 (인셋 + drawerMaxHeight 공용)
     - drawerMaxHeight(in:), drawerHeight(for:in:)
-    - UISheetPresentationControllerDelegate 구현
+    - UISheetPresentationControllerDelegate 구현 (버튼 위치 + 지도 인셋 동시 업데이트)
     - 모든 화면 전환 메서드에서 drawer dismiss/present 처리
 ```
 
