@@ -64,9 +64,9 @@ final class MapViewController: UIViewController {
 
         mapView.delegate = self
         mapView.showsUserLocation = true
-        mapView.showsCompass = true
+        mapView.showsCompass = false
         mapView.showsScale = true
-        mapView.mapType = .standard
+        mapView.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .realistic)
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = true
         mapView.pointOfInterestFilter = .includingAll
@@ -218,10 +218,10 @@ final class MapViewController: UIViewController {
         panGestureRecognizer = pan
     }
 
-    /// Restore map to standard mode (2D, compass visible)
+    /// Restore map to standard mode (2D, custom compass button)
     func configureForStandard() {
         isNavigationMode = false
-        mapView.showsCompass = true
+        mapView.showsCompass = false
         mapView.showsScale = true
         mapView.isPitchEnabled = true
         mapView.isRotateEnabled = true
@@ -328,6 +328,36 @@ final class MapViewController: UIViewController {
         }
     }
 
+    // MARK: - Public: Map Controls
+
+    /// Called when the user tracking mode changes (including auto-reset by MapKit)
+    var onTrackingModeChanged: ((MKUserTrackingMode) -> Void)?
+
+    /// Cycle through MKUserTrackingMode: none → follow → followWithHeading → none
+    @discardableResult
+    func cycleUserTrackingMode() -> MKUserTrackingMode {
+        let next: MKUserTrackingMode = switch mapView.userTrackingMode {
+        case .none: .follow
+        case .follow: .followWithHeading
+        case .followWithHeading: .none
+        @unknown default: .none
+        }
+        mapView.setUserTrackingMode(next, animated: true)
+        return next
+    }
+
+    /// Toggle between standard and satellite (both with realistic 3D elevation)
+    @discardableResult
+    func cycleMapType() -> Bool {
+        let isSatellite = mapView.preferredConfiguration is MKImageryMapConfiguration
+        if isSatellite {
+            mapView.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .realistic)
+        } else {
+            mapView.preferredConfiguration = MKImageryMapConfiguration(elevationStyle: .realistic)
+        }
+        return !isSatellite
+    }
+
     @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
         if gesture.state == .began {
             onUserInteraction?()
@@ -429,6 +459,10 @@ extension MapViewController: MKMapViewDelegate {
             return RouteOverlayRenderer(polyline: polyline, isPrimary: isPrimary)
         }
         return MKOverlayRenderer(overlay: overlay)
+    }
+
+    func mapView(_ mapView: MKMapView, didChange mode: MKUserTrackingMode, animated: Bool) {
+        onTrackingModeChanged?(mode)
     }
 
     func mapView(_ mapView: MKMapView, didSelect annotation: any MKAnnotation) {
