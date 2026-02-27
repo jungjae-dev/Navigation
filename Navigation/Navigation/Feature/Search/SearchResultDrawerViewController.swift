@@ -26,7 +26,6 @@ final class SearchResultDrawerViewController: UIViewController {
 
     private var searchResults: [MKMapItem] = []
     private var highlightedIndex: Int = 0
-    private let focusTracker = DrawerListFocusTracker()
 
     var onItemSelected: ((MKMapItem, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
@@ -37,7 +36,6 @@ final class SearchResultDrawerViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupTableView()
-        setupFocusTracker()
     }
 
     // MARK: - Setup
@@ -67,27 +65,25 @@ final class SearchResultDrawerViewController: UIViewController {
         tableView.register(SearchResultCell.self, forCellReuseIdentifier: "SearchResultCell")
     }
 
-    private func setupFocusTracker() {
-        focusTracker.onIndexChanged = { [weak self] index in
-            self?.onFocusedIndexChanged?(index)
-        }
-    }
-
     // MARK: - Public Methods
 
     func updateResults(_ results: [MKMapItem]) {
         searchResults = results
         highlightedIndex = 0
-        focusTracker.reset()
         tableView.reloadData()
     }
 
     func scrollToIndex(_ index: Int, animated: Bool = true) {
         guard index < searchResults.count else { return }
+        let oldIndex = highlightedIndex
         highlightedIndex = index
-        tableView.reloadData()
-        let indexPath = IndexPath(row: index, section: 0)
-        tableView.scrollToRow(at: indexPath, at: .top, animated: animated)
+
+        let indexPathsToReload = [IndexPath(row: oldIndex, section: 0),
+                                  IndexPath(row: index, section: 0)]
+            .filter { $0.row < searchResults.count }
+        tableView.reloadRows(at: indexPathsToReload, with: .none)
+
+        tableView.scrollToRow(at: IndexPath(row: index, section: 0), at: .top, animated: animated)
     }
 }
 
@@ -124,12 +120,12 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
         onItemSelected?(item, indexPath.row)
     }
 
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard let indexPaths = tableView.indexPathsForVisibleRows,
-              let topIndexPath = indexPaths.first else {
-            return
-        }
-        focusTracker.notifyScroll(toIndex: topIndexPath.row)
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        notifyTopIndex()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { notifyTopIndex() }
     }
 
     func scrollViewWillEndDragging(
@@ -142,5 +138,12 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
             velocity: velocity,
             sheet: sheetPresentationController
         )
+    }
+
+    // MARK: - Private Helpers
+
+    private func notifyTopIndex() {
+        guard let topIndexPath = tableView.indexPathsForVisibleRows?.first else { return }
+        onFocusedIndexChanged?(topIndexPath.row)
     }
 }

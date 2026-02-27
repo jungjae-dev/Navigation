@@ -21,6 +21,9 @@ final class MapViewController: UIViewController {
     /// Callback when a search result marker is tapped. Returns the index.
     var onAnnotationSelected: ((Int) -> Void)?
 
+    /// Callback when a built-in POI is tapped.
+    var onPOISelected: ((MKMapItem) -> Void)?
+
     // MARK: - Navigation Mode State
 
     private var isNavigationMode = false
@@ -70,6 +73,7 @@ final class MapViewController: UIViewController {
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = true
         mapView.pointOfInterestFilter = .includingAll
+        mapView.selectableMapFeatures = [.pointsOfInterest]
     }
 
     // MARK: - Binding
@@ -476,6 +480,16 @@ extension MapViewController: MKMapViewDelegate {
     }
 
     func mapView(_ mapView: MKMapView, didSelect annotation: any MKAnnotation) {
+        if let featureAnnotation = annotation as? MKMapFeatureAnnotation {
+            mapView.deselectAnnotation(annotation, animated: true)
+            let request = MKMapItemRequest(mapFeatureAnnotation: featureAnnotation)
+            Task {
+                guard let mapItem = try? await request.mapItem else { return }
+                onPOISelected?(mapItem)
+            }
+            return
+        }
+
         guard let searchAnnotation = annotation as? SearchResultAnnotation,
               let index = searchResultAnnotations.firstIndex(where: { $0 === searchAnnotation }) else {
             return

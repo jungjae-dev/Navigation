@@ -23,6 +23,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeViewModel: HomeViewModel!
     private var homeDrawer: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
+    private var poiDetailDrawer: POIDetailViewController?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - iPhone-only Navigation Services
@@ -68,6 +69,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
         homeVC.onSettingsTapped = { [weak self] in
             self?.showSettings()
+        }
+
+        mapVC.onPOISelected = { [weak self] mapItem in
+            self?.showPOIDetail(mapItem)
         }
 
         navigationController.setViewControllers([homeVC], animated: false)
@@ -120,6 +125,60 @@ final class AppCoordinator: NSObject, Coordinator {
         }
         drawer.dismiss(animated: animated) { [weak self] in
             self?.homeDrawer = nil
+            completion?()
+        }
+    }
+
+    // MARK: - POI Detail Flow
+
+    private func showPOIDetail(_ mapItem: MKMapItem) {
+        guard navigationController.topViewController === homeViewController else { return }
+
+        // 이미 POI 시트가 떠있으면 내용만 업데이트
+        if let existing = poiDetailDrawer {
+            existing.update(with: mapItem)
+            return
+        }
+
+        dismissHomeDrawer { [weak self] in
+            guard let self else { return }
+
+            let detailVC = POIDetailViewController(mapItem: mapItem)
+            self.poiDetailDrawer = detailVC
+
+            detailVC.onRouteTapped = { [weak self] mapItem in
+                self?.dismissPOIDetail {
+                    self?.showRoutePreview(to: mapItem)
+                }
+            }
+
+            if let sheet = detailVC.sheetPresentationController {
+                let poiDetent = UISheetPresentationController.Detent.custom(
+                    identifier: .init("poiDetail")
+                ) { _ in 280 }
+                sheet.detents = [poiDetent]
+                sheet.prefersGrabberVisible = true
+                sheet.largestUndimmedDetentIdentifier = .init("poiDetail")
+                sheet.delegate = self
+            }
+
+            self.navigationController.present(detailVC, animated: true)
+            let containerView = self.navigationController.view!
+            self.homeViewController.updateMapControlBottomOffset(280)
+            self.homeViewController.updateMapInsets(
+                top: self.mapTopInset(in: containerView),
+                bottom: 280
+            )
+        }
+    }
+
+    private func dismissPOIDetail(animated: Bool = false, completion: (() -> Void)? = nil) {
+        guard let drawer = poiDetailDrawer else {
+            completion?()
+            return
+        }
+        drawer.dismiss(animated: animated) { [weak self] in
+            self?.poiDetailDrawer = nil
             completion?()
         }
     }
@@ -1002,7 +1061,11 @@ extension AppCoordinator: UISheetPresentationControllerDelegate {
                 mapViewController.onAnnotationSelected = nil
                 presentHomeDrawer()
             }
-            // Home drawer has isModalInPresentation = true, so this won't fire for it
+
+            if dismissed is POIDetailViewController {
+                poiDetailDrawer = nil
+                presentHomeDrawer()
+            }
         }
     }
 }
