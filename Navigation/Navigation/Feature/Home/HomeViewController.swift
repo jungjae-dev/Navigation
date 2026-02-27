@@ -9,7 +9,7 @@ final class HomeViewController: UIViewController {
     private let searchBarContainer: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.secondaryBackground
+        view.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
         view.layer.cornerRadius = Theme.CornerRadius.medium
         view.layer.shadowColor = Theme.Shadow.color
         view.layer.shadowOpacity = Theme.Shadow.opacity
@@ -45,7 +45,7 @@ final class HomeViewController: UIViewController {
             for: .normal
         )
         button.tintColor = Theme.Colors.secondaryLabel
-        button.backgroundColor = Theme.Colors.secondaryBackground
+        button.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
         button.layer.cornerRadius = 24
         button.layer.shadowColor = Theme.Shadow.color
         button.layer.shadowOpacity = Theme.Shadow.opacity
@@ -57,17 +57,14 @@ final class HomeViewController: UIViewController {
     // MARK: - Properties
 
     private var mapControlButtons: MapControlButtonsView!
-    private var mapControlBottomConstraint: NSLayoutConstraint!
+    private(set) var mapControlBottomConstraint: NSLayoutConstraint!
     private var compassButton: MKCompassButton!
 
     private let viewModel: HomeViewModel
-    private let mapViewController: MapViewController
+    let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
-    private var homeDrawer: HomeDrawerViewController!
 
     var onSearchBarTapped: (() -> Void)?
-    var onFavoriteTapped: ((FavoritePlace) -> Void)?
-    var onRecentSearchTapped: ((SearchHistory) -> Void)?
     var onSettingsTapped: (() -> Void)?
 
     // MARK: - Init
@@ -91,7 +88,6 @@ final class HomeViewController: UIViewController {
         setupSettingsButton()
         setupCompassButton()
         setupMapControlButtons()
-        setupDrawer()
         setupAccessibility()
         bindViewModel()
         handleInitialPermission()
@@ -177,7 +173,7 @@ final class HomeViewController: UIViewController {
         view.addSubview(buttons)
 
         mapControlBottomConstraint = buttons.bottomAnchor.constraint(
-            equalTo: view.bottomAnchor,
+            equalTo: view.safeAreaLayoutGuide.bottomAnchor,
             constant: -(200 + Theme.Spacing.md)
         )
 
@@ -217,36 +213,6 @@ final class HomeViewController: UIViewController {
         ])
     }
 
-    private func setupDrawer() {
-        let drawer = HomeDrawerViewController(viewModel: viewModel)
-        self.homeDrawer = drawer
-        drawer.onFavoriteTapped = { [weak self] fav in self?.onFavoriteTapped?(fav) }
-        drawer.onRecentSearchTapped = { [weak self] h in self?.onRecentSearchTapped?(h) }
-
-        addChild(drawer)
-        view.addSubview(drawer.view)
-        drawer.view.translatesAutoresizingMaskIntoConstraints = false
-
-        let heightConstraint = drawer.view.heightAnchor.constraint(equalToConstant: 200)
-        drawer.heightConstraint = heightConstraint
-
-        NSLayoutConstraint.activate([
-            drawer.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            drawer.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            drawer.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            heightConstraint,
-        ])
-
-        drawer.didMove(toParent: self)
-
-        drawer.onDetentChanged = { [weak self] detent in
-            self?.updateMapControlPosition(for: detent)
-        }
-        drawer.onHeightChanged = { [weak self] height in
-            self?.updateMapControlPositionDuringPan(height: height)
-        }
-    }
-
     // MARK: - Accessibility
 
     private func setupAccessibility() {
@@ -283,30 +249,13 @@ final class HomeViewController: UIViewController {
         mapControlButtons.updateMapModeIcon(isSatellite: isSatellite)
     }
 
-    // MARK: - Drawer Position Tracking
+    // MARK: - Map Control Position (called by coordinator)
 
-    private func updateMapControlPosition(for detent: HomeDrawerViewController.DrawerDetent) {
-        let drawerHeight: CGFloat = switch detent {
-        case .small, .medium:
-            detent.height(in: view)
-        case .large:
-            HomeDrawerViewController.DrawerDetent.medium.height(in: view)
-        }
-
-        UIView.animate(
-            withDuration: 0.35, delay: 0,
-            usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5,
-            options: .curveEaseInOut
-        ) {
-            self.mapControlBottomConstraint.constant = -(drawerHeight + Theme.Spacing.md)
+    func updateMapControlBottomOffset(_ height: CGFloat) {
+        UIView.animate(withDuration: 0.3) {
+            self.mapControlBottomConstraint.constant = -(height + Theme.Spacing.md)
             self.view.layoutIfNeeded()
         }
-    }
-
-    private func updateMapControlPositionDuringPan(height: CGFloat) {
-        let mediumHeight = HomeDrawerViewController.DrawerDetent.medium.height(in: view)
-        let effectiveHeight = min(height, mediumHeight)
-        mapControlBottomConstraint.constant = -(effectiveHeight + Theme.Spacing.md)
     }
 
     // MARK: - Actions

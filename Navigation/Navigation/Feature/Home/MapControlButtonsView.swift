@@ -62,7 +62,7 @@ final class MapControlButtonsView: UIView {
             for: .normal
         )
         button.tintColor = Theme.Colors.secondaryLabel
-        button.backgroundColor = Theme.Colors.secondaryBackground
+        button.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
         button.layer.cornerRadius = 24
         button.layer.shadowColor = Theme.Shadow.color
         button.layer.shadowOpacity = Theme.Shadow.opacity

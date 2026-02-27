@@ -3,24 +3,6 @@ import Combine
 
 final class HomeDrawerViewController: UIViewController {
 
-    // MARK: - Detent
-
-    enum DrawerDetent: CaseIterable {
-        case small, medium, large
-
-        func height(in containerView: UIView) -> CGFloat {
-            let safeTop = containerView.safeAreaInsets.top
-            let searchBarBottom = safeTop + Theme.Spacing.sm + 48 + Theme.Spacing.sm
-            let maxHeight = containerView.bounds.height - searchBarBottom
-
-            switch self {
-            case .small:  return 200
-            case .medium: return containerView.bounds.height * 0.5
-            case .large:  return maxHeight
-            }
-        }
-    }
-
     // MARK: - Collection Sections
 
     private enum HomeSection: Int, CaseIterable {
@@ -29,14 +11,6 @@ final class HomeDrawerViewController: UIViewController {
     }
 
     // MARK: - UI Components
-
-    private let handleBar: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.separator
-        view.layer.cornerRadius = 2
-        return view
-    }()
 
     private lazy var collectionView: UICollectionView = {
         let layout = createCompositionalLayout()
@@ -51,12 +25,6 @@ final class HomeDrawerViewController: UIViewController {
         return cv
     }()
 
-    // MARK: - Drag State
-
-    private var currentDetent: DrawerDetent = .small
-    private var panStartHeight: CGFloat = 0
-    var heightConstraint: NSLayoutConstraint!
-
     // MARK: - Properties
 
     private let viewModel: HomeViewModel
@@ -64,8 +32,6 @@ final class HomeDrawerViewController: UIViewController {
 
     var onFavoriteTapped: ((FavoritePlace) -> Void)?
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
-    var onDetentChanged: ((DrawerDetent) -> Void)?
-    var onHeightChanged: ((CGFloat) -> Void)?
 
     // MARK: - Init
 
@@ -82,42 +48,24 @@ final class HomeDrawerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        isModalInPresentation = true
         setupUI()
-        setupPanGesture()
         bindViewModel()
     }
 
     // MARK: - Setup
 
     private func setupUI() {
-        view.backgroundColor = Theme.Colors.background.withAlphaComponent(0.95)
-        view.layer.cornerRadius = Theme.CornerRadius.large
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        view.layer.shadowColor = Theme.Shadow.color
-        view.layer.shadowOpacity = Theme.Shadow.opacity
-        view.layer.shadowOffset = CGSize(width: 0, height: -2)
-        view.layer.shadowRadius = Theme.Shadow.radius
+        view.backgroundColor = Theme.Colors.background
 
-        view.addSubview(handleBar)
         view.addSubview(collectionView)
 
         NSLayoutConstraint.activate([
-            handleBar.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.sm),
-            handleBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            handleBar.widthAnchor.constraint(equalToConstant: 36),
-            handleBar.heightAnchor.constraint(equalToConstant: 4),
-
-            collectionView.topAnchor.constraint(equalTo: handleBar.bottomAnchor, constant: Theme.Spacing.sm),
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.lg),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
-    }
-
-    private func setupPanGesture() {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        pan.delegate = self
-        view.addGestureRecognizer(pan)
     }
 
     // MARK: - Binding
@@ -129,91 +77,6 @@ final class HomeDrawerViewController: UIViewController {
                 self?.collectionView.reloadData()
             }
             .store(in: &cancellables)
-    }
-
-    // MARK: - Pan Gesture
-
-    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        guard let containerView = view.superview else { return }
-
-        switch gesture.state {
-        case .began:
-            panStartHeight = heightConstraint.constant
-
-        case .changed:
-            let translation = gesture.translation(in: containerView)
-            let minHeight = DrawerDetent.small.height(in: containerView)
-            let maxHeight = DrawerDetent.large.height(in: containerView)
-            let newHeight = panStartHeight - translation.y
-            heightConstraint.constant = max(minHeight, min(maxHeight, newHeight))
-            containerView.layoutIfNeeded()
-            onHeightChanged?(heightConstraint.constant)
-
-        case .ended, .cancelled:
-            let velocity = gesture.velocity(in: containerView)
-            snapToNearestDetent(velocity: velocity.y, in: containerView)
-
-        default:
-            break
-        }
-    }
-
-    private func snapToNearestDetent(velocity: CGFloat, in containerView: UIView) {
-        let velocityThreshold: CGFloat = 500
-        let currentHeight = heightConstraint.constant
-
-        let targetDetent: DrawerDetent
-        if abs(velocity) > velocityThreshold {
-            // Fast swipe: move to next/previous detent based on direction
-            let sortedDetents = DrawerDetent.allCases.sorted {
-                $0.height(in: containerView) < $1.height(in: containerView)
-            }
-            if let currentIndex = sortedDetents.firstIndex(of: currentDetent) {
-                if velocity < 0 {
-                    // Swiping up → expand
-                    targetDetent = sortedDetents[min(currentIndex + 1, sortedDetents.count - 1)]
-                } else {
-                    // Swiping down → collapse
-                    targetDetent = sortedDetents[max(currentIndex - 1, 0)]
-                }
-            } else {
-                targetDetent = closestDetent(to: currentHeight, in: containerView)
-            }
-        } else {
-            targetDetent = closestDetent(to: currentHeight, in: containerView)
-        }
-
-        snapToDetent(targetDetent, in: containerView)
-    }
-
-    private func closestDetent(to height: CGFloat, in containerView: UIView) -> DrawerDetent {
-        DrawerDetent.allCases.min(by: {
-            abs($0.height(in: containerView) - height) < abs($1.height(in: containerView) - height)
-        }) ?? .small
-    }
-
-    func snapToDetent(_ detent: DrawerDetent, in containerView: UIView? = nil, animated: Bool = true) {
-        currentDetent = detent
-        guard let container = containerView ?? view.superview else { return }
-        let targetHeight = detent.height(in: container)
-
-        if animated {
-            UIView.animate(
-                withDuration: 0.35,
-                delay: 0,
-                usingSpringWithDamping: 0.8,
-                initialSpringVelocity: 0.5,
-                options: .curveEaseInOut
-            ) {
-                self.heightConstraint.constant = targetHeight
-                container.layoutIfNeeded()
-            }
-        } else {
-            heightConstraint.constant = targetHeight
-            container.layoutIfNeeded()
-        }
-
-        onDetentChanged?(detent)
     }
 
     // MARK: - Compositional Layout
@@ -283,37 +146,6 @@ final class HomeDrawerViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
         present(alert, animated: true)
-    }
-}
-
-// MARK: - UIGestureRecognizerDelegate
-
-extension HomeDrawerViewController: UIGestureRecognizerDelegate {
-
-    func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-    ) -> Bool {
-        otherGestureRecognizer == collectionView.panGestureRecognizer
-    }
-
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
-        let velocity = pan.velocity(in: view)
-
-        // Only handle vertical drags
-        guard abs(velocity.y) > abs(velocity.x) else { return false }
-
-        let isScrolledToTop = collectionView.contentOffset.y <= 0
-        let isDraggingDown = velocity.y > 0
-
-        if currentDetent == .large {
-            // At large: only begin drawer drag if scrolled to top and dragging down
-            return isScrolledToTop && isDraggingDown
-        } else {
-            // At small/medium: always handle drawer drag when scrolled to top
-            return isScrolledToTop
-        }
     }
 }
 

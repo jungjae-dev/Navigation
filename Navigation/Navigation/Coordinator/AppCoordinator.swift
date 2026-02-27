@@ -3,7 +3,7 @@ import MapKit
 import Combine
 import CoreLocation
 
-final class AppCoordinator: Coordinator {
+final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Coordinator
 
@@ -20,6 +20,8 @@ final class AppCoordinator: Coordinator {
 
     private var mapViewController: MapViewController!
     private var homeViewController: HomeViewController!
+    private var homeViewModel: HomeViewModel!
+    private var homeDrawer: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
     private var cancellables = Set<AnyCancellable>()
 
@@ -53,6 +55,7 @@ final class AppCoordinator: Coordinator {
         self.mapViewController = mapVC
 
         let homeViewModel = HomeViewModel(locationService: locationService)
+        self.homeViewModel = homeViewModel
         let homeVC = HomeViewController(
             viewModel: homeViewModel,
             mapViewController: mapVC
@@ -67,14 +70,6 @@ final class AppCoordinator: Coordinator {
             self?.showSettings()
         }
 
-        homeVC.onFavoriteTapped = { [weak self] favorite in
-            self?.showRoutePreviewForFavorite(favorite)
-        }
-
-        homeVC.onRecentSearchTapped = { [weak self] history in
-            self?.showRoutePreviewForHistory(history)
-        }
-
         navigationController.setViewControllers([homeVC], animated: false)
 
         window.rootViewController = navigationController
@@ -82,6 +77,98 @@ final class AppCoordinator: Coordinator {
 
         bindSessionManager()
         setupDebugOverlayObserver()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.presentHomeDrawer()
+        }
+    }
+
+    // MARK: - Home Drawer Management
+
+    private func presentHomeDrawer() {
+        guard homeDrawer == nil,
+              navigationController.topViewController === homeViewController,
+              navigationController.presentedViewController == nil else { return }
+
+        let drawerVC = HomeDrawerViewController(viewModel: homeViewModel)
+        homeDrawer = drawerVC
+
+        drawerVC.onFavoriteTapped = { [weak self] favorite in
+            self?.dismissHomeDrawer {
+                self?.showRoutePreviewForFavorite(favorite)
+            }
+        }
+        drawerVC.onRecentSearchTapped = { [weak self] history in
+            self?.dismissHomeDrawer {
+                self?.showRoutePreviewForHistory(history)
+            }
+        }
+
+        configureSheetDetents(for: drawerVC)
+
+        navigationController.present(drawerVC, animated: true)
+        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: navigationController.view)
+        homeViewController.updateMapControlBottomOffset(initialHeight)
+    }
+
+    private func dismissHomeDrawer(animated: Bool = false, completion: (() -> Void)? = nil) {
+        guard let drawer = homeDrawer else {
+            completion?()
+            return
+        }
+        drawer.dismiss(animated: animated) { [weak self] in
+            self?.homeDrawer = nil
+            completion?()
+        }
+    }
+
+    /// Maximum drawer height (below search bar with margin)
+    private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
+        let safeTop = containerView.safeAreaInsets.top
+        let searchBarBottom = safeTop + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+        return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm
+    }
+
+    /// Drawer height for a given detent identifier
+    private func drawerHeight(for detentId: UISheetPresentationController.Detent.Identifier?, in containerView: UIView) -> CGFloat {
+        switch detentId {
+        case Self.smallDetentId:
+            return 200
+        case Self.mediumDetentId:
+            return drawerMaxHeight(in: containerView) * 0.5
+        default:
+            return drawerMaxHeight(in: containerView)
+        }
+    }
+
+    // MARK: - Drawer Detent Identifiers
+
+    private static let smallDetentId = UISheetPresentationController.Detent.Identifier("small")
+    private static let mediumDetentId = UISheetPresentationController.Detent.Identifier("drawerMedium")
+    private static let largeDetentId = UISheetPresentationController.Detent.Identifier("drawerLarge")
+
+    /// Unified sheet detent configuration shared by home drawer and search result drawer
+    private func configureSheetDetents(for viewController: UIViewController) {
+        guard let sheet = viewController.sheetPresentationController else { return }
+
+        let smallDetent = UISheetPresentationController.Detent.custom(identifier: Self.smallDetentId) { _ in
+            return 200
+        }
+        let mediumDetent = UISheetPresentationController.Detent.custom(identifier: Self.mediumDetentId) { [weak self] _ in
+            guard let view = self?.navigationController.view else { return 400 }
+            return (self?.drawerMaxHeight(in: view) ?? 400) * 0.5
+        }
+        let largeDetent = UISheetPresentationController.Detent.custom(identifier: Self.largeDetentId) { [weak self] _ in
+            guard let view = self?.navigationController.view else { return 600 }
+            return self?.drawerMaxHeight(in: view) ?? 600
+        }
+
+        sheet.detents = [smallDetent, mediumDetent, largeDetent]
+        sheet.selectedDetentIdentifier = Self.mediumDetentId
+        sheet.prefersGrabberVisible = true
+        sheet.largestUndimmedDetentIdentifier = Self.largeDetentId
+        sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+        sheet.delegate = self
     }
 
     // MARK: - Debug Overlay
@@ -138,6 +225,7 @@ final class AppCoordinator: Coordinator {
         // Dismiss any presented VCs (search, drawer)
         navigationController.dismiss(animated: false)
         currentDrawer = nil
+        homeDrawer = nil
 
         // Pop to home if needed
         if navigationController.topViewController !== homeViewController {
@@ -202,18 +290,25 @@ final class AppCoordinator: Coordinator {
     // MARK: - Settings Flow
 
     private func showSettings() {
-        let settingsVM = SettingsViewModel()
-        let settingsVC = SettingsViewController(viewModel: settingsVM)
+        dismissHomeDrawer { [weak self] in
+            guard let self else { return }
 
-        settingsVC.onDismiss = { [weak self] in
-            self?.navigationController.popViewController(animated: true)
+            let settingsVM = SettingsViewModel()
+            let settingsVC = SettingsViewController(viewModel: settingsVM)
+
+            settingsVC.onDismiss = { [weak self] in
+                self?.navigationController.popViewController(animated: true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self?.presentHomeDrawer()
+                }
+            }
+
+            settingsVC.onShowDevTools = { [weak self] in
+                self?.showDevTools()
+            }
+
+            self.navigationController.pushViewController(settingsVC, animated: true)
         }
-
-        settingsVC.onShowDevTools = { [weak self] in
-            self?.showDevTools()
-        }
-
-        navigationController.pushViewController(settingsVC, animated: true)
     }
 
     // MARK: - DevTools Flow
@@ -278,23 +373,41 @@ final class AppCoordinator: Coordinator {
     // MARK: - Search Flow
 
     private func showSearch() {
-        let searchViewModel = SearchViewModel(
-            searchService: searchService
-        )
-        let searchVC = SearchViewController(viewModel: searchViewModel)
-        searchVC.modalPresentationStyle = .fullScreen
-
-        searchVC.onDismiss = { [weak self] in
-            self?.navigationController.dismiss(animated: true)
-        }
-
-        searchVC.onSearchResults = { [weak self] results in
-            self?.navigationController.dismiss(animated: true) {
-                self?.showSearchResults(results)
+        // Dismiss whichever drawer is currently presented (home or search result)
+        let dismissAction: (@escaping () -> Void) -> Void
+        if currentDrawer != nil {
+            dismissAction = { [weak self] completion in
+                self?.dismissSearchResultDrawer(animated: false, completion: completion)
+            }
+        } else {
+            dismissAction = { [weak self] completion in
+                self?.dismissHomeDrawer(completion: completion)
             }
         }
 
-        navigationController.present(searchVC, animated: true)
+        dismissAction { [weak self] in
+            guard let self else { return }
+
+            let searchViewModel = SearchViewModel(
+                searchService: self.searchService
+            )
+            let searchVC = SearchViewController(viewModel: searchViewModel)
+            searchVC.modalPresentationStyle = .fullScreen
+
+            searchVC.onDismiss = { [weak self] in
+                self?.navigationController.dismiss(animated: true) {
+                    self?.presentHomeDrawer()
+                }
+            }
+
+            searchVC.onSearchResults = { [weak self] results in
+                self?.navigationController.dismiss(animated: true) {
+                    self?.showSearchResults(results)
+                }
+            }
+
+            self.navigationController.present(searchVC, animated: false)
+        }
     }
 
     private func showSearchResults(_ results: [MKMapItem]) {
@@ -321,22 +434,25 @@ final class AppCoordinator: Coordinator {
             self?.currentDrawer?.scrollToIndex(index)
         }
 
-        // Present as sheet
-        if let sheet = drawerVC.sheetPresentationController {
-            let smallDetent = UISheetPresentationController.Detent.custom(identifier: .init("small")) { _ in
-                return 200
-            }
-            let mediumDetent = UISheetPresentationController.Detent.medium()
-            let largeDetent = UISheetPresentationController.Detent.large()
-
-            sheet.detents = [smallDetent, mediumDetent, largeDetent]
-            sheet.selectedDetentIdentifier = .init("small")
-            sheet.prefersGrabberVisible = true
-            sheet.largestUndimmedDetentIdentifier = largeDetent.identifier
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-        }
+        // Present as sheet (unified detents with home drawer)
+        configureSheetDetents(for: drawerVC)
 
         navigationController.present(drawerVC, animated: true)
+        let initialHeight = drawerHeight(for: Self.mediumDetentId, in: navigationController.view)
+        homeViewController.updateMapControlBottomOffset(initialHeight)
+    }
+
+    private func dismissSearchResultDrawer(animated: Bool = true, completion: (() -> Void)? = nil) {
+        guard let drawer = currentDrawer else {
+            completion?()
+            return
+        }
+        drawer.dismiss(animated: animated) { [weak self] in
+            self?.currentDrawer = nil
+            self?.mapViewController.clearSearchResults()
+            self?.mapViewController.onAnnotationSelected = nil
+            completion?()
+        }
     }
 
     // MARK: - Route Preview Flow
@@ -444,6 +560,8 @@ final class AppCoordinator: Coordinator {
         ])
 
         mapViewController.didMove(toParent: homeViewController)
+
+        presentHomeDrawer()
     }
 
     // MARK: - Navigation Flow
@@ -835,5 +953,43 @@ final class AppCoordinator: Coordinator {
         mapInterpolator = nil
         mapCamera = nil
         turnPointPopupService = nil
+    }
+}
+
+// MARK: - UISheetPresentationControllerDelegate
+
+extension AppCoordinator: UISheetPresentationControllerDelegate {
+
+    nonisolated func sheetPresentationControllerDidChangeSelectedDetentIdentifier(
+        _ sheetPresentationController: UISheetPresentationController
+    ) {
+        MainActor.assumeIsolated {
+            let detentId = sheetPresentationController.selectedDetentIdentifier
+            let containerView = navigationController.view!
+
+            // Cap at medium for map control buttons (don't move higher at large)
+            let effectiveDetent: UISheetPresentationController.Detent.Identifier? =
+                (detentId == Self.largeDetentId) ? Self.mediumDetentId : detentId
+            let height = drawerHeight(for: effectiveDetent, in: containerView)
+
+            homeViewController.updateMapControlBottomOffset(height)
+        }
+    }
+
+    nonisolated func presentationControllerDidDismiss(
+        _ presentationController: UIPresentationController
+    ) {
+        MainActor.assumeIsolated {
+            let dismissed = presentationController.presentedViewController
+
+            if dismissed is SearchResultDrawerViewController {
+                // Search result drawer dismissed by drag → clean up and show home drawer
+                currentDrawer = nil
+                mapViewController.clearSearchResults()
+                mapViewController.onAnnotationSelected = nil
+                presentHomeDrawer()
+            }
+            // Home drawer has isModalInPresentation = true, so this won't fire for it
+        }
     }
 }
