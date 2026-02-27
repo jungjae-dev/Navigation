@@ -9,7 +9,9 @@
       "Bash(git rm:*)",
       "Bash(git checkout:*)",
       "Bash(xcrun simctl:*)",
-      "Bash(security find-identity:*)"
+      "Bash(security find-identity:*)",
+      "WebFetch(domain:lab.odsay.com)",
+      "WebFetch(domain:naver.github.io)"
     ]
   }
 }

@@ -24,6 +24,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeDrawer: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
     private var poiDetailDrawer: POIDetailViewController?
+    private var routePreviewDrawer: RoutePreviewDrawerViewController?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - iPhone-only Navigation Services
@@ -32,6 +33,10 @@ final class AppCoordinator: NSObject, Coordinator {
     private var mapInterpolator: MapInterpolator?
     private var mapCamera: MapCamera?
     private var turnPointPopupService: TurnPointPopupService?
+
+    // MARK: - Navigation Map (ephemeral, created per session)
+
+    private var navigationMapViewController: MapViewController?
 
     // MARK: - Virtual Drive
 
@@ -138,8 +143,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
         let presenter: UIViewController = homeDrawer ?? navigationController
         presentPOIDetail(mapItem, from: presenter) { [weak self] mapItem in
-            // 홈 → POI 상세 → 경로: 홈 드로어 + POI 상세 모두 dismiss
-            self?.dismissAllDrawers {
+            // 홈 → POI 상세 → 경로: 중간 드로어만 dismiss, homeDrawer 유지
+            self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: mapItem)
             }
         }
@@ -155,8 +160,8 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         presentPOIDetail(mapItem, from: drawer) { [weak self] mapItem in
-            // 검색결과 → POI 상세 → 경로: 모든 드로어 dismiss
-            self?.dismissAllDrawers {
+            // 검색결과 → POI 상세 → 경로: 중간 드로어만 dismiss, homeDrawer 유지
+            self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: mapItem)
             }
         }
@@ -253,15 +258,12 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func dismissAllDrawers(animated: Bool = false, completion: (() -> Void)? = nil) {
-        // POI 상세 → 검색결과/홈 드로어 순서로 dismiss
-        // 최상위 presenter를 dismiss하면 그 위의 presented VC도 함께 dismiss됨
-        // homeDrawer가 있으면 homeDrawer dismiss → 검색결과 + POI 상세 모두 dismiss
-        // homeDrawer가 없으면 navigationController의 presented dismiss
-        if let home = homeDrawer {
-            home.dismiss(animated: animated) { [weak self] in
+        if homeDrawer != nil {
+            navigationController.dismiss(animated: animated) { [weak self] in
                 self?.homeDrawer = nil
                 self?.currentDrawer = nil
                 self?.poiDetailDrawer = nil
+                self?.routePreviewDrawer = nil
                 self?.mapViewController.clearSearchResults()
                 self?.mapViewController.onAnnotationSelected = nil
                 completion?()
@@ -270,6 +272,7 @@ final class AppCoordinator: NSObject, Coordinator {
             navigationController.dismiss(animated: animated) { [weak self] in
                 self?.currentDrawer = nil
                 self?.poiDetailDrawer = nil
+                self?.routePreviewDrawer = nil
                 self?.mapViewController.clearSearchResults()
                 self?.mapViewController.onAnnotationSelected = nil
                 completion?()
@@ -347,8 +350,10 @@ final class AppCoordinator: NSObject, Coordinator {
             let enabled = UserDefaults.standard.bool(forKey: "devtools_debug_overlay_enabled")
             if enabled {
                 self?.mapViewController.showDebugOverlay()
+                self?.navigationMapViewController?.showDebugOverlay()
             } else {
                 self?.mapViewController.hideDebugOverlay()
+                self?.navigationMapViewController?.hideDebugOverlay()
             }
         }
     }
@@ -381,21 +386,9 @@ final class AppCoordinator: NSObject, Coordinator {
         // If already showing navigation, skip
         guard navigationViewController == nil else { return }
 
-        // Dismiss any presented VCs (search, drawer)
-        navigationController.dismiss(animated: false)
-        currentDrawer = nil
-        homeDrawer = nil
-        poiDetailDrawer = nil
-
-        // Pop to home if needed
-        if navigationController.topViewController !== homeViewController {
-            navigationController.popToViewController(homeViewController, animated: false)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.returnMapToHome()
-                self?.presentNavigationFromSession(session)
-            }
-        } else {
-            presentNavigationFromSession(session)
+        // Dismiss all drawers (home, search, POI, route preview)
+        dismissAllDrawers(animated: false) { [weak self] in
+            self?.presentNavigationFromSession(session)
         }
     }
 
@@ -411,15 +404,11 @@ final class AppCoordinator: NSObject, Coordinator {
         self.mapInterpolator = interpolator
         self.turnPointPopupService = popup
 
-        // Remove map from Home
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
-
-        // Configure map for navigation
-        mapViewController.clearAll()
-        mapViewController.configureForNavigation()
-        mapViewController.showSingleRoute(session.route)
+        // Create a fresh map for navigation (home map stays untouched)
+        let navMapVC = createNavigationMapVC()
+        self.navigationMapViewController = navMapVC
+        navMapVC.configureForNavigation()
+        navMapVC.showSingleRoute(session.route)
 
         // Create NavigationViewModel with shared GuidanceEngine
         let navViewModel = NavigationViewModel(
@@ -432,7 +421,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
         let navVC = NavigationViewController(
             viewModel: navViewModel,
-            mapViewController: mapViewController,
+            mapViewController: navMapVC,
             turnPointPopupService: popup
         )
         self.navigationViewController = navVC
@@ -441,7 +430,7 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.dismissNavigation()
         }
 
-        interpolator.start(mapViewController: mapViewController)
+        interpolator.start(mapViewController: navMapVC)
         navViewModel.startNavigation(with: session.route)
 
         navigationController.pushViewController(navVC, animated: true)
@@ -513,26 +502,62 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Favorite / History Quick Navigate
 
     private func showRoutePreviewForFavorite(_ favorite: FavoritePlace) {
-        dismissAllDrawers { [weak self] in
+        // Dismiss intermediate drawers (search results, POI detail), keep homeDrawer
+        dismissIntermediateDrawers { [weak self] in
             guard let self else { return }
             let destination = CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude)
             let userCoordinate = self.locationService.locationPublisher.value?.coordinate
                 ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
 
             self.mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
-            self.moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: favorite.name)
+            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: favorite.name)
         }
     }
 
     private func showRoutePreviewForHistory(_ history: SearchHistory) {
-        dismissAllDrawers { [weak self] in
+        // Dismiss intermediate drawers (search results, POI detail), keep homeDrawer
+        dismissIntermediateDrawers { [weak self] in
             guard let self else { return }
             let destination = history.coordinate
             let userCoordinate = self.locationService.locationPublisher.value?.coordinate
                 ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
 
             self.mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
-            self.moveMapToRoutePreview(origin: userCoordinate, destination: destination, destinationName: history.placeName)
+            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: history.placeName)
+        }
+    }
+
+    private func dismissIntermediateDrawers(completion: (() -> Void)? = nil) {
+        if let routePreview = routePreviewDrawer {
+            routePreview.dismiss(animated: false) { [weak self] in
+                self?.routePreviewDrawer = nil
+                self?.mapViewController.clearRoutes()
+                self?.mapViewController.clearDestination()
+                completion?()
+            }
+        } else if poiDetailDrawer != nil {
+            poiDetailDrawer?.dismiss(animated: false) { [weak self] in
+                self?.poiDetailDrawer = nil
+                if let search = self?.currentDrawer {
+                    search.dismiss(animated: false) {
+                        self?.currentDrawer = nil
+                        self?.mapViewController.clearSearchResults()
+                        self?.mapViewController.onAnnotationSelected = nil
+                        completion?()
+                    }
+                } else {
+                    completion?()
+                }
+            }
+        } else if let search = currentDrawer {
+            search.dismiss(animated: false) { [weak self] in
+                self?.currentDrawer = nil
+                self?.mapViewController.clearSearchResults()
+                self?.mapViewController.onAnnotationSelected = nil
+                completion?()
+            }
+        } else {
+            completion?()
         }
     }
 
@@ -673,26 +698,29 @@ final class AppCoordinator: NSObject, Coordinator {
         let userCoordinate = locationService.locationPublisher.value?.coordinate
             ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780) // Seoul fallback
 
-        // Move map to child of RoutePreviewVC
-        moveMapToRoutePreview(
+        // Present route preview as drawer (map stays in HomeVC)
+        presentRoutePreviewDrawer(
             origin: userCoordinate,
             destination: coordinate,
             destinationName: mapItem.name
         )
     }
 
-    private func moveMapToRoutePreview(
+    // MARK: - Route Preview Drawer
+
+    private static let routePreviewCompactDetentId =
+        UISheetPresentationController.Detent.Identifier("routePreviewCompact")
+    private static let routePreviewExpandedDetentId =
+        UISheetPresentationController.Detent.Identifier("routePreviewExpanded")
+
+    private func presentRoutePreviewDrawer(
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
         destinationName: String?
     ) {
-        // Remove map from Home
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
-        mapViewController.resetMapInsets()
+        // Ensure home drawer exists
+        presentHomeDrawer()
 
-        // Create RoutePreview
         let routePreviewVM = RoutePreviewViewModel(
             routeService: routeService,
             origin: origin,
@@ -700,16 +728,18 @@ final class AppCoordinator: NSObject, Coordinator {
             destinationName: destinationName
         )
 
-        let routePreviewVC = RoutePreviewViewController(
-            viewModel: routePreviewVM,
-            mapViewController: mapViewController
-        )
+        let drawerVC = RoutePreviewDrawerViewController(viewModel: routePreviewVM)
+        routePreviewDrawer = drawerVC
 
-        routePreviewVC.onDismiss = { [weak self] in
-            self?.dismissRoutePreview()
+        drawerVC.onClose = { [weak self] in
+            self?.dismissRoutePreviewDrawerWithCleanup()
         }
 
-        routePreviewVC.onStartNavigation = { [weak self] route, transportMode in
+        drawerVC.onRoutesChanged = { [weak self] routes, selectedIndex in
+            self?.mapViewController.showRoutes(routes, selectedIndex: selectedIndex)
+        }
+
+        drawerVC.onStartNavigation = { [weak self] route, transportMode in
             let mapItem = MKMapItem(
                 location: CLLocation(latitude: destination.latitude, longitude: destination.longitude),
                 address: nil
@@ -718,45 +748,62 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.startNavigation(with: route, destination: mapItem, transportMode: transportMode)
         }
 
-        routePreviewVC.onStartVirtualDrive = { [weak self] route, transportMode in
+        drawerVC.onStartVirtualDrive = { [weak self] route, transportMode in
             self?.startVirtualDrive(with: route, transportMode: transportMode)
         }
 
-        navigationController.pushViewController(routePreviewVC, animated: true)
-    }
+        // Configure sheet detents
+        if let sheet = drawerVC.sheetPresentationController {
+            let compactDetent = UISheetPresentationController.Detent.custom(
+                identifier: Self.routePreviewCompactDetentId
+            ) { _ in 200 }
+            let expandedDetent = UISheetPresentationController.Detent.custom(
+                identifier: Self.routePreviewExpandedDetentId
+            ) { _ in 420 }
 
-    private func dismissRoutePreview() {
-        // Pop RoutePreviewVC
-        navigationController.popViewController(animated: true)
+            sheet.detents = [compactDetent, expandedDetent]
+            sheet.selectedDetentIdentifier = Self.routePreviewExpandedDetentId
+            sheet.prefersGrabberVisible = true
+            sheet.largestUndimmedDetentIdentifier = Self.routePreviewExpandedDetentId
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.delegate = self
+        }
 
-        // Return map to Home
+        // Present from homeDrawer after its animation completes
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self else { return }
-            self.returnMapToHome()
+            guard let self, let homeDrawer = self.homeDrawer else { return }
+            homeDrawer.present(drawerVC, animated: true)
+
+            let containerView = self.navigationController.view!
+            self.homeViewController.updateMapControlBottomOffset(420)
+            self.homeViewController.updateMapInsets(
+                top: self.mapTopInset(in: containerView),
+                bottom: 420
+            )
         }
     }
 
-    private func returnMapToHome() {
-        // Remove map from any parent
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
+    private func dismissRoutePreviewDrawerWithCleanup() {
+        routePreviewDrawer?.dismiss(animated: true) { [weak self] in
+            self?.routePreviewDrawer = nil
+            self?.mapViewController.clearRoutes()
+            self?.mapViewController.clearDestination()
+            // Restore home drawer insets
+            guard let self, let containerView = self.navigationController.view else { return }
+            let height = self.drawerHeight(for: Self.mediumDetentId, in: containerView)
+            self.homeViewController.updateMapControlBottomOffset(height)
+            self.homeViewController.updateMapInsets(
+                top: self.mapTopInset(in: containerView),
+                bottom: height
+            )
+        }
+    }
 
-        // Re-add to Home
-        homeViewController.addChild(mapViewController)
-        homeViewController.view.insertSubview(mapViewController.view, at: 0)
-        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
+    // MARK: - Navigation Map Factory
 
-        NSLayoutConstraint.activate([
-            mapViewController.view.topAnchor.constraint(equalTo: homeViewController.view.topAnchor),
-            mapViewController.view.leadingAnchor.constraint(equalTo: homeViewController.view.leadingAnchor),
-            mapViewController.view.trailingAnchor.constraint(equalTo: homeViewController.view.trailingAnchor),
-            mapViewController.view.bottomAnchor.constraint(equalTo: homeViewController.view.bottomAnchor),
-        ])
-
-        mapViewController.didMove(toParent: homeViewController)
-
-        presentHomeDrawer()
+    private func createNavigationMapVC() -> MapViewController {
+        let mapVC = MapViewController(locationService: locationService)
+        return mapVC
     }
 
     // MARK: - Navigation Flow
@@ -768,9 +815,6 @@ final class AppCoordinator: NSObject, Coordinator {
             ?? MKMapItem(location: CLLocation(latitude: lastCoord.latitude, longitude: lastCoord.longitude), address: nil)
 
         // 2. Start shared navigation session via SessionManager
-        //    This creates GuidanceEngine, VoiceService, OffRouteDetector,
-        //    configures location, and starts guidance.
-        //    CarPlay will auto-detect via navigationCommandPublisher.
         sessionManager.startNavigation(
             route: route,
             destination: resolvedDestination,
@@ -779,56 +823,57 @@ final class AppCoordinator: NSObject, Coordinator {
 
         guard let session = sessionManager.activeSessionPublisher.value else { return }
 
-        // 3. Create iPhone-only services
-        let camera = MapCamera()
-        camera.transportMode = transportMode
-        let interpolator = MapInterpolator(mapCamera: camera)
-        let popup = TurnPointPopupService(
-            guidanceEngine: session.guidanceEngine,
-            locationService: locationService
-        )
+        // 3. Dismiss all drawers first
+        dismissAllDrawers(animated: false) { [weak self] in
+            guard let self else { return }
 
-        self.mapCamera = camera
-        self.mapInterpolator = interpolator
-        self.turnPointPopupService = popup
+            // 4. Create iPhone-only services
+            let camera = MapCamera()
+            camera.transportMode = transportMode
+            let interpolator = MapInterpolator(mapCamera: camera)
+            let popup = TurnPointPopupService(
+                guidanceEngine: session.guidanceEngine,
+                locationService: self.locationService
+            )
 
-        // 4. Remove map from RoutePreviewVC
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
+            self.mapCamera = camera
+            self.mapInterpolator = interpolator
+            self.turnPointPopupService = popup
 
-        // 5. Configure map for navigation mode
-        mapViewController.clearAll()
-        mapViewController.configureForNavigation()
-        mapViewController.showSingleRoute(route)
+            // 5. Create a fresh map for navigation (home map stays untouched)
+            let navMapVC = self.createNavigationMapVC()
+            self.navigationMapViewController = navMapVC
+            navMapVC.configureForNavigation()
+            navMapVC.showSingleRoute(route)
 
-        // 6. Create NavigationViewModel with shared GuidanceEngine
-        let navViewModel = NavigationViewModel(
-            guidanceEngine: session.guidanceEngine,
-            mapInterpolator: interpolator,
-            turnPointPopupService: popup,
-            locationService: locationService,
-            mapCamera: camera
-        )
+            // 6. Create NavigationViewModel with shared GuidanceEngine
+            let navViewModel = NavigationViewModel(
+                guidanceEngine: session.guidanceEngine,
+                mapInterpolator: interpolator,
+                turnPointPopupService: popup,
+                locationService: self.locationService,
+                mapCamera: camera
+            )
 
-        // 7. Create NavigationViewController
-        let navVC = NavigationViewController(
-            viewModel: navViewModel,
-            mapViewController: mapViewController,
-            turnPointPopupService: popup
-        )
-        self.navigationViewController = navVC
+            // 7. Create NavigationViewController
+            let navVC = NavigationViewController(
+                viewModel: navViewModel,
+                mapViewController: navMapVC,
+                turnPointPopupService: popup
+            )
+            self.navigationViewController = navVC
 
-        navVC.onDismiss = { [weak self] in
-            self?.dismissNavigation()
+            navVC.onDismiss = { [weak self] in
+                self?.dismissNavigation()
+            }
+
+            // 8. Start iPhone-only services
+            interpolator.start(mapViewController: navMapVC)
+            navViewModel.startNavigation(with: route, transportMode: transportMode)
+
+            // 9. Push NavigationVC
+            self.navigationController.pushViewController(navVC, animated: true)
         }
-
-        // 8. Start iPhone-only services
-        interpolator.start(mapViewController: mapViewController)
-        navViewModel.startNavigation(with: route, transportMode: transportMode)
-
-        // 9. Push NavigationVC (replaces RoutePreviewVC)
-        navigationController.pushViewController(navVC, animated: true)
     }
 
     private func dismissNavigation() {
@@ -842,119 +887,121 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: MKRoute, transportMode: TransportMode = .automobile) {
-        // 1. Create virtual drive engine
-        let engine = VirtualDriveEngine()
-        engine.load(route: route, transportMode: transportMode)
-        self.virtualDriveEngine = engine
+        // 1. Dismiss all drawers first
+        dismissAllDrawers(animated: false) { [weak self] in
+            guard let self else { return }
 
-        // 2. Remove map from RoutePreviewVC
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
+            // 2. Create virtual drive engine
+            let engine = VirtualDriveEngine()
+            engine.load(route: route, transportMode: transportMode)
+            self.virtualDriveEngine = engine
 
-        // 3. Configure map for navigation-like view
-        let camera = MapCamera()
-        camera.transportMode = transportMode
-        let interpolator = MapInterpolator(mapCamera: camera)
+            // 3. Create a fresh map for virtual drive (home map stays untouched)
+            let navMapVC = self.createNavigationMapVC()
+            self.navigationMapViewController = navMapVC
 
-        self.mapCamera = camera
-        self.mapInterpolator = interpolator
+            // 4. Configure map for navigation-like view
+            let camera = MapCamera()
+            camera.transportMode = transportMode
+            let interpolator = MapInterpolator(mapCamera: camera)
 
-        mapViewController.clearAll()
-        mapViewController.configureForNavigation()
-        mapViewController.showSingleRoute(route)
+            self.mapCamera = camera
+            self.mapInterpolator = interpolator
 
-        // 4. Create a container VC for map + controls
-        let containerVC = UIViewController()
-        containerVC.view.backgroundColor = Theme.Colors.background
+            navMapVC.configureForNavigation()
+            navMapVC.showSingleRoute(route)
 
-        // Add map as child
-        containerVC.addChild(mapViewController)
-        containerVC.view.addSubview(mapViewController.view)
-        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            mapViewController.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
-            mapViewController.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
-            mapViewController.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
-            mapViewController.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
-        ])
-        mapViewController.didMove(toParent: containerVC)
+            // 5. Create a container VC for map + controls
+            let containerVC = UIViewController()
+            containerVC.view.backgroundColor = Theme.Colors.background
 
-        // 5. Start interpolation
-        interpolator.start(mapViewController: mapViewController)
+            containerVC.addChild(navMapVC)
+            containerVC.view.addSubview(navMapVC.view)
+            navMapVC.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                navMapVC.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
+                navMapVC.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
+                navMapVC.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
+                navMapVC.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
+            ])
+            navMapVC.didMove(toParent: containerVC)
 
-        // 6. Feed simulated locations into interpolator
-        engine.simulatedLocationPublisher
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] location in
-                let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
-                self?.mapInterpolator?.updateTarget(
-                    location: location,
-                    heading: heading
-                )
+            // 6. Start interpolation
+            interpolator.start(mapViewController: navMapVC)
+
+            // 7. Feed simulated locations into interpolator
+            engine.simulatedLocationPublisher
+                .compactMap { $0 }
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] location in
+                    let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
+                    self?.mapInterpolator?.updateTarget(
+                        location: location,
+                        heading: heading
+                    )
+                }
+                .store(in: &self.cancellables)
+
+            // 8. Add back button
+            let backButton = UIButton(type: .system)
+            backButton.translatesAutoresizingMaskIntoConstraints = false
+            backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+            backButton.tintColor = Theme.Colors.label
+            backButton.backgroundColor = Theme.Colors.secondaryBackground
+            backButton.layer.cornerRadius = 20
+            backButton.layer.shadowColor = Theme.Shadow.color
+            backButton.layer.shadowOpacity = Theme.Shadow.opacity
+            backButton.layer.shadowOffset = Theme.Shadow.offset
+            backButton.layer.shadowRadius = Theme.Shadow.radius
+            containerVC.view.addSubview(backButton)
+
+            NSLayoutConstraint.activate([
+                backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
+                backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
+                backButton.widthAnchor.constraint(equalToConstant: 40),
+                backButton.heightAnchor.constraint(equalToConstant: 40),
+            ])
+
+            backButton.addAction(UIAction { [weak self] _ in
+                self?.stopVirtualDrive()
+            }, for: .touchUpInside)
+
+            // 9. Add virtual drive control overlay
+            let controlView = VirtualDriveControlView()
+            controlView.bind(to: engine)
+            self.virtualDriveControlView = controlView
+            containerVC.view.addSubview(controlView)
+
+            NSLayoutConstraint.activate([
+                controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
+                controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
+                controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            ])
+
+            controlView.onPlayPause = { [weak engine] in
+                guard let engine else { return }
+                switch engine.playStatePublisher.value {
+                case .playing:
+                    engine.pause()
+                case .idle, .paused, .finished:
+                    engine.play()
+                }
             }
-            .store(in: &cancellables)
 
-        // 7. Add back button
-        let backButton = UIButton(type: .system)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-        backButton.tintColor = Theme.Colors.label
-        backButton.backgroundColor = Theme.Colors.secondaryBackground
-        backButton.layer.cornerRadius = 20
-        backButton.layer.shadowColor = Theme.Shadow.color
-        backButton.layer.shadowOpacity = Theme.Shadow.opacity
-        backButton.layer.shadowOffset = Theme.Shadow.offset
-        backButton.layer.shadowRadius = Theme.Shadow.radius
-        containerVC.view.addSubview(backButton)
-
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
-            backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
-            backButton.widthAnchor.constraint(equalToConstant: 40),
-            backButton.heightAnchor.constraint(equalToConstant: 40),
-        ])
-
-        backButton.addAction(UIAction { [weak self] _ in
-            self?.stopVirtualDrive()
-        }, for: .touchUpInside)
-
-        // 8. Add virtual drive control overlay
-        let controlView = VirtualDriveControlView()
-        controlView.bind(to: engine)
-        self.virtualDriveControlView = controlView
-        containerVC.view.addSubview(controlView)
-
-        NSLayoutConstraint.activate([
-            controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
-            controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
-            controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-        ])
-
-        controlView.onPlayPause = { [weak engine] in
-            guard let engine else { return }
-            switch engine.playStatePublisher.value {
-            case .playing:
-                engine.pause()
-            case .idle, .paused, .finished:
-                engine.play()
+            controlView.onStop = { [weak self] in
+                self?.stopVirtualDrive()
             }
+
+            controlView.onSpeedCycle = { [weak engine] in
+                engine?.cycleSpeed()
+            }
+
+            // 10. Push container VC
+            self.navigationController.pushViewController(containerVC, animated: true)
+
+            // 11. Auto-play
+            engine.play()
         }
-
-        controlView.onStop = { [weak self] in
-            self?.stopVirtualDrive()
-        }
-
-        controlView.onSpeedCycle = { [weak engine] in
-            engine?.cycleSpeed()
-        }
-
-        // 9. Push container VC
-        navigationController.pushViewController(containerVC, animated: true)
-
-        // 10. Auto-play
-        engine.play()
     }
 
     private func stopVirtualDrive() {
@@ -969,23 +1016,12 @@ final class AppCoordinator: NSObject, Coordinator {
         mapInterpolator = nil
         mapCamera = nil
 
-        // Remove map from container
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
-
-        // Restore map to standard mode
-        mapViewController.configureForStandard()
-        mapViewController.clearAll()
-        mapViewController.clearNavigationRoute()
+        // Discard navigation map (home map was never touched)
+        navigationMapViewController = nil
 
         // Pop to home
         navigationController.popToViewController(homeViewController, animated: true)
-
-        // Re-attach map to Home after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.returnMapToHome()
-        }
+        presentHomeDrawer()
     }
 
     // MARK: - GPX Playback Flow
@@ -1001,14 +1037,9 @@ final class AppCoordinator: NSObject, Coordinator {
         // Inject simulated locations into LocationService
         LocationService.shared.startLocationOverride(from: simulator.simulatedLocationPublisher)
 
-        // Remove map from current parent
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
-
-        // Configure map
-        mapViewController.clearAll()
-        mapViewController.configureForStandard()
+        // Create a fresh map for GPX playback (home map stays untouched)
+        let navMapVC = createNavigationMapVC()
+        self.navigationMapViewController = navMapVC
 
         // Show the GPX track as a polyline overlay
         let parser = GPXParser()
@@ -1016,23 +1047,23 @@ final class AppCoordinator: NSObject, Coordinator {
         if locations.count >= 2 {
             let coordinates = locations.map { $0.coordinate }
             let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-            mapViewController.addOverlay(polyline)
+            navMapVC.addOverlay(polyline)
         }
 
         // Create container VC
         let containerVC = UIViewController()
         containerVC.view.backgroundColor = Theme.Colors.background
 
-        containerVC.addChild(mapViewController)
-        containerVC.view.addSubview(mapViewController.view)
-        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
+        containerVC.addChild(navMapVC)
+        containerVC.view.addSubview(navMapVC.view)
+        navMapVC.view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            mapViewController.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
-            mapViewController.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
-            mapViewController.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
-            mapViewController.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
+            navMapVC.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
+            navMapVC.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
+            navMapVC.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
+            navMapVC.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
         ])
-        mapViewController.didMove(toParent: containerVC)
+        navMapVC.didMove(toParent: containerVC)
 
         // Back button
         let backButton = UIButton(type: .system)
@@ -1103,21 +1134,12 @@ final class AppCoordinator: NSObject, Coordinator {
 
         LocationService.shared.stopLocationOverride()
 
-        // Remove map from container
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
-
-        // Restore map
-        mapViewController.configureForStandard()
-        mapViewController.clearAll()
+        // Discard navigation map (home map was never touched)
+        navigationMapViewController = nil
 
         // Pop to home
         navigationController.popToViewController(homeViewController, animated: true)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.returnMapToHome()
-        }
+        presentHomeDrawer()
     }
 
     private func cleanUpNavigationUI() {
@@ -1125,25 +1147,16 @@ final class AppCoordinator: NSObject, Coordinator {
         mapInterpolator?.stop()
         turnPointPopupService?.reset()
 
-        // 2. Remove map from NavigationVC
-        mapViewController.willMove(toParent: nil)
-        mapViewController.view.removeFromSuperview()
-        mapViewController.removeFromParent()
+        // 2. Discard navigation map (home map was never touched)
+        navigationMapViewController = nil
 
-        // 3. Restore map to standard mode
-        mapViewController.configureForStandard()
-        mapViewController.clearAll()
-        mapViewController.clearNavigationRoute()
-
-        // 4. Pop to HomeVC
+        // 3. Pop to HomeVC
         navigationController.popToViewController(homeViewController, animated: true)
 
-        // 5. Re-attach map to Home after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.returnMapToHome()
-        }
+        // 4. Re-present home drawer
+        presentHomeDrawer()
 
-        // 6. Clear iPhone-only references
+        // 5. Clear iPhone-only references
         navigationViewController = nil
         mapInterpolator = nil
         mapCamera = nil
@@ -1162,6 +1175,14 @@ extension AppCoordinator: UISheetPresentationControllerDelegate {
             let detentId = sheetPresentationController.selectedDetentIdentifier
             let containerView = navigationController.view!
 
+            // Route preview drawer uses its own detent heights
+            if sheetPresentationController.presentedViewController is RoutePreviewDrawerViewController {
+                let height: CGFloat = (detentId == Self.routePreviewCompactDetentId) ? 200 : 420
+                homeViewController.updateMapControlBottomOffset(height)
+                homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: height)
+                return
+            }
+
             // Cap at medium for map control buttons (don't move higher at large)
             let effectiveDetent: UISheetPresentationController.Detent.Identifier? =
                 (detentId == Self.largeDetentId) ? Self.mediumDetentId : detentId
@@ -1177,6 +1198,19 @@ extension AppCoordinator: UISheetPresentationControllerDelegate {
     ) {
         MainActor.assumeIsolated {
             let dismissed = presentationController.presentedViewController
+
+            if dismissed is RoutePreviewDrawerViewController {
+                // 경로 미리보기 드로어 스와이프 dismiss
+                routePreviewDrawer = nil
+                mapViewController.clearRoutes()
+                mapViewController.clearDestination()
+                // 홈 드로어 인셋 복원
+                let containerView = navigationController.view!
+                let height = drawerHeight(for: Self.mediumDetentId, in: containerView)
+                homeViewController.updateMapControlBottomOffset(height)
+                homeViewController.updateMapInsets(top: mapTopInset(in: containerView), bottom: height)
+                return
+            }
 
             if dismissed is POIDetailViewController {
                 // POI 상세 스와이프 dismiss → 이전 시트(홈/검색결과)가 자동 복귀

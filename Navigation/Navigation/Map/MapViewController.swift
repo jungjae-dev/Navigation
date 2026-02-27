@@ -249,8 +249,8 @@ final class MapViewController: UIViewController {
             panGestureRecognizer = nil
         }
 
-        // Reset camera to 2D
-        let camera = MKMapCamera()
+        // Reset camera to 2D — keep current center & altitude
+        let camera = mapView.camera.copy() as! MKMapCamera
         camera.pitch = 0
         camera.heading = 0
         mapView.setCamera(camera, animated: false)

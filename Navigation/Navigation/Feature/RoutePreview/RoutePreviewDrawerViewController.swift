@@ -2,51 +2,13 @@ import UIKit
 import Combine
 import MapKit
 
-final class RoutePreviewViewController: UIViewController {
+final class RoutePreviewDrawerViewController: UIViewController {
+
+    // MARK: - Constants
+
+    static let titleBarHeight: CGFloat = 44
 
     // MARK: - UI Components
-
-    private let backButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        button.tintColor = Theme.Colors.label
-        button.backgroundColor = Theme.Colors.secondaryBackground
-        button.layer.cornerRadius = 20
-        button.layer.shadowColor = Theme.Shadow.color
-        button.layer.shadowOpacity = Theme.Shadow.opacity
-        button.layer.shadowOffset = Theme.Shadow.offset
-        button.layer.shadowRadius = Theme.Shadow.radius
-        return button
-    }()
-
-    private let bottomContainer: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.background
-        view.layer.cornerRadius = Theme.CornerRadius.large
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        view.layer.shadowColor = Theme.Shadow.color
-        view.layer.shadowOpacity = Theme.Shadow.opacity
-        view.layer.shadowOffset = CGSize(width: 0, height: -2)
-        view.layer.shadowRadius = Theme.Shadow.radius
-        return view
-    }()
-
-    private let transportModeSegment: UISegmentedControl = {
-        let segment = UISegmentedControl(items: [
-            TransportMode.automobile.displayName,
-            TransportMode.walking.displayName,
-        ])
-        segment.translatesAutoresizingMaskIntoConstraints = false
-        segment.selectedSegmentIndex = 0
-        segment.selectedSegmentTintColor = Theme.Colors.primary
-        let normalAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Colors.label]
-        let selectedAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white]
-        segment.setTitleTextAttributes(normalAttrs, for: .normal)
-        segment.setTitleTextAttributes(selectedAttrs, for: .selected)
-        return segment
-    }()
 
     private let destinationLabel: UILabel = {
         let label = UILabel()
@@ -66,6 +28,40 @@ final class RoutePreviewViewController: UIViewController {
         )
         button.tintColor = Theme.Colors.primary
         return button
+    }()
+
+    private let closeButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(
+            UIImage(systemName: "xmark.circle.fill")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+            for: .normal
+        )
+        button.tintColor = Theme.Colors.secondaryLabel
+        return button
+    }()
+
+    private let titleSeparator: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = Theme.Colors.separator
+        return view
+    }()
+
+    private let transportModeSegment: UISegmentedControl = {
+        let segment = UISegmentedControl(items: [
+            TransportMode.automobile.displayName,
+            TransportMode.walking.displayName,
+        ])
+        segment.translatesAutoresizingMaskIntoConstraints = false
+        segment.selectedSegmentIndex = 0
+        segment.selectedSegmentTintColor = Theme.Colors.primary
+        let normalAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Colors.label]
+        let selectedAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white]
+        segment.setTitleTextAttributes(normalAttrs, for: .normal)
+        segment.setTitleTextAttributes(selectedAttrs, for: .selected)
+        return segment
     }()
 
     private let tableView: UITableView = {
@@ -111,18 +107,17 @@ final class RoutePreviewViewController: UIViewController {
     // MARK: - Properties
 
     private let viewModel: RoutePreviewViewModel
-    private let mapViewController: MapViewController
     private var cancellables = Set<AnyCancellable>()
 
     var onStartNavigation: ((MKRoute, TransportMode) -> Void)?
     var onStartVirtualDrive: ((MKRoute, TransportMode) -> Void)?
-    var onDismiss: (() -> Void)?
+    var onClose: (() -> Void)?
+    var onRoutesChanged: (([MKRoute], Int) -> Void)?
 
     // MARK: - Init
 
-    init(viewModel: RoutePreviewViewModel, mapViewController: MapViewController) {
+    init(viewModel: RoutePreviewViewModel) {
         self.viewModel = viewModel
-        self.mapViewController = mapViewController
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -134,7 +129,6 @@ final class RoutePreviewViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupMapChild()
         setupUI()
         setupTableView()
         setupActions()
@@ -149,78 +143,65 @@ final class RoutePreviewViewController: UIViewController {
 
     // MARK: - Setup
 
-    private func setupMapChild() {
-        addChild(mapViewController)
-        view.addSubview(mapViewController.view)
-        mapViewController.view.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            mapViewController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            mapViewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            mapViewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            mapViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-
-        mapViewController.didMove(toParent: self)
-    }
-
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        view.addSubview(backButton)
-        view.addSubview(bottomContainer)
-        bottomContainer.addSubview(transportModeSegment)
-        bottomContainer.addSubview(destinationLabel)
-        bottomContainer.addSubview(favoriteButton)
-        bottomContainer.addSubview(tableView)
-        bottomContainer.addSubview(virtualDriveButton)
-        bottomContainer.addSubview(startButton)
-        bottomContainer.addSubview(loadingIndicator)
+        view.addSubview(destinationLabel)
+        view.addSubview(favoriteButton)
+        view.addSubview(closeButton)
+        view.addSubview(titleSeparator)
+        view.addSubview(transportModeSegment)
+        view.addSubview(tableView)
+        view.addSubview(loadingIndicator)
+        view.addSubview(virtualDriveButton)
+        view.addSubview(startButton)
 
         NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
-            backButton.widthAnchor.constraint(equalToConstant: 40),
-            backButton.heightAnchor.constraint(equalToConstant: 40),
-
-            bottomContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            // Transport mode segment
-            transportModeSegment.topAnchor.constraint(equalTo: bottomContainer.topAnchor, constant: Theme.Spacing.lg),
-            transportModeSegment.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
-            transportModeSegment.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
-            transportModeSegment.heightAnchor.constraint(equalToConstant: 32),
-
-            destinationLabel.topAnchor.constraint(equalTo: transportModeSegment.bottomAnchor, constant: Theme.Spacing.md),
-            destinationLabel.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
-            destinationLabel.trailingAnchor.constraint(equalTo: favoriteButton.leadingAnchor, constant: -Theme.Spacing.sm),
+            // Title bar
+            destinationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            destinationLabel.centerYAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight / 2),
+            destinationLabel.trailingAnchor.constraint(lessThanOrEqualTo: favoriteButton.leadingAnchor, constant: -Theme.Spacing.sm),
 
             favoriteButton.centerYAnchor.constraint(equalTo: destinationLabel.centerYAnchor),
-            favoriteButton.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
+            favoriteButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -Theme.Spacing.xs),
             favoriteButton.widthAnchor.constraint(equalToConstant: 40),
             favoriteButton.heightAnchor.constraint(equalToConstant: 40),
 
-            tableView.topAnchor.constraint(equalTo: destinationLabel.bottomAnchor, constant: Theme.Spacing.md),
-            tableView.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor),
+            closeButton.centerYAnchor.constraint(equalTo: destinationLabel.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            // Separator
+            titleSeparator.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight),
+            titleSeparator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            titleSeparator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            titleSeparator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+
+            // Transport mode segment
+            transportModeSegment.topAnchor.constraint(equalTo: titleSeparator.bottomAnchor, constant: Theme.Spacing.md),
+            transportModeSegment.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            transportModeSegment.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            transportModeSegment.heightAnchor.constraint(equalToConstant: 32),
+
+            // Table view
+            tableView.topAnchor.constraint(equalTo: transportModeSegment.bottomAnchor, constant: Theme.Spacing.md),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.heightAnchor.constraint(equalToConstant: 180),
 
+            // Loading indicator
+            loadingIndicator.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
+
+            // Buttons
             virtualDriveButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
-            virtualDriveButton.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: Theme.Spacing.lg),
+            virtualDriveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
-            virtualDriveButton.heightAnchor.constraint(equalToConstant: 56),
-            virtualDriveButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.lg),
+            virtualDriveButton.heightAnchor.constraint(equalToConstant: 48),
 
             startButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
             startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
-            startButton.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -Theme.Spacing.lg),
-            startButton.heightAnchor.constraint(equalToConstant: 56),
-            startButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.lg),
-
-            loadingIndicator.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
+            startButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            startButton.heightAnchor.constraint(equalToConstant: 48),
         ])
     }
 
@@ -231,16 +212,13 @@ final class RoutePreviewViewController: UIViewController {
     }
 
     private func setupActions() {
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         startButton.addTarget(self, action: #selector(startNavigationTapped), for: .touchUpInside)
         virtualDriveButton.addTarget(self, action: #selector(virtualDriveTapped), for: .touchUpInside)
         favoriteButton.addTarget(self, action: #selector(favoriteTapped), for: .touchUpInside)
         transportModeSegment.addTarget(self, action: #selector(transportModeChanged), for: .valueChanged)
 
-        // Set initial segment selection
         transportModeSegment.selectedSegmentIndex = viewModel.transportMode == .automobile ? 0 : 1
-
-        // Accessibility
         transportModeSegment.accessibilityLabel = "이동수단 선택"
     }
 
@@ -253,7 +231,7 @@ final class RoutePreviewViewController: UIViewController {
                 guard let self else { return }
                 tableView.reloadData()
                 if !routes.isEmpty {
-                    mapViewController.showRoutes(routes, selectedIndex: viewModel.selectedRouteIndex.value)
+                    onRoutesChanged?(routes, viewModel.selectedRouteIndex.value)
                 }
             }
             .store(in: &cancellables)
@@ -265,7 +243,7 @@ final class RoutePreviewViewController: UIViewController {
                 tableView.reloadData()
                 let routes = viewModel.routes.value
                 if !routes.isEmpty {
-                    mapViewController.showRoutes(routes, selectedIndex: index)
+                    onRoutesChanged?(routes, index)
                 }
             }
             .store(in: &cancellables)
@@ -312,10 +290,8 @@ final class RoutePreviewViewController: UIViewController {
 
     // MARK: - Actions
 
-    @objc private func backTapped() {
-        mapViewController.clearRoutes()
-        mapViewController.clearDestination()
-        onDismiss?()
+    @objc private func closeTapped() {
+        onClose?()
     }
 
     @objc private func startNavigationTapped() {
@@ -341,17 +317,9 @@ final class RoutePreviewViewController: UIViewController {
     }
 }
 
-extension RoutePreviewViewController {
-
-    /// The currently selected transport mode for starting navigation
-    var selectedTransportMode: TransportMode {
-        viewModel.transportMode
-    }
-}
-
 // MARK: - UITableViewDataSource
 
-extension RoutePreviewViewController: UITableViewDataSource {
+extension RoutePreviewDrawerViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         viewModel.routes.value.count
@@ -374,7 +342,7 @@ extension RoutePreviewViewController: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 
-extension RoutePreviewViewController: UITableViewDelegate {
+extension RoutePreviewDrawerViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         viewModel.selectRoute(at: indexPath.row)
