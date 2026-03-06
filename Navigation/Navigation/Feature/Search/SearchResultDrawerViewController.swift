@@ -170,18 +170,6 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
         if !decelerate { notifyTopIndex() }
     }
 
-    func scrollViewWillEndDragging(
-        _ scrollView: UIScrollView,
-        withVelocity velocity: CGPoint,
-        targetContentOffset: UnsafeMutablePointer<CGPoint>
-    ) {
-        DrawerScrollHelper.handleScrollEdgeTransition(
-            scrollView: scrollView,
-            velocity: velocity,
-            sheet: sheetPresentationController
-        )
-    }
-
     // MARK: - Private Helpers
 
     private func notifyTopIndex() {

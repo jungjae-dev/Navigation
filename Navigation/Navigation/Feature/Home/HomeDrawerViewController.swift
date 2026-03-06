@@ -49,7 +49,6 @@ final class HomeDrawerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        isModalInPresentation = true
         setupUI()
         bindViewModel()
     }
@@ -284,17 +283,6 @@ extension HomeDrawerViewController: UICollectionViewDelegate {
         }
     }
 
-    func scrollViewWillEndDragging(
-        _ scrollView: UIScrollView,
-        withVelocity velocity: CGPoint,
-        targetContentOffset: UnsafeMutablePointer<CGPoint>
-    ) {
-        DrawerScrollHelper.handleScrollEdgeTransition(
-            scrollView: scrollView,
-            velocity: velocity,
-            sheet: sheetPresentationController
-        )
-    }
 }
 
 // MARK: - Section Header View

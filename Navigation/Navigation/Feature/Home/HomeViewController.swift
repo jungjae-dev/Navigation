@@ -62,6 +62,7 @@ final class HomeViewController: UIViewController {
 
     private let viewModel: HomeViewModel
     let mapViewController: MapViewController
+    let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
 
     var onSearchBarTapped: (() -> Void)?
@@ -88,6 +89,7 @@ final class HomeViewController: UIViewController {
         setupSettingsButton()
         setupCompassButton()
         setupMapControlButtons()
+        setupDrawerContainer()
         setupAccessibility()
         bindViewModel()
         handleInitialPermission()
@@ -211,6 +213,10 @@ final class HomeViewController: UIViewController {
                 equalTo: searchBarContainer.bottomAnchor, constant: Theme.Spacing.sm
             ),
         ])
+    }
+
+    private func setupDrawerContainer() {
+        drawerManager.install(in: self)
     }
 
     // MARK: - Accessibility
