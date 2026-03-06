@@ -23,11 +23,14 @@ final class LBSServiceProvider {
 
         switch savedType {
         case .apple:
-            // Phase 2에서 AppleSearchService, AppleRouteService, AppleGeocodingService로 교체
-            fatalError("Phase 2에서 Apple 구현체 연결 필요")
+            search = AppleSearchService()
+            route = AppleRouteService()
+            geocoding = AppleGeocodingService()
         case .kakao:
-            // Phase 4에서 구현
-            fatalError("Phase 4에서 Kakao 구현체 연결 필요")
+            // Phase 4에서 Kakao 구현체 추가, 현재는 Apple fallback
+            search = AppleSearchService()
+            route = AppleRouteService()
+            geocoding = AppleGeocodingService()
         }
     }
 }
