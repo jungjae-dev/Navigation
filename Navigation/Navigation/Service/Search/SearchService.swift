@@ -9,9 +9,14 @@ final class SearchService: NSObject {
     let isSearchingPublisher = CurrentValueSubject<Bool, Never>(false)
     let errorPublisher = PassthroughSubject<Error, Never>()
 
+    // MARK: - Query Completions (for smart search)
+
+    let queryCompletionsPublisher = CurrentValueSubject<[MKLocalSearchCompletion], Never>([])
+
     // MARK: - Private
 
     private let completer = MKLocalSearchCompleter()
+    private let queryCompleter = MKLocalSearchCompleter()
     private var currentSearch: MKLocalSearch?
 
     // MARK: - Init
@@ -19,21 +24,28 @@ final class SearchService: NSObject {
     override init() {
         super.init()
         completer.delegate = self
-        completer.resultTypes = [.pointOfInterest, .address, .query]
+        completer.resultTypes = [.pointOfInterest, .address]
+
+        queryCompleter.delegate = self
+        queryCompleter.resultTypes = .query
     }
 
     // MARK: - Public Methods
 
     func updateRegion(_ region: MKCoordinateRegion) {
         completer.region = region
+        queryCompleter.region = region
     }
 
     func updateQuery(_ fragment: String) {
         if fragment.isEmpty {
             completionsPublisher.send([])
+            queryCompletionsPublisher.send([])
             completer.queryFragment = ""
+            queryCompleter.queryFragment = ""
         } else {
             completer.queryFragment = fragment
+            queryCompleter.queryFragment = fragment
         }
     }
 
@@ -96,13 +108,18 @@ extension SearchService: MKLocalSearchCompleterDelegate {
 
     nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         MainActor.assumeIsolated {
-            completionsPublisher.send(completer.results)
+            if completer === self.queryCompleter {
+                queryCompletionsPublisher.send(completer.results)
+            } else {
+                completionsPublisher.send(completer.results)
+            }
         }
     }
 
     nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
         MainActor.assumeIsolated {
-            errorPublisher.send(error)
+            let label = completer === self.queryCompleter ? "queryCompleter" : "completer"
+            print("[SearchService] \(label) error: \(error.localizedDescription)")
         }
     }
 }

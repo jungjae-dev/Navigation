@@ -7,6 +7,7 @@ final class SearchViewModel {
     // MARK: - Publishers
 
     let completions: CurrentValueSubject<[MKLocalSearchCompletion], Never>
+    let queryCompletions: CurrentValueSubject<[MKLocalSearchCompletion], Never>
     let isLoading: CurrentValueSubject<Bool, Never>
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
     let recentSearches = CurrentValueSubject<[SearchHistory], Never>([])
@@ -23,6 +24,7 @@ final class SearchViewModel {
         self.searchService = searchService
         self.dataService = dataService
         self.completions = searchService.completionsPublisher
+        self.queryCompletions = searchService.queryCompletionsPublisher
         self.isLoading = searchService.isSearchingPublisher
 
         searchService.errorPublisher

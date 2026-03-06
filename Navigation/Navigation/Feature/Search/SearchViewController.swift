@@ -13,6 +13,26 @@ final class SearchViewController: UIViewController {
 
     // MARK: - UI Components
 
+    private let queryChipScrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceHorizontal = true
+        scrollView.isHidden = true
+        return scrollView
+    }()
+
+    private let queryChipStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.spacing = 8
+        return stackView
+    }()
+
+    private var queryChipHeightConstraint: NSLayoutConstraint!
+    private var tableViewTopToChipConstraint: NSLayoutConstraint!
+
     private let searchBar: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -53,6 +73,7 @@ final class SearchViewController: UIViewController {
 
     private let viewModel: SearchViewModel
     private var cancellables = Set<AnyCancellable>()
+    private let querySubject = PassthroughSubject<String, Never>()
     private var isSearching = false
 
     var onSearchResults: (([MKMapItem]) -> Void)?
@@ -89,7 +110,12 @@ final class SearchViewController: UIViewController {
         view.addSubview(searchBar)
         searchBar.addSubview(backButton)
         searchBar.addSubview(searchTextField)
+        view.addSubview(queryChipScrollView)
+        queryChipScrollView.addSubview(queryChipStackView)
         view.addSubview(tableView)
+
+        queryChipHeightConstraint = queryChipScrollView.heightAnchor.constraint(equalToConstant: 0)
+        tableViewTopToChipConstraint = tableView.topAnchor.constraint(equalTo: queryChipScrollView.bottomAnchor, constant: Theme.Spacing.sm)
 
         NSLayoutConstraint.activate([
             searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
@@ -106,7 +132,18 @@ final class SearchViewController: UIViewController {
             searchTextField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -Theme.Spacing.md),
             searchTextField.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
 
-            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: Theme.Spacing.md),
+            queryChipScrollView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: Theme.Spacing.sm),
+            queryChipScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            queryChipScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            queryChipHeightConstraint,
+
+            queryChipStackView.topAnchor.constraint(equalTo: queryChipScrollView.topAnchor),
+            queryChipStackView.leadingAnchor.constraint(equalTo: queryChipScrollView.leadingAnchor, constant: Theme.Spacing.lg),
+            queryChipStackView.trailingAnchor.constraint(equalTo: queryChipScrollView.trailingAnchor, constant: -Theme.Spacing.lg),
+            queryChipStackView.bottomAnchor.constraint(equalTo: queryChipScrollView.bottomAnchor),
+            queryChipStackView.heightAnchor.constraint(equalTo: queryChipScrollView.heightAnchor),
+
+            tableViewTopToChipConstraint,
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -143,6 +180,21 @@ final class SearchViewController: UIViewController {
             }
             .store(in: &cancellables)
 
+        viewModel.queryCompletions
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completions in
+                self?.updateQueryChips(completions)
+            }
+            .store(in: &cancellables)
+
+        querySubject
+            .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
+            .removeDuplicates()
+            .sink { [weak self] query in
+                self?.viewModel.updateQuery(query)
+            }
+            .store(in: &cancellables)
+
         viewModel.errorMessage
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
@@ -169,10 +221,12 @@ final class SearchViewController: UIViewController {
     @objc private func textFieldDidChange() {
         guard let text = searchTextField.text else { return }
         isSearching = !text.isEmpty
-        viewModel.updateQuery(text)
 
         if text.isEmpty {
+            viewModel.updateQuery("")
             viewModel.loadRecentSearches()
+        } else {
+            querySubject.send(text)
         }
     }
 
@@ -184,6 +238,48 @@ final class SearchViewController: UIViewController {
         guard !results.isEmpty else { return }
         onSearchResults?(results)
         dismiss(animated: true)
+    }
+
+    private func updateQueryChips(_ completions: [MKLocalSearchCompletion]) {
+        queryChipStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        let showChips = !completions.isEmpty
+        queryChipScrollView.isHidden = !showChips
+        queryChipHeightConstraint.constant = showChips ? 36 : 0
+
+        for completion in completions {
+            let chip = makeChipButton(title: completion.title)
+            chip.addAction(UIAction { [weak self] _ in
+                self?.handleQueryChipTapped(completion)
+            }, for: .touchUpInside)
+            queryChipStackView.addArrangedSubview(chip)
+        }
+    }
+
+    private func makeChipButton(title: String) -> UIButton {
+        var config = UIButton.Configuration.filled()
+        var titleAttr = AttributedString("\(title) 주변")
+        titleAttr.font = Theme.Fonts.footnote
+        config.attributedTitle = titleAttr
+        config.image = UIImage(systemName: "location.magnifyingglass")
+        config.imagePadding = 4
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        config.cornerStyle = .capsule
+        config.baseBackgroundColor = Theme.Colors.primary.withAlphaComponent(0.12)
+        config.baseForegroundColor = Theme.Colors.primary
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 12)
+
+        let button = UIButton(configuration: config)
+        return button
+    }
+
+    private func handleQueryChipTapped(_ completion: MKLocalSearchCompletion) {
+        Task { [weak self] in
+            guard let self else { return }
+            if let results = await viewModel.selectCompletion(completion) {
+                handleSearchResults(results)
+            }
+        }
     }
 
     private func showError(_ message: String) {
