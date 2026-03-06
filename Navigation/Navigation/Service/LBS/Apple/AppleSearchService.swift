@@ -30,6 +30,8 @@ final class AppleSearchService: NSObject, SearchProviding {
 
     // MARK: - SearchProviding
 
+    var currentRegion: MKCoordinateRegion? { completer.region }
+
     func updateRegion(_ region: MKCoordinateRegion) {
         completer.region = region
         queryCompleter.region = region

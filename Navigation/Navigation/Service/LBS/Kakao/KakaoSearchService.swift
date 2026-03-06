@@ -8,7 +8,7 @@ final class KakaoSearchService: SearchProviding {
     let isSearchingPublisher = CurrentValueSubject<Bool, Never>(false)
     let errorPublisher = PassthroughSubject<Error, Never>()
 
-    private var currentRegion: MKCoordinateRegion?
+    private(set) var currentRegion: MKCoordinateRegion?
     private var searchTask: Task<Void, Never>?
 
     func updateRegion(_ region: MKCoordinateRegion) {
@@ -28,7 +28,7 @@ final class KakaoSearchService: SearchProviding {
             guard !Task.isCancelled else { return }
 
             do {
-                let results = try await fetchKeywordSearch(query: fragment)
+                let results = try await fetchKeywordSearch(query: fragment, region: self.currentRegion)
                 let completions = results.map { doc in
                     SearchCompletion(
                         id: "kakao_\(doc.placeName)_\(doc.x)_\(doc.y)",
@@ -70,8 +70,7 @@ final class KakaoSearchService: SearchProviding {
         if let region {
             queryItems.append(URLQueryItem(name: "x", value: "\(region.center.longitude)"))
             queryItems.append(URLQueryItem(name: "y", value: "\(region.center.latitude)"))
-            let radius = Int(max(region.span.latitudeDelta, region.span.longitudeDelta) * 111_000 / 2)
-            queryItems.append(URLQueryItem(name: "radius", value: "\(min(radius, 20000))"))
+            // sort 미지정 → 기본값 accuracy (정확도순, 위치 참고)
         }
 
         let response: KakaoSearchResponse = try await KakaoAPIClient.shared.request(

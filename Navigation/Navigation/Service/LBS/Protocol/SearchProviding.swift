@@ -7,6 +7,7 @@ protocol SearchProviding: AnyObject {
     var queryCompletionsPublisher: CurrentValueSubject<[SearchCompletion], Never> { get }
     var isSearchingPublisher: CurrentValueSubject<Bool, Never> { get }
     var errorPublisher: PassthroughSubject<Error, Never> { get }
+    var currentRegion: MKCoordinateRegion? { get }
 
     func updateRegion(_ region: MKCoordinateRegion)
     func updateQuery(_ fragment: String)

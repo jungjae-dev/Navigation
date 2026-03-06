@@ -69,7 +69,7 @@ final class SearchViewModel {
     func executeSearch(query: String) async -> [Place]? {
         guard !query.isEmpty else { return nil }
         do {
-            let results = try await searchService.search(query: query, region: nil)
+            let results = try await searchService.search(query: query, region: searchService.currentRegion)
 
             // Save to history
             if let firstItem = results.first {

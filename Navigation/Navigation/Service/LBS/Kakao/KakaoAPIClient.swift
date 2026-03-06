@@ -12,10 +12,16 @@ final class KakaoAPIClient {
         queryItems: [URLQueryItem],
         apiKey: String
     ) async throws -> T {
-        var components = URLComponents(string: baseURL + path)!
+        guard var components = URLComponents(string: baseURL + path) else {
+            throw LBSError.networkError("Invalid URL: \(baseURL + path)")
+        }
         components.queryItems = queryItems
 
-        var request = URLRequest(url: components.url!)
+        guard let url = components.url else {
+            throw LBSError.networkError("Invalid URL components")
+        }
+
+        var request = URLRequest(url: url)
         request.setValue("KakaoAK \(apiKey)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await URLSession.shared.data(for: request)
