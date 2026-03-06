@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import MapKit
 import CoreLocation
 
 final class NavigationViewModel {
@@ -28,7 +27,7 @@ final class NavigationViewModel {
     // MARK: - State
 
     private var cancellables = Set<AnyCancellable>()
-    private var route: MKRoute?
+    private var route: Route?
     private let dateFormatter: DateFormatter = {
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm"
@@ -59,9 +58,9 @@ final class NavigationViewModel {
     // MARK: - Public
 
     /// The currently active route
-    var currentRoute: MKRoute? { route }
+    var currentRoute: Route? { route }
 
-    func startNavigation(with route: MKRoute, transportMode: TransportMode = .automobile) {
+    func startNavigation(with route: Route, transportMode: TransportMode = .automobile) {
         self.route = route
         guidanceEngine.startNavigation(with: route, transportMode: transportMode)
 
@@ -161,7 +160,7 @@ final class NavigationViewModel {
         }
     }
 
-    private func updateManeuver(with step: MKRoute.Step) {
+    private func updateManeuver(with step: RouteStep) {
         let instruction = step.instructions.isEmpty
             ? "경로를 따라 이동하세요"
             : step.instructions

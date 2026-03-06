@@ -1,16 +1,15 @@
 import UIKit
-import MapKit
 
 final class POIDetailViewController: UIViewController {
 
     // MARK: - Callbacks
 
-    var onRouteTapped: ((MKMapItem) -> Void)?
+    var onRouteTapped: ((Place) -> Void)?
     var onClose: (() -> Void)?
 
     // MARK: - Properties
 
-    private(set) var mapItem: MKMapItem
+    private(set) var place: Place
 
     // MARK: - Constants
 
@@ -92,8 +91,8 @@ final class POIDetailViewController: UIViewController {
 
     // MARK: - Init
 
-    init(mapItem: MKMapItem) {
-        self.mapItem = mapItem
+    init(place: Place) {
+        self.place = place
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -159,29 +158,29 @@ final class POIDetailViewController: UIViewController {
 
     // MARK: - Public
 
-    func update(with mapItem: MKMapItem) {
-        self.mapItem = mapItem
+    func update(with place: Place) {
+        self.place = place
         configure()
     }
 
     // MARK: - Configure
 
     private func configure() {
-        nameLabel.text = mapItem.name ?? "알 수 없는 장소"
-        addressLabel.text = mapItem.address?.fullAddress ?? mapItem.address?.shortAddress
+        nameLabel.text = place.name ?? "알 수 없는 장소"
+        addressLabel.text = place.address
 
-        let iconName = iconName(for: mapItem.pointOfInterestCategory)
+        let iconName = iconName(for: place.category)
         categoryImageView.image = UIImage(systemName: iconName)?
             .withConfiguration(UIImage.SymbolConfiguration(pointSize: 24, weight: .medium))
 
-        if let phone = mapItem.phoneNumber {
+        if let phone = place.phoneNumber {
             phoneButton.isHidden = false
             phoneButton.configuration?.title = phone
         } else {
             phoneButton.isHidden = true
         }
 
-        if let url = mapItem.url {
+        if let url = place.url {
             websiteButton.isHidden = false
             websiteButton.configuration?.title = url.host ?? url.absoluteString
         } else {
@@ -198,45 +197,36 @@ final class POIDetailViewController: UIViewController {
     }
 
     @objc private func phoneTapped() {
-        guard let phone = mapItem.phoneNumber,
+        guard let phone = place.phoneNumber,
               let url = URL(string: "tel://\(phone.filter { $0.isNumber || $0 == "+" })") else { return }
         UIApplication.shared.open(url)
     }
 
     @objc private func websiteTapped() {
-        guard let url = mapItem.url else { return }
+        guard let url = place.url else { return }
         UIApplication.shared.open(url)
     }
 
     @objc private func routeTapped() {
-        onRouteTapped?(mapItem)
+        onRouteTapped?(place)
     }
 
     // MARK: - Helpers
 
-    private func iconName(for category: MKPointOfInterestCategory?) -> String {
+    private func iconName(for category: String?) -> String {
         guard let category else { return "mappin.circle.fill" }
-        return switch category {
-        case .restaurant: "fork.knife"
-        case .cafe: "cup.and.saucer.fill"
-        case .gasStation: "fuelpump.fill"
-        case .hospital: "cross.case.fill"
-        case .pharmacy: "pills.fill"
-        case .school, .university: "graduationcap.fill"
-        case .store: "bag.fill"
-        case .parking: "p.circle.fill"
-        case .bank, .atm: "banknote.fill"
-        case .hotel: "bed.double.fill"
-        case .park: "leaf.fill"
-        case .museum: "building.columns.fill"
-        case .theater, .movieTheater: "theatermasks.fill"
-        case .airport: "airplane"
-        case .publicTransport: "bus.fill"
-        case .fitnessCenter: "figure.run"
-        case .laundry: "washer.fill"
-        case .postOffice: "envelope.fill"
-        case .library: "books.vertical.fill"
-        default: "mappin.circle.fill"
-        }
+        let lower = category.lowercased()
+        if lower.contains("restaurant") || lower.contains("음식") { return "fork.knife" }
+        if lower.contains("cafe") || lower.contains("카페") { return "cup.and.saucer.fill" }
+        if lower.contains("gas") || lower.contains("주유") { return "fuelpump.fill" }
+        if lower.contains("hospital") || lower.contains("병원") { return "cross.case.fill" }
+        if lower.contains("pharmacy") || lower.contains("약국") { return "pills.fill" }
+        if lower.contains("school") || lower.contains("학교") { return "graduationcap.fill" }
+        if lower.contains("store") || lower.contains("마트") { return "bag.fill" }
+        if lower.contains("parking") || lower.contains("주차") { return "p.circle.fill" }
+        if lower.contains("bank") || lower.contains("은행") { return "banknote.fill" }
+        if lower.contains("hotel") || lower.contains("숙박") { return "bed.double.fill" }
+        if lower.contains("park") || lower.contains("공원") { return "leaf.fill" }
+        return "mappin.circle.fill"
     }
 }

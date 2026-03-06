@@ -99,7 +99,7 @@ final class CarPlayMapViewController: UIViewController {
         }
 
         // Add route overlay
-        let polyline = session.route.polyline
+        let polyline = session.route.mkPolyline
         mapView.addOverlay(polyline, level: .aboveRoads)
         routeOverlay = polyline
 
@@ -150,11 +150,11 @@ final class CarPlayMapViewController: UIViewController {
 
     // MARK: - Public
 
-    func showRoute(_ route: MKRoute) {
+    func showRoute(_ route: Route) {
         if let overlay = routeOverlay {
             mapView.removeOverlay(overlay)
         }
-        let polyline = route.polyline
+        let polyline = route.mkPolyline
         mapView.addOverlay(polyline, level: .aboveRoads)
         routeOverlay = polyline
 

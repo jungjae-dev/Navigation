@@ -103,6 +103,49 @@ enum DistanceCalculator {
         return (minDistance, nearestSegment)
     }
 
+    // MARK: - Polyline Search (Coordinate Array)
+
+    static func nearestPointOnPolyline(
+        _ coordinates: [CLLocationCoordinate2D],
+        from point: CLLocationCoordinate2D,
+        searchRange: ClosedRange<Int>? = nil
+    ) -> (distance: CLLocationDistance, segmentIndex: Int) {
+        guard coordinates.count >= 2 else {
+            return (CLLocationDistanceMax, 0)
+        }
+
+        let startIndex: Int
+        let endIndex: Int
+
+        if let range = searchRange {
+            startIndex = max(0, range.lowerBound)
+            endIndex = min(coordinates.count - 2, range.upperBound)
+        } else {
+            startIndex = 0
+            endIndex = coordinates.count - 2
+        }
+
+        guard startIndex <= endIndex else {
+            return (CLLocationDistanceMax, 0)
+        }
+
+        var minDistance: CLLocationDistance = CLLocationDistanceMax
+        var nearestSegment = startIndex
+
+        for i in startIndex...endIndex {
+            let segStart = coordinates[i]
+            let segEnd = coordinates[i + 1]
+
+            let dist = distanceFromPoint(point, toSegmentStart: segStart, segmentEnd: segEnd)
+            if dist < minDistance {
+                minDistance = dist
+                nearestSegment = i
+            }
+        }
+
+        return (minDistance, nearestSegment)
+    }
+
     // MARK: - Helpers
 
     private static func latitudeToMeters(_ degreesLatitude: Double) -> Double {

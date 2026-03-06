@@ -14,8 +14,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private let window: UIWindow
     private let locationService: LocationService
-    private let searchService: SearchService
-    private let routeService: RouteService
+    private let searchService: SearchProviding
+    private let routeService: RouteProviding
     private let sessionManager = NavigationSessionManager.shared
 
     private var mapViewController: MapViewController!
@@ -49,8 +49,9 @@ final class AppCoordinator: NSObject, Coordinator {
     init(window: UIWindow) {
         self.window = window
         self.locationService = .shared
-        self.searchService = SearchService()
-        self.routeService = RouteService()
+        let lbs = LBSServiceProvider.shared
+        self.searchService = lbs.search
+        self.routeService = lbs.route
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
     }
@@ -77,8 +78,8 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showSettings()
         }
 
-        mapVC.onPOISelected = { [weak self] mapItem in
-            self?.showPOIDetail(mapItem)
+        mapVC.onPOISelected = { [weak self] place in
+            self?.showPOIDetail(place)
         }
 
         navigationController.setViewControllers([homeVC], animated: false)
@@ -134,51 +135,51 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - POI Detail Flow
 
-    private func showPOIDetail(_ mapItem: MKMapItem) {
+    private func showPOIDetail(_ place: Place) {
         guard navigationController.topViewController === homeViewController else { return }
 
         // 이미 POI 시트가 떠있으면 내용만 업데이트
         if let existing = poiDetailDrawer {
-            existing.update(with: mapItem)
+            existing.update(with: place)
             return
         }
 
         let presenter: UIViewController = homeDrawer ?? navigationController
-        presentPOIDetail(mapItem, from: presenter) { [weak self] mapItem in
+        presentPOIDetail(place, from: presenter) { [weak self] place in
             // 홈 → POI 상세 → 경로: 중간 드로어만 dismiss, homeDrawer 유지
             self?.dismissIntermediateDrawers {
-                self?.showRoutePreview(to: mapItem)
+                self?.showRoutePreview(to: place)
             }
         }
     }
 
-    private func showPOIDetailFromDrawer(_ mapItem: MKMapItem) {
+    private func showPOIDetailFromDrawer(_ place: Place) {
         guard let drawer = currentDrawer else { return }
 
         // 이미 POI 시트가 떠있으면 내용만 업데이트
         if let existing = poiDetailDrawer {
-            existing.update(with: mapItem)
+            existing.update(with: place)
             return
         }
 
-        presentPOIDetail(mapItem, from: drawer) { [weak self] mapItem in
+        presentPOIDetail(place, from: drawer) { [weak self] place in
             // 검색결과 → POI 상세 → 경로: 중간 드로어만 dismiss, homeDrawer 유지
             self?.dismissIntermediateDrawers {
-                self?.showRoutePreview(to: mapItem)
+                self?.showRoutePreview(to: place)
             }
         }
     }
 
     private func presentPOIDetail(
-        _ mapItem: MKMapItem,
+        _ place: Place,
         from presenter: UIViewController,
-        onRoute: @escaping (MKMapItem) -> Void
+        onRoute: @escaping (Place) -> Void
     ) {
-        let detailVC = POIDetailViewController(mapItem: mapItem)
+        let detailVC = POIDetailViewController(place: place)
         poiDetailDrawer = detailVC
 
-        detailVC.onRouteTapped = { mapItem in
-            onRoute(mapItem)
+        detailVC.onRouteTapped = { place in
+            onRoute(place)
         }
 
         detailVC.onClose = { [weak self] in
@@ -621,7 +622,7 @@ final class AppCoordinator: NSObject, Coordinator {
         }
     }
 
-    private func showSearchResults(_ results: [MKMapItem]) {
+    private func showSearchResults(_ results: [Place]) {
         // Show markers on map
         mapViewController.showSearchResults(results)
 
@@ -639,10 +640,10 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         // Drawer → Map sync: item tapped → 리스트 하이라이트 + 지도 포커스 + POI 상세
-        drawerVC.onItemSelected = { [weak self] mapItem, index in
+        drawerVC.onItemSelected = { [weak self] place, index in
             self?.currentDrawer?.scrollToIndex(index, animated: false)
             self?.mapViewController.focusAnnotation(at: index)
-            self?.showPOIDetailFromDrawer(mapItem)
+            self?.showPOIDetailFromDrawer(place)
         }
 
         // Drawer → Map sync: scroll changes focused annotation
@@ -653,9 +654,9 @@ final class AppCoordinator: NSObject, Coordinator {
         // Map → Drawer sync: annotation tapped → scroll drawer + update POI detail (if open)
         mapViewController.onAnnotationSelected = { [weak self] index in
             self?.currentDrawer?.scrollToIndex(index)
-            if let mapItem = self?.currentDrawer?.mapItem(at: index),
+            if let place = self?.currentDrawer?.place(at: index),
                let existing = self?.poiDetailDrawer {
-                existing.update(with: mapItem)
+                existing.update(with: place)
             }
         }
 
@@ -688,17 +689,16 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Route Preview Flow
 
-    private func showRoutePreview(to mapItem: MKMapItem) {
+    private func showRoutePreview(to place: Place) {
         // Clear search markers
         mapViewController.clearSearchResults()
 
         // Show destination pin
-        let coordinate = mapItem.location.coordinate
-        let subtitle = mapItem.address?.shortAddress ?? mapItem.address?.fullAddress
+        let coordinate = place.coordinate
         mapViewController.showDestination(
             coordinate: coordinate,
-            title: mapItem.name,
-            subtitle: subtitle
+            title: place.name,
+            subtitle: place.address
         )
 
         // Get current user location
@@ -709,7 +709,7 @@ final class AppCoordinator: NSObject, Coordinator {
         presentRoutePreviewDrawer(
             origin: userCoordinate,
             destination: coordinate,
-            destinationName: mapItem.name
+            destinationName: place.name
         )
     }
 
@@ -747,12 +747,13 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         drawerVC.onStartNavigation = { [weak self] route, transportMode in
-            let mapItem = MKMapItem(
-                location: CLLocation(latitude: destination.latitude, longitude: destination.longitude),
-                address: nil
+            let place = Place(
+                name: destinationName,
+                coordinate: destination,
+                address: nil,
+                phoneNumber: nil, url: nil, category: nil, providerRawData: nil
             )
-            mapItem.name = destinationName
-            self?.startNavigation(with: route, destination: mapItem, transportMode: transportMode)
+            self?.startNavigation(with: route, destination: place, transportMode: transportMode)
         }
 
         drawerVC.onStartVirtualDrive = { [weak self] route, transportMode in
@@ -815,11 +816,11 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Navigation Flow
 
-    private func startNavigation(with route: MKRoute, destination: MKMapItem? = nil, transportMode: TransportMode = .automobile) {
+    private func startNavigation(with route: Route, destination: Place? = nil, transportMode: TransportMode = .automobile) {
         // 1. Resolve destination
-        let lastCoord = route.polyline.coordinates.last ?? CLLocationCoordinate2D()
+        let lastCoord = route.polylineCoordinates.last ?? CLLocationCoordinate2D()
         let resolvedDestination = destination
-            ?? MKMapItem(location: CLLocation(latitude: lastCoord.latitude, longitude: lastCoord.longitude), address: nil)
+            ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
         // 2. Start shared navigation session via SessionManager
         sessionManager.startNavigation(
@@ -894,12 +895,12 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Virtual Drive Flow
 
-    private func startVirtualDrive(with route: MKRoute, transportMode: TransportMode = .automobile) {
+    private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
         dismissAllDrawers(animated: false) { [weak self] in
             guard let self else { return }
 
             let engine = VirtualDriveEngine()
-            engine.load(route: route, transportMode: transportMode)
+            engine.load(route: route)
             self.virtualDriveEngine = engine
 
             let navMapVC = self.createNavigationMapVC()

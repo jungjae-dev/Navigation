@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-import MapKit
+import CoreLocation
 import CoreLocation
 
 final class DataService {
@@ -21,12 +21,12 @@ final class DataService {
 
     // MARK: - Search History
 
-    func saveSearchHistory(query: String, mapItem: MKMapItem) {
+    func saveSearchHistory(query: String, place: Place) {
         guard let context = modelContext else { return }
 
-        let name = mapItem.name ?? query
-        let address = mapItem.address?.shortAddress ?? mapItem.address?.fullAddress ?? ""
-        let coordinate = mapItem.location.coordinate
+        let name = place.name ?? query
+        let address = place.address ?? ""
+        let coordinate = place.coordinate
 
         // Check for duplicate (same coordinate within last hour)
         let recent = fetchRecentSearches(limit: 1)
@@ -84,11 +84,11 @@ final class DataService {
 
     // MARK: - Favorites
 
-    func saveFavorite(name: String, mapItem: MKMapItem, category: String = "custom") {
+    func saveFavorite(name: String, place: Place, category: String = "custom") {
         guard let context = modelContext else { return }
 
-        let address = mapItem.address?.shortAddress ?? mapItem.address?.fullAddress ?? ""
-        let coordinate = mapItem.location.coordinate
+        let address = place.address ?? ""
+        let coordinate = place.coordinate
 
         let favorite = FavoritePlace(
             name: name,

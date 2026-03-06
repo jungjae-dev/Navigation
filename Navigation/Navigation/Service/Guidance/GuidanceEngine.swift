@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import MapKit
 import CoreLocation
 
 // MARK: - Models
@@ -21,8 +20,8 @@ struct RouteProgress {
     let distanceRemaining: CLLocationDistance
     let timeRemaining: TimeInterval
     let estimatedArrivalTime: Date
-    let currentStep: MKRoute.Step
-    let nextStep: MKRoute.Step?
+    let currentStep: RouteStep
+    let nextStep: RouteStep?
 }
 
 // MARK: - GuidanceEngine
@@ -33,21 +32,21 @@ final class GuidanceEngine {
 
     let navigationStatePublisher = CurrentValueSubject<NavigationState, Never>(.stopped)
     let routeProgressPublisher = CurrentValueSubject<RouteProgress?, Never>(nil)
-    let currentStepPublisher = CurrentValueSubject<MKRoute.Step?, Never>(nil)
-    let currentRoutePublisher = CurrentValueSubject<MKRoute?, Never>(nil)
+    let currentStepPublisher = CurrentValueSubject<RouteStep?, Never>(nil)
+    let currentRoutePublisher = CurrentValueSubject<Route?, Never>(nil)
     let errorPublisher = PassthroughSubject<Error, Never>()
 
     // MARK: - Dependencies
 
     private let locationService: LocationService
-    private let routeService: RouteService
+    private let routeService: RouteProviding
     private let voiceService: VoiceGuidanceService
     private let offRouteDetector: OffRouteDetector
 
     // MARK: - State
 
-    private var route: MKRoute?
-    private var steps: [MKRoute.Step] = []
+    private var route: Route?
+    private var steps: [RouteStep] = []
     private var currentStepIndex = 0
     private var announcedThresholds: Set<Int> = []
     private var cancellables = Set<AnyCancellable>()
@@ -65,7 +64,7 @@ final class GuidanceEngine {
 
     init(
         locationService: LocationService,
-        routeService: RouteService,
+        routeService: RouteProviding,
         voiceService: VoiceGuidanceService,
         offRouteDetector: OffRouteDetector
     ) {
@@ -77,7 +76,7 @@ final class GuidanceEngine {
 
     // MARK: - Public
 
-    func startNavigation(with route: MKRoute, transportMode: TransportMode = .automobile) {
+    func startNavigation(with route: Route, transportMode: TransportMode = .automobile) {
         self.route = route
         self.steps = route.steps
         self.currentStepIndex = 0
@@ -88,9 +87,7 @@ final class GuidanceEngine {
 
         // Get destination coordinate from last step
         if let lastStep = steps.last {
-            let polyline = lastStep.polyline
-            let coords = polyline.coordinates
-            destination = coords.last
+            destination = lastStep.polylineCoordinates.last
         }
 
         offRouteDetector.configure(with: route)
@@ -236,7 +233,7 @@ final class GuidanceEngine {
 
     // MARK: - Voice Announcement
 
-    private func checkAndAnnounce(distance: CLLocationDistance, step: MKRoute.Step, speed: CLLocationSpeed) {
+    private func checkAndAnnounce(distance: CLLocationDistance, step: RouteStep, speed: CLLocationSpeed) {
         let thresholds = announcementThresholds(for: speed)
 
         for threshold in thresholds {
@@ -245,7 +242,7 @@ final class GuidanceEngine {
             // Skip already announced thresholds
             guard !announcedThresholds.contains(thresholdInt) else { continue }
 
-            // Check if we're within the threshold range (±20% tolerance)
+            // Check if we're within the threshold range (+-20% tolerance)
             let lowerBound = threshold * 0.8
             let upperBound = threshold * 1.2
 
@@ -328,7 +325,7 @@ final class GuidanceEngine {
             let newRoutes = try await routeService.calculateRoutes(
                 from: location.coordinate,
                 to: dest,
-                transportType: transportMode.mkTransportType
+                transportMode: transportMode
             )
 
             guard let newRoute = newRoutes.first else {
@@ -362,7 +359,7 @@ final class GuidanceEngine {
 
     // MARK: - Progress Calculation
 
-    private func calculateProgress(location: CLLocation, route: MKRoute) -> RouteProgress {
+    private func calculateProgress(location: CLLocation, route: Route) -> RouteProgress {
         let currentStep = currentStepIndex < steps.count ? steps[currentStepIndex] : steps.last!
 
         // Distance to next maneuver
@@ -404,13 +401,11 @@ final class GuidanceEngine {
 
     // MARK: - Step Coordinate Helpers
 
-    private func stepEndCoordinate(for step: MKRoute.Step) -> CLLocationCoordinate2D {
-        let coords = step.polyline.coordinates
-        return coords.last ?? CLLocationCoordinate2D()
+    private func stepEndCoordinate(for step: RouteStep) -> CLLocationCoordinate2D {
+        step.polylineCoordinates.last ?? CLLocationCoordinate2D()
     }
 
-    private func stepStartCoordinate(for step: MKRoute.Step) -> CLLocationCoordinate2D {
-        let coords = step.polyline.coordinates
-        return coords.first ?? CLLocationCoordinate2D()
+    private func stepStartCoordinate(for step: RouteStep) -> CLLocationCoordinate2D {
+        step.polylineCoordinates.first ?? CLLocationCoordinate2D()
     }
 }

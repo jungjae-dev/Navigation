@@ -1,5 +1,5 @@
 import Foundation
-import MapKit
+import CoreLocation
 
 enum GuidanceTextBuilder {
 
@@ -70,8 +70,7 @@ enum GuidanceTextBuilder {
 
     // MARK: - Instruction Processing
 
-    /// Build instruction text from MKRoute.Step
-    static func buildInstructionFromStep(_ step: MKRoute.Step) -> String {
+    static func buildInstructionFromStep(_ step: RouteStep) -> String {
         let instruction = step.instructions
         guard !instruction.isEmpty else {
             return "직진하세요"

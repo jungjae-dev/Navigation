@@ -109,10 +109,10 @@ final class RoutePreviewDrawerViewController: UIViewController {
     private let viewModel: RoutePreviewViewModel
     private var cancellables = Set<AnyCancellable>()
 
-    var onStartNavigation: ((MKRoute, TransportMode) -> Void)?
-    var onStartVirtualDrive: ((MKRoute, TransportMode) -> Void)?
+    var onStartNavigation: ((Route, TransportMode) -> Void)?
+    var onStartVirtualDrive: ((Route, TransportMode) -> Void)?
     var onClose: (() -> Void)?
-    var onRoutesChanged: (([MKRoute], Int) -> Void)?
+    var onRoutesChanged: (([Route], Int) -> Void)?
 
     // MARK: - Init
 

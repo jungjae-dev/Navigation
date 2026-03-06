@@ -30,7 +30,7 @@ final class TurnPointPopupService {
     // MARK: - State
 
     private var cancellables = Set<AnyCancellable>()
-    private var currentRoute: MKRoute?
+    private var currentRoute: Route?
     private var isShowingPopup = false
 
     // MARK: - Dependencies
@@ -80,13 +80,13 @@ final class TurnPointPopupService {
                 isShowingPopup = true
 
                 // Center on the turn point (end of current step / start of next step)
-                let turnCoord = nextStep.polyline.coordinates.first
-                    ?? progress.currentStep.polyline.coordinates.last
+                let turnCoord = nextStep.polylineCoordinates.first
+                    ?? progress.currentStep.polylineCoordinates.last
                     ?? location.coordinate
 
                 let config = PopupConfig(
                     centerCoordinate: turnCoord,
-                    routePolyline: route.polyline,
+                    routePolyline: route.mkPolyline,
                     vehicleCoordinate: location.coordinate,
                     type: .turn(instruction: nextStep.instructions)
                 )

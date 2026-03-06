@@ -1,5 +1,4 @@
 import UIKit
-import MapKit
 
 final class SearchResultDrawerViewController: UIViewController {
 
@@ -47,10 +46,10 @@ final class SearchResultDrawerViewController: UIViewController {
 
     // MARK: - Properties
 
-    private var searchResults: [MKMapItem] = []
+    private var searchResults: [Place] = []
     private var highlightedIndex: Int = 0
 
-    var onItemSelected: ((MKMapItem, Int) -> Void)?
+    var onItemSelected: ((Place, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
     var onClose: (() -> Void)?
 
@@ -105,13 +104,13 @@ final class SearchResultDrawerViewController: UIViewController {
 
     // MARK: - Public Methods
 
-    func updateResults(_ results: [MKMapItem]) {
+    func updateResults(_ results: [Place]) {
         searchResults = results
         highlightedIndex = 0
         tableView.reloadData()
     }
 
-    func mapItem(at index: Int) -> MKMapItem? {
+    func place(at index: Int) -> Place? {
         guard index < searchResults.count else { return nil }
         return searchResults[index]
     }

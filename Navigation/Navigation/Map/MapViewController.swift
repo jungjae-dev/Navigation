@@ -21,7 +21,7 @@ final class MapViewController: UIViewController {
     var onAnnotationSelected: ((Int) -> Void)?
 
     /// Callback when a built-in POI is tapped.
-    var onPOISelected: ((MKMapItem) -> Void)?
+    var onPOISelected: ((Place) -> Void)?
 
     // MARK: - Navigation Mode State
 
@@ -117,10 +117,10 @@ final class MapViewController: UIViewController {
 
     // MARK: - Public: Search Results
 
-    func showSearchResults(_ mapItems: [MKMapItem]) {
+    func showSearchResults(_ places: [Place]) {
         clearSearchResults()
 
-        let annotations = mapItems.map { SearchResultAnnotation(mapItem: $0) }
+        let annotations = places.map { SearchResultAnnotation(place: $0) }
         searchResultAnnotations = annotations
 
         // 첫 번째 마커를 addAnnotations 전에 포커스 설정 (viewFor에서 색상 반영)
@@ -182,18 +182,19 @@ final class MapViewController: UIViewController {
 
     // MARK: - Public: Routes
 
-    func showRoutes(_ routes: [MKRoute], selectedIndex: Int = 0) {
+    func showRoutes(_ routes: [Route], selectedIndex: Int = 0) {
         clearRoutes()
 
         for (index, route) in routes.enumerated().reversed() {
             let isPrimary = (index == selectedIndex)
-            routeOverlays.append(route.polyline)
-            routeIsPrimary[route.polyline] = isPrimary
-            mapView.addOverlay(route.polyline, level: .aboveRoads)
+            let polyline = route.mkPolyline
+            routeOverlays.append(polyline)
+            routeIsPrimary[polyline] = isPrimary
+            mapView.addOverlay(polyline, level: .aboveRoads)
         }
 
         if selectedIndex < routes.count {
-            fitPolyline(routes[selectedIndex].polyline)
+            fitPolyline(routes[selectedIndex].mkPolyline)
         }
     }
 
@@ -255,13 +256,14 @@ final class MapViewController: UIViewController {
     }
 
     /// Show a single route for navigation (replaces any existing routes)
-    func showSingleRoute(_ route: MKRoute) {
+    func showSingleRoute(_ route: Route) {
         clearRoutes()
         clearNavigationRoute()
 
-        navigationRouteOverlay = route.polyline
-        routeIsPrimary[route.polyline] = true
-        mapView.addOverlay(route.polyline, level: .aboveRoads)
+        let polyline = route.mkPolyline
+        navigationRouteOverlay = polyline
+        routeIsPrimary[polyline] = true
+        mapView.addOverlay(polyline, level: .aboveRoads)
     }
 
     /// Clear navigation-specific route overlay
@@ -481,7 +483,7 @@ extension MapViewController: MKMapViewDelegate {
             let request = MKMapItemRequest(mapFeatureAnnotation: featureAnnotation)
             Task {
                 guard let mapItem = try? await request.mapItem else { return }
-                onPOISelected?(mapItem)
+                onPOISelected?(AppleModelConverter.place(from: mapItem))
             }
             return
         }

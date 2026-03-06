@@ -6,21 +6,21 @@ final class SearchViewModel {
 
     // MARK: - Publishers
 
-    let completions: CurrentValueSubject<[MKLocalSearchCompletion], Never>
-    let queryCompletions: CurrentValueSubject<[MKLocalSearchCompletion], Never>
+    let completions: CurrentValueSubject<[SearchCompletion], Never>
+    let queryCompletions: CurrentValueSubject<[SearchCompletion], Never>
     let isLoading: CurrentValueSubject<Bool, Never>
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
     let recentSearches = CurrentValueSubject<[SearchHistory], Never>([])
 
     // MARK: - Private
 
-    private let searchService: SearchService
+    private let searchService: SearchProviding
     private let dataService: DataService
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
-    init(searchService: SearchService, dataService: DataService = .shared) {
+    init(searchService: SearchProviding, dataService: DataService = .shared) {
         self.searchService = searchService
         self.dataService = dataService
         self.completions = searchService.completionsPublisher
@@ -50,13 +50,13 @@ final class SearchViewModel {
         searchService.updateQuery(query)
     }
 
-    func selectCompletion(_ completion: MKLocalSearchCompletion) async -> [MKMapItem]? {
+    func selectCompletion(_ completion: SearchCompletion) async -> [Place]? {
         do {
             let results = try await searchService.search(for: completion)
 
             // Save to history
             if let firstItem = results.first {
-                dataService.saveSearchHistory(query: completion.title, mapItem: firstItem)
+                dataService.saveSearchHistory(query: completion.title, place: firstItem)
             }
 
             return results
@@ -66,14 +66,14 @@ final class SearchViewModel {
         }
     }
 
-    func executeSearch(query: String) async -> [MKMapItem]? {
+    func executeSearch(query: String) async -> [Place]? {
         guard !query.isEmpty else { return nil }
         do {
-            let results = try await searchService.search(query: query)
+            let results = try await searchService.search(query: query, region: nil)
 
             // Save to history
             if let firstItem = results.first {
-                dataService.saveSearchHistory(query: query, mapItem: firstItem)
+                dataService.saveSearchHistory(query: query, place: firstItem)
             }
 
             return results
@@ -83,12 +83,17 @@ final class SearchViewModel {
         }
     }
 
-    func selectRecentSearch(_ history: SearchHistory) -> [MKMapItem] {
-        // Create MKMapItem from saved history
-        let location = CLLocation(latitude: history.latitude, longitude: history.longitude)
-        let mapItem = MKMapItem(location: location, address: nil)
-        mapItem.name = history.placeName
-        return [mapItem]
+    func selectRecentSearch(_ history: SearchHistory) -> [Place] {
+        let place = Place(
+            name: history.placeName,
+            coordinate: CLLocationCoordinate2D(latitude: history.latitude, longitude: history.longitude),
+            address: nil,
+            phoneNumber: nil,
+            url: nil,
+            category: nil,
+            providerRawData: nil
+        )
+        return [place]
     }
 
     func deleteRecentSearch(_ history: SearchHistory) {

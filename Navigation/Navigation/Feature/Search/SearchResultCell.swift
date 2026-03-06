@@ -1,5 +1,4 @@
 import UIKit
-import MapKit
 
 final class SearchResultCell: UITableViewCell {
 
@@ -68,9 +67,9 @@ final class SearchResultCell: UITableViewCell {
 
     // MARK: - Configure
 
-    func configure(with mapItem: MKMapItem, isHighlighted: Bool) {
-        nameLabel.text = mapItem.name
-        addressLabel.text = mapItem.address?.shortAddress ?? mapItem.address?.fullAddress
+    func configure(with place: Place, isHighlighted: Bool) {
+        nameLabel.text = place.name
+        addressLabel.text = place.address
         backgroundColor = isHighlighted ? Theme.Colors.secondaryBackground : Theme.Colors.background
         iconImageView.tintColor = isHighlighted ? Theme.Colors.primary : Theme.Colors.secondaryLabel
     }
