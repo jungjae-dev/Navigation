@@ -82,6 +82,7 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showPOIDetail(place)
         }
 
+        navigationController.delegate = self
         navigationController.setViewControllers([homeVC], animated: false)
 
         window.rootViewController = navigationController
@@ -455,9 +456,6 @@ final class AppCoordinator: NSObject, Coordinator {
 
             settingsVC.onDismiss = { [weak self] in
                 self?.navigationController.popViewController(animated: true)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    self?.presentHomeDrawer()
-                }
             }
 
             settingsVC.onShowDevTools = { [weak self] in
@@ -952,7 +950,6 @@ final class AppCoordinator: NSObject, Coordinator {
 
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
-        presentHomeDrawer()
     }
 
     // MARK: - GPX Playback Flow
@@ -998,7 +995,6 @@ final class AppCoordinator: NSObject, Coordinator {
 
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
-        presentHomeDrawer()
     }
 
     private func cleanUpNavigationUI() {
@@ -1012,17 +1008,31 @@ final class AppCoordinator: NSObject, Coordinator {
         // 3. Recenter home map to current location
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
 
-        // 4. Pop to HomeVC
+        // 4. Pop to HomeVC (delegate auto-presents home drawer)
         navigationController.popToViewController(homeViewController, animated: true)
 
-        // 5. Re-present home drawer
-        presentHomeDrawer()
-
-        // 6. Clear iPhone-only references
+        // 5. Clear iPhone-only references
         navigationViewController = nil
         mapInterpolator = nil
         mapCamera = nil
         turnPointPopupService = nil
+    }
+}
+
+// MARK: - UINavigationControllerDelegate
+
+extension AppCoordinator: UINavigationControllerDelegate {
+
+    nonisolated func navigationController(
+        _ navigationController: UINavigationController,
+        didShow viewController: UIViewController,
+        animated: Bool
+    ) {
+        MainActor.assumeIsolated {
+            if viewController === homeViewController && homeDrawer == nil {
+                presentHomeDrawer()
+            }
+        }
     }
 }
 
