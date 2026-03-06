@@ -132,11 +132,6 @@ final class AppCoordinator: NSObject, Coordinator {
         )
     }
 
-    private func dismissHomeDrawer(animated: Bool = false, completion: (() -> Void)? = nil) {
-        drawerManager.hideAll(animated: animated)
-        completion?()
-    }
-
     private func restoreHomeDrawer() {
         guard let drawerVC = homeDrawerVC else {
             presentHomeDrawer()
@@ -208,16 +203,6 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         drawerManager.showOverlay(detailVC, height: 320)
-    }
-
-    private func dismissPOIDetail(animated: Bool = false, completion: (() -> Void)? = nil) {
-        guard poiDetailDrawer != nil else {
-            completion?()
-            return
-        }
-        drawerManager.hideOverlay(animated: animated)
-        poiDetailDrawer = nil
-        completion?()
     }
 
     private func dismissSearchResultDrawerWithCleanup() {
@@ -491,7 +476,10 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        poiDetailDrawer = nil
+        if poiDetailDrawer != nil {
+            drawerManager.hideOverlay(animated: false)
+            poiDetailDrawer = nil
+        }
 
         let mapRegion = mapViewController.mapView.region
 
@@ -567,13 +555,6 @@ final class AppCoordinator: NSObject, Coordinator {
             ],
             initialDetent: .absolute(maxHeight * 0.5, id: "drawerMedium")
         )
-    }
-
-    private func dismissSearchResultDrawer(animated: Bool = true, completion: (() -> Void)? = nil) {
-        currentDrawer = nil
-        mapViewController.clearSearchResults()
-        mapViewController.onAnnotationSelected = nil
-        completion?()
     }
 
     // MARK: - Route Preview Flow
