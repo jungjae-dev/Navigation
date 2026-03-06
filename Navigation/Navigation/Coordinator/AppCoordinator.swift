@@ -118,17 +118,10 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showRoutePreviewForHistory(history)
         }
 
-        let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
-
-        drawerManager.setPrimary(
-            .home(drawerVC),
-            detents: [
-                .absolute(200, id: "small"),
-                .absolute(maxHeight * 0.5, id: "drawerMedium"),
-                .absolute(maxHeight, id: "drawerLarge"),
-            ],
-            initialDetent: .absolute(maxHeight * 0.5, id: "drawerMedium")
+        drawerManager.pushDrawer(
+            drawerVC,
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent()
         )
     }
 
@@ -137,17 +130,16 @@ final class AppCoordinator: NSObject, Coordinator {
             presentHomeDrawer()
             return
         }
-        let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
 
-        drawerManager.setPrimary(
-            .home(drawerVC),
-            detents: [
-                .absolute(200, id: "small"),
-                .absolute(maxHeight * 0.5, id: "drawerMedium"),
-                .absolute(maxHeight, id: "drawerLarge"),
-            ],
-            initialDetent: .absolute(maxHeight * 0.5, id: "drawerMedium")
+        // If home is already the only item in stack, no-op
+        if drawerManager.topViewController === drawerVC {
+            return
+        }
+
+        drawerManager.replaceStack(
+            with: drawerVC,
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent()
         )
     }
 
@@ -156,14 +148,12 @@ final class AppCoordinator: NSObject, Coordinator {
     private func showPOIDetail(_ place: Place) {
         guard navigationController.topViewController === homeViewController else { return }
 
-        // 이미 POI 시트가 떠있으면 내용만 업데이트
         if let existing = poiDetailDrawer {
             existing.update(with: place)
             return
         }
 
         presentPOIDetail(place) { [weak self] place in
-            // 홈 → POI 상세 → 경로: 중간 드로어만 dismiss
             self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: place)
             }
@@ -173,14 +163,12 @@ final class AppCoordinator: NSObject, Coordinator {
     private func showPOIDetailFromDrawer(_ place: Place) {
         guard currentDrawer != nil else { return }
 
-        // 이미 POI 시트가 떠있으면 내용만 업데이트
         if let existing = poiDetailDrawer {
             existing.update(with: place)
             return
         }
 
         presentPOIDetail(place) { [weak self] place in
-            // 검색결과 → POI 상세 → 경로: 중간 드로어만 dismiss
             self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: place)
             }
@@ -202,14 +190,15 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.dismissPOIDetailWithCleanup()
         }
 
-        drawerManager.showOverlay(detailVC, height: 320)
+        drawerManager.pushDrawer(
+            detailVC,
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent()
+        )
     }
 
     private func dismissSearchResultDrawerWithCleanup() {
-        if poiDetailDrawer != nil {
-            drawerManager.hideOverlay(animated: false)
-            poiDetailDrawer = nil
-        }
+        poiDetailDrawer = nil
         currentDrawer = nil
         mapViewController.clearSearchResults()
         mapViewController.onAnnotationSelected = nil
@@ -217,11 +206,11 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func dismissPOIDetailWithCleanup() {
-        drawerManager.hideOverlay(animated: true)
         poiDetailDrawer = nil
+        drawerManager.popDrawer()
     }
 
-    private func dismissAllDrawers(animated: Bool = false, completion: (() -> Void)? = nil) {
+    private func dismissAllDrawers(completion: (() -> Void)? = nil) {
         currentDrawer = nil
         poiDetailDrawer = nil
         routePreviewDrawer = nil
@@ -229,8 +218,12 @@ final class AppCoordinator: NSObject, Coordinator {
         mapViewController.clearRoutes()
         mapViewController.clearDestination()
         mapViewController.onAnnotationSelected = nil
-        drawerManager.hideOverlay(animated: false)
-        drawerManager.hideAll(animated: animated)
+        drawerManager.replaceStack(
+            with: homeDrawerVC ?? HomeDrawerViewController(viewModel: homeViewModel),
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent(),
+            animated: false
+        )
         completion?()
     }
 
@@ -247,6 +240,21 @@ final class AppCoordinator: NSObject, Coordinator {
         return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm - containerView.safeAreaInsets.bottom
     }
 
+    private func standardDetents() -> [DrawerDetent] {
+        let containerView = navigationController.view!
+        let maxHeight = drawerMaxHeight(in: containerView)
+        return [
+            .absolute(200, id: "small"),
+            .absolute(maxHeight * 0.5, id: "drawerMedium"),
+            .absolute(maxHeight, id: "drawerLarge"),
+        ]
+    }
+
+    private func homeInitialDetent() -> DrawerDetent {
+        let containerView = navigationController.view!
+        let maxHeight = drawerMaxHeight(in: containerView)
+        return .absolute(maxHeight * 0.5, id: "drawerMedium")
+    }
 
     // MARK: - Debug Overlay
 
@@ -317,7 +325,7 @@ final class AppCoordinator: NSObject, Coordinator {
         guard navigationViewController == nil else { return }
 
         // Dismiss all drawers (home, search, POI, route preview)
-        dismissAllDrawers(animated: false) { [weak self] in
+        dismissAllDrawers { [weak self] in
             self?.presentNavigationFromSession(session)
         }
     }
@@ -370,8 +378,6 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Settings Flow
 
     private func showSettings() {
-        drawerManager.hideAll()
-
         let settingsVM = SettingsViewModel()
         let settingsVC = SettingsViewController(viewModel: settingsVM)
 
@@ -462,10 +468,7 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        if poiDetailDrawer != nil {
-            drawerManager.hideOverlay(animated: false)
-            poiDetailDrawer = nil
-        }
+        poiDetailDrawer = nil
         completion?()
     }
 
@@ -478,10 +481,7 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        if poiDetailDrawer != nil {
-            drawerManager.hideOverlay(animated: false)
-            poiDetailDrawer = nil
-        }
+        poiDetailDrawer = nil
 
         let mapRegion = mapViewController.mapView.region
 
@@ -493,9 +493,7 @@ final class AppCoordinator: NSObject, Coordinator {
         searchVC.modalPresentationStyle = .fullScreen
 
         searchVC.onDismiss = { [weak self] in
-            self?.navigationController.dismiss(animated: true) {
-                self?.drawerManager.showPrimary()
-            }
+            self?.navigationController.dismiss(animated: true)
         }
 
         searchVC.onSearchResults = { [weak self] results in
@@ -504,8 +502,6 @@ final class AppCoordinator: NSObject, Coordinator {
             }
         }
 
-        // 드로어 숨기고 검색 VC present
-        drawerManager.hideAll(animated: false)
         navigationController.present(searchVC, animated: false)
     }
 
@@ -545,17 +541,10 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         // Present as child VC via drawer manager
-        let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
-
-        drawerManager.setPrimary(
-            .searchResult(drawerVC),
-            detents: [
-                .absolute(200, id: "small"),
-                .absolute(maxHeight * 0.5, id: "drawerMedium"),
-                .absolute(maxHeight, id: "drawerLarge"),
-            ],
-            initialDetent: .absolute(maxHeight * 0.5, id: "drawerMedium")
+        drawerManager.pushDrawer(
+            drawerVC,
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent()
         )
     }
 
@@ -624,14 +613,15 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.startVirtualDrive(with: route, transportMode: transportMode)
         }
 
-        // Present as child VC via drawer manager
-        drawerManager.setPrimary(
-            .routePreview(drawerVC),
-            detents: [
-                .absolute(200, id: "routePreviewCompact"),
-                .absolute(420, id: "routePreviewExpanded"),
-            ],
-            initialDetent: .absolute(420, id: "routePreviewExpanded")
+        // Clear intermediate state and replace stack
+        currentDrawer = nil
+        poiDetailDrawer = nil
+        mapViewController.onAnnotationSelected = nil
+
+        drawerManager.replaceStack(
+            with: drawerVC,
+            detents: standardDetents(),
+            initialDetent: homeInitialDetent()
         )
     }
 
@@ -667,7 +657,7 @@ final class AppCoordinator: NSObject, Coordinator {
         guard let session = sessionManager.activeSessionPublisher.value else { return }
 
         // 3. Dismiss all drawers first
-        dismissAllDrawers(animated: false) { [weak self] in
+        dismissAllDrawers { [weak self] in
             guard let self else { return }
 
             // 4. Create iPhone-only services
@@ -731,7 +721,7 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
-        dismissAllDrawers(animated: false) { [weak self] in
+        dismissAllDrawers { [weak self] in
             guard let self else { return }
 
             let engine = VirtualDriveEngine()
@@ -866,14 +856,9 @@ extension AppCoordinator: UINavigationControllerDelegate {
         animated: Bool
     ) {
         MainActor.assumeIsolated {
-            if viewController === homeViewController {
-                if homeDrawerVC == nil {
-                    presentHomeDrawer()
-                } else {
-                    drawerManager.showPrimary()
-                }
+            if viewController === homeViewController, homeDrawerVC == nil {
+                presentHomeDrawer()
             }
         }
     }
 }
-
