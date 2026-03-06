@@ -240,9 +240,11 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     /// Maximum drawer height (below search bar with margin)
+    /// DrawerContainerManager adds safeAreaInsets.bottom to the height for the home indicator area,
+    /// so subtract it here to keep the drawer's visible top edge below the search bar.
     private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
         let searchBarBottom = mapTopInset(in: containerView)
-        return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm
+        return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm - containerView.safeAreaInsets.bottom
     }
 
 

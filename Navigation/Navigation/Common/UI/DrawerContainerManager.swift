@@ -38,6 +38,12 @@ final class DrawerContainerManager: NSObject {
     private var panGesture: UIPanGestureRecognizer!
     private var panStartHeight: CGFloat = 0
 
+    // MARK: - Scroll Tracking
+
+    private weak var trackedScrollView: UIScrollView?
+    /// true = pan gesture controls drawer height, scroll view locked
+    private var isDraggingDrawer = false
+
     // MARK: - Constraints
 
     private var containerHeightConstraint: NSLayoutConstraint!
@@ -261,12 +267,56 @@ final class DrawerContainerManager: NSObject {
         guard let parent = parentViewController else { return }
 
         let containerHeight = parent.view.bounds.height
+        let scrollView = trackedScrollView
+        let velocityY = gesture.velocity(in: parent.view).y
 
         switch gesture.state {
         case .began:
             panStartHeight = currentHeight
 
+            if scrollView == nil {
+                // No scroll view — always drag drawer
+                isDraggingDrawer = true
+            } else {
+                // Check if touch is on grabber area (above scroll view)
+                let touchInContainer = gesture.location(in: containerView)
+                let isOnGrabber = touchInContainer.y < containerView.grabber.frame.maxY
+
+                if isOnGrabber {
+                    isDraggingDrawer = true
+                } else if isScrollAtTop(scrollView!) && velocityY > 0 {
+                    // Scroll at top, dragging down → shrink drawer
+                    isDraggingDrawer = true
+                } else if isScrollAtBottom(scrollView!) && velocityY < 0 {
+                    // Scroll at bottom, dragging up → expand drawer
+                    isDraggingDrawer = true
+                } else {
+                    // Let scroll view handle it
+                    isDraggingDrawer = false
+                }
+            }
+
+            if isDraggingDrawer {
+                scrollView?.isScrollEnabled = false
+            }
+
         case .changed:
+            // Re-evaluate: switch to drawer mode at scroll boundaries
+            if !isDraggingDrawer, let sv = scrollView {
+                let atTop = isScrollAtTop(sv)
+                let atBottom = isScrollAtBottom(sv)
+
+                if (atTop && velocityY > 0) || (atBottom && velocityY < 0) {
+                    isDraggingDrawer = true
+                    sv.isScrollEnabled = false
+                    sv.contentOffset.y = atTop ? 0 : max(0, sv.contentSize.height - sv.bounds.height)
+                    gesture.setTranslation(.zero, in: parent.view)
+                    panStartHeight = currentHeight
+                }
+            }
+
+            guard isDraggingDrawer else { return }
+
             let translation = gesture.translation(in: parent.view)
             let proposedHeight = panStartHeight - translation.y
 
@@ -288,17 +338,33 @@ final class DrawerContainerManager: NSObject {
             onHeightChanged?(currentHeight)
 
         case .ended, .cancelled:
-            let velocity = gesture.velocity(in: parent.view).y
-            let targetDetent = resolveTargetDetent(
-                currentHeight: currentHeight,
-                velocity: velocity,
-                containerHeight: containerHeight
-            )
-            snapToDetent(targetDetent, containerHeight: containerHeight)
+            scrollView?.isScrollEnabled = true
+
+            if isDraggingDrawer {
+                let targetDetent = resolveTargetDetent(
+                    currentHeight: currentHeight,
+                    velocity: velocityY,
+                    containerHeight: containerHeight
+                )
+                snapToDetent(targetDetent, containerHeight: containerHeight)
+            }
+            isDraggingDrawer = false
 
         default:
             break
         }
+    }
+
+    // MARK: - Scroll Boundary Helpers
+
+    private func isScrollAtTop(_ scrollView: UIScrollView) -> Bool {
+        scrollView.contentOffset.y <= 0
+    }
+
+    private func isScrollAtBottom(_ scrollView: UIScrollView) -> Bool {
+        let maxOffset = scrollView.contentSize.height - scrollView.bounds.height
+        guard maxOffset > 0 else { return true } // content fits without scrolling
+        return scrollView.contentOffset.y >= maxOffset - 1
     }
 
     // MARK: - Detent Resolution
@@ -468,12 +534,33 @@ final class DrawerContainerManager: NSObject {
         ])
 
         child.didMove(toParent: parent)
+
+        // Track the first scroll view for scroll-to-detent coordination
+        if container === containerView.contentView {
+            trackedScrollView = findScrollView(in: child.view)
+        }
+    }
+
+    private func findScrollView(in view: UIView) -> UIScrollView? {
+        if let scrollView = view as? UIScrollView {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let found = findScrollView(in: subview) {
+                return found
+            }
+        }
+        return nil
     }
 
     private func removeChildVC(_ child: UIViewController, from container: UIView) {
         child.willMove(toParent: nil)
         child.view.removeFromSuperview()
         child.removeFromParent()
+
+        if container === containerView.contentView {
+            trackedScrollView = nil
+        }
     }
 
     private func viewController(from content: PrimaryContent) -> UIViewController {
@@ -506,7 +593,13 @@ extension DrawerContainerManager: UIGestureRecognizerDelegate {
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        false
+        MainActor.assumeIsolated {
+            // Allow simultaneous recognition with scroll view's pan gesture
+            if otherGestureRecognizer.view is UIScrollView {
+                return true
+            }
+            return false
+        }
     }
 
     nonisolated func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
