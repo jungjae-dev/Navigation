@@ -167,7 +167,7 @@ final class AppCoordinator: NSObject, Coordinator {
             return
         }
 
-        presentPOIDetail(place, from: navigationController) { [weak self] place in
+        presentPOIDetail(place) { [weak self] place in
             // 홈 → POI 상세 → 경로: 중간 드로어만 dismiss
             self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: place)
@@ -184,7 +184,7 @@ final class AppCoordinator: NSObject, Coordinator {
             return
         }
 
-        presentPOIDetail(place, from: navigationController) { [weak self] place in
+        presentPOIDetail(place) { [weak self] place in
             // 검색결과 → POI 상세 → 경로: 중간 드로어만 dismiss
             self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: place)
@@ -194,7 +194,6 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func presentPOIDetail(
         _ place: Place,
-        from presenter: UIViewController,
         onRoute: @escaping (Place) -> Void
     ) {
         let detailVC = POIDetailViewController(place: place)
@@ -208,38 +207,24 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.dismissPOIDetailWithCleanup()
         }
 
-        if let sheet = detailVC.sheetPresentationController {
-            let poiDetent = UISheetPresentationController.Detent.custom(
-                identifier: .init("poiDetail")
-            ) { _ in 320 }
-            sheet.detents = [poiDetent]
-            sheet.prefersGrabberVisible = true
-            sheet.largestUndimmedDetentIdentifier = .init("poiDetail")
-            sheet.delegate = self
-        }
-
-        presenter.present(detailVC, animated: true)
-        let containerView = navigationController.view!
-        homeViewController.updateMapControlBottomOffset(320)
-        homeViewController.updateMapInsets(
-            top: mapTopInset(in: containerView),
-            bottom: 320
-        )
+        drawerManager.showOverlay(detailVC, height: 320)
     }
 
     private func dismissPOIDetail(animated: Bool = false, completion: (() -> Void)? = nil) {
-        guard let drawer = poiDetailDrawer else {
+        guard poiDetailDrawer != nil else {
             completion?()
             return
         }
-        drawer.dismiss(animated: animated) { [weak self] in
-            self?.poiDetailDrawer = nil
-            completion?()
-        }
+        drawerManager.hideOverlay(animated: animated)
+        poiDetailDrawer = nil
+        completion?()
     }
 
     private func dismissSearchResultDrawerWithCleanup() {
-        poiDetailDrawer = nil
+        if poiDetailDrawer != nil {
+            drawerManager.hideOverlay(animated: false)
+            poiDetailDrawer = nil
+        }
         currentDrawer = nil
         mapViewController.clearSearchResults()
         mapViewController.onAnnotationSelected = nil
@@ -247,9 +232,8 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func dismissPOIDetailWithCleanup() {
-        poiDetailDrawer?.dismiss(animated: true) { [weak self] in
-            self?.poiDetailDrawer = nil
-        }
+        drawerManager.hideOverlay(animated: true)
+        poiDetailDrawer = nil
     }
 
     private func dismissAllDrawers(animated: Bool = false, completion: (() -> Void)? = nil) {
@@ -260,6 +244,7 @@ final class AppCoordinator: NSObject, Coordinator {
         mapViewController.clearRoutes()
         mapViewController.clearDestination()
         mapViewController.onAnnotationSelected = nil
+        drawerManager.hideOverlay(animated: false)
         drawerManager.hideAll(animated: animated)
         completion?()
     }
@@ -490,7 +475,10 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        poiDetailDrawer = nil
+        if poiDetailDrawer != nil {
+            drawerManager.hideOverlay(animated: false)
+            poiDetailDrawer = nil
+        }
         completion?()
     }
 
@@ -906,19 +894,3 @@ extension AppCoordinator: UINavigationControllerDelegate {
     }
 }
 
-// MARK: - UISheetPresentationControllerDelegate
-
-extension AppCoordinator: UISheetPresentationControllerDelegate {
-
-    nonisolated func presentationControllerDidDismiss(
-        _ presentationController: UIPresentationController
-    ) {
-        MainActor.assumeIsolated {
-            let dismissed = presentationController.presentedViewController
-
-            if dismissed is POIDetailViewController {
-                poiDetailDrawer = nil
-            }
-        }
-    }
-}
