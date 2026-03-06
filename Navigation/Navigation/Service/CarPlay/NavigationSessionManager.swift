@@ -1,13 +1,12 @@
 import Foundation
 import Combine
-import MapKit
 import CoreLocation
 
 // MARK: - Navigation Session
 
 struct NavigationSession {
-    let route: MKRoute
-    let destination: MKMapItem
+    let route: Route
+    let destination: Place
     let guidanceEngine: GuidanceEngine
     let voiceService: VoiceGuidanceService
     let offRouteDetector: OffRouteDetector
@@ -39,7 +38,7 @@ final class NavigationSessionManager {
     // MARK: - Dependencies
 
     private let locationService = LocationService.shared
-    private let routeService = RouteService()
+    private let routeService: RouteProviding = LBSServiceProvider.shared.route
 
     // MARK: - Init
 
@@ -52,8 +51,8 @@ final class NavigationSessionManager {
     }
 
     func startNavigation(
-        route: MKRoute,
-        destination: MKMapItem,
+        route: Route,
+        destination: Place,
         source: NavigationSource
     ) {
         // Stop existing session if any

@@ -1,23 +1,21 @@
 import MapKit
 import Combine
 
-final class SearchService: NSObject {
+final class AppleSearchService: NSObject, SearchProviding {
 
     // MARK: - Publishers
 
-    let completionsPublisher = CurrentValueSubject<[MKLocalSearchCompletion], Never>([])
+    let completionsPublisher = CurrentValueSubject<[SearchCompletion], Never>([])
+    let queryCompletionsPublisher = CurrentValueSubject<[SearchCompletion], Never>([])
     let isSearchingPublisher = CurrentValueSubject<Bool, Never>(false)
     let errorPublisher = PassthroughSubject<Error, Never>()
-
-    // MARK: - Query Completions (for smart search)
-
-    let queryCompletionsPublisher = CurrentValueSubject<[MKLocalSearchCompletion], Never>([])
 
     // MARK: - Private
 
     private let completer = MKLocalSearchCompleter()
     private let queryCompleter = MKLocalSearchCompleter()
     private var currentSearch: MKLocalSearch?
+    private var completionMap: [String: MKLocalSearchCompletion] = [:]
 
     // MARK: - Init
 
@@ -30,7 +28,9 @@ final class SearchService: NSObject {
         queryCompleter.resultTypes = .query
     }
 
-    // MARK: - Public Methods
+    // MARK: - SearchProviding
+
+    var currentRegion: MKCoordinateRegion? { completer.region }
 
     func updateRegion(_ region: MKCoordinateRegion) {
         completer.region = region
@@ -41,6 +41,7 @@ final class SearchService: NSObject {
         if fragment.isEmpty {
             completionsPublisher.send([])
             queryCompletionsPublisher.send([])
+            completionMap.removeAll()
             completer.queryFragment = ""
             queryCompleter.queryFragment = ""
         } else {
@@ -49,13 +50,16 @@ final class SearchService: NSObject {
         }
     }
 
-    func search(for completion: MKLocalSearchCompletion) async throws -> [MKMapItem] {
+    func search(for completion: SearchCompletion) async throws -> [Place] {
+        guard let mkCompletion = completionMap[completion.id] else {
+            throw LBSError.completionNotFound
+        }
+
         cancelCurrentSearch()
         isSearchingPublisher.send(true)
 
-        let request = MKLocalSearch.Request(completion: completion)
+        let request = MKLocalSearch.Request(completion: mkCompletion)
         request.region = completer.region
-        request.regionPriority = .default
 
         let search = MKLocalSearch(request: request)
         currentSearch = search
@@ -63,14 +67,14 @@ final class SearchService: NSObject {
         do {
             let response = try await search.start()
             isSearchingPublisher.send(false)
-            return response.mapItems
+            return response.mapItems.map { AppleModelConverter.place(from: $0) }
         } catch {
             isSearchingPublisher.send(false)
             throw error
         }
     }
 
-    func search(query: String, region: MKCoordinateRegion? = nil) async throws -> [MKMapItem] {
+    func search(query: String, region: MKCoordinateRegion? = nil) async throws -> [Place] {
         cancelCurrentSearch()
         isSearchingPublisher.send(true)
 
@@ -89,7 +93,7 @@ final class SearchService: NSObject {
         do {
             let response = try await search.start()
             isSearchingPublisher.send(false)
-            return response.mapItems
+            return response.mapItems.map { AppleModelConverter.place(from: $0) }
         } catch {
             isSearchingPublisher.send(false)
             throw error
@@ -104,14 +108,21 @@ final class SearchService: NSObject {
 
 // MARK: - MKLocalSearchCompleterDelegate
 
-extension SearchService: MKLocalSearchCompleterDelegate {
+extension AppleSearchService: MKLocalSearchCompleterDelegate {
 
     nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         MainActor.assumeIsolated {
+            let results = completer.results
+            let converted = results.map { mkCompletion -> SearchCompletion in
+                let sc = AppleModelConverter.searchCompletion(from: mkCompletion)
+                completionMap[sc.id] = mkCompletion
+                return sc
+            }
+
             if completer === self.queryCompleter {
-                queryCompletionsPublisher.send(completer.results)
+                queryCompletionsPublisher.send(converted)
             } else {
-                completionsPublisher.send(completer.results)
+                completionsPublisher.send(converted)
             }
         }
     }
@@ -119,7 +130,7 @@ extension SearchService: MKLocalSearchCompleterDelegate {
     nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
         MainActor.assumeIsolated {
             let label = completer === self.queryCompleter ? "queryCompleter" : "completer"
-            print("[SearchService] \(label) error: \(error.localizedDescription)")
+            print("[AppleSearchService] \(label) error: \(error.localizedDescription)")
         }
     }
 }

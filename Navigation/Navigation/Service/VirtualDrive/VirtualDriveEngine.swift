@@ -1,9 +1,8 @@
 import Foundation
-import MapKit
 import CoreLocation
 import Combine
 
-/// Drives a virtual location along an MKRoute polyline for simulation/testing
+/// Drives a virtual location along a Route polyline for simulation/testing
 final class VirtualDriveEngine: PlaybackControllable {
 
     // MARK: - State
@@ -56,12 +55,12 @@ final class VirtualDriveEngine: PlaybackControllable {
 
     // MARK: - Public: Load Route
 
-    /// Load an MKRoute for virtual driving
-    func load(route: MKRoute, transportMode: TransportMode = .automobile) {
+    /// Load a Route for virtual driving
+    func load(route: Route) {
         stop()
 
-        routeCoordinates = route.polyline.coordinates
-        baseSpeedMPS = transportMode == .walking
+        routeCoordinates = route.polylineCoordinates
+        baseSpeedMPS = route.transportMode == .walking
             ? VirtualDriveEngine.walkingSpeedMPS
             : VirtualDriveEngine.defaultSpeedMPS
 

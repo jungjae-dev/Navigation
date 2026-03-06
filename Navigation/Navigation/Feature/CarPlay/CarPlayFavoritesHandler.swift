@@ -1,7 +1,5 @@
 import UIKit
 import CarPlay
-import MapKit
-import Combine
 import CoreLocation
 
 /// Handles favorite and recent destinations for CarPlay
@@ -9,7 +7,7 @@ final class CarPlayFavoritesHandler {
 
     // MARK: - Callbacks
 
-    var onDestinationSelected: ((MKMapItem) -> Void)?
+    var onDestinationSelected: ((Place) -> Void)?
 
     // MARK: - Dependencies
 
@@ -72,22 +70,24 @@ final class CarPlayFavoritesHandler {
     // MARK: - Private
 
     private func handleFavoriteSelected(_ favorite: FavoritePlace) {
-        let mapItem = MKMapItem(
-            location: CLLocation(latitude: favorite.latitude, longitude: favorite.longitude),
-            address: nil
+        let place = Place(
+            name: favorite.name,
+            coordinate: CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude),
+            address: favorite.address,
+            phoneNumber: nil, url: nil, category: favorite.category, providerRawData: nil
         )
-        mapItem.name = favorite.name
         dataService.updateFavoriteUsedAt(favorite)
-        onDestinationSelected?(mapItem)
+        onDestinationSelected?(place)
     }
 
     private func handleRecentSelected(_ history: SearchHistory) {
-        let mapItem = MKMapItem(
-            location: CLLocation(latitude: history.latitude, longitude: history.longitude),
-            address: nil
+        let place = Place(
+            name: history.placeName,
+            coordinate: CLLocationCoordinate2D(latitude: history.latitude, longitude: history.longitude),
+            address: history.address,
+            phoneNumber: nil, url: nil, category: nil, providerRawData: nil
         )
-        mapItem.name = history.placeName
-        onDestinationSelected?(mapItem)
+        onDestinationSelected?(place)
     }
 
     private func categoryImage(for category: String) -> UIImage? {

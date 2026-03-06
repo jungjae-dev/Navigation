@@ -359,7 +359,7 @@ final class NavigationViewController: UIViewController {
     private func activateParkingGuidance() {
         let parkingService = ParkingGuidanceService()
         if let route = viewModel?.currentRoute,
-           let lastCoord = route.polyline.coordinates.last {
+           let lastCoord = route.polylineCoordinates.last {
             parkingService.configure(destination: lastCoord)
             parkingService.activate(on: mapViewController)
         }

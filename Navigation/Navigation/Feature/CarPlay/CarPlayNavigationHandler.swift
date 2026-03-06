@@ -1,6 +1,6 @@
 import UIKit
 import CarPlay
-import MapKit
+import CoreLocation
 import Combine
 
 final class CarPlayNavigationHandler {
@@ -164,7 +164,7 @@ final class CarPlayNavigationHandler {
 
     // MARK: - Maneuver Builder
 
-    private func buildManeuver(from step: MKRoute.Step, distance: CLLocationDistance) -> CPManeuver {
+    private func buildManeuver(from step: RouteStep, distance: CLLocationDistance) -> CPManeuver {
         let maneuver = CPManeuver()
 
         let instruction = GuidanceTextBuilder.buildInstructionFromStep(step)

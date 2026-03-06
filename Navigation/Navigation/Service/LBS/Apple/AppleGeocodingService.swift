@@ -1,11 +1,11 @@
 import MapKit
 import CoreLocation
 
-final class GeocodingService {
+final class AppleGeocodingService: GeocodingProviding {
 
-    // MARK: - Public Methods
+    // MARK: - GeocodingProviding
 
-    func reverseGeocode(location: CLLocation) async throws -> MKMapItem {
+    func reverseGeocode(location: CLLocation) async throws -> Place {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = nil
         request.region = MKCoordinateRegion(
@@ -18,12 +18,12 @@ final class GeocodingService {
         let response = try await search.start()
 
         guard let item = response.mapItems.first else {
-            throw GeocodingError.noResults
+            throw LBSError.noResults
         }
-        return item
+        return AppleModelConverter.place(from: item)
     }
 
-    func geocode(address: String) async throws -> MKMapItem {
+    func geocode(address: String) async throws -> Place {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = address
 
@@ -31,21 +31,8 @@ final class GeocodingService {
         let response = try await search.start()
 
         guard let item = response.mapItems.first else {
-            throw GeocodingError.noResults
+            throw LBSError.noResults
         }
-        return item
-    }
-}
-
-// MARK: - Error
-
-enum GeocodingError: Error, LocalizedError {
-    case noResults
-
-    var errorDescription: String? {
-        switch self {
-        case .noResults:
-            return "주소를 찾을 수 없습니다"
-        }
+        return AppleModelConverter.place(from: item)
     }
 }

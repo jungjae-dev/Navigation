@@ -76,7 +76,7 @@ final class SearchViewController: UIViewController {
     private let querySubject = PassthroughSubject<String, Never>()
     private var isSearching = false
 
-    var onSearchResults: (([MKMapItem]) -> Void)?
+    var onSearchResults: (([Place]) -> Void)?
     var onDismiss: (() -> Void)?
 
     // MARK: - Init
@@ -234,13 +234,13 @@ final class SearchViewController: UIViewController {
         viewModel.clearAllRecentSearches()
     }
 
-    private func handleSearchResults(_ results: [MKMapItem]) {
+    private func handleSearchResults(_ results: [Place]) {
         guard !results.isEmpty else { return }
         onSearchResults?(results)
         dismiss(animated: true)
     }
 
-    private func updateQueryChips(_ completions: [MKLocalSearchCompletion]) {
+    private func updateQueryChips(_ completions: [SearchCompletion]) {
         queryChipStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         let showChips = !completions.isEmpty
@@ -273,7 +273,7 @@ final class SearchViewController: UIViewController {
         return button
     }
 
-    private func handleQueryChipTapped(_ completion: MKLocalSearchCompletion) {
+    private func handleQueryChipTapped(_ completion: SearchCompletion) {
         Task { [weak self] in
             guard let self else { return }
             if let results = await viewModel.selectCompletion(completion) {

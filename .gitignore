@@ -19,6 +19,9 @@ Pods/
 .DS_Store
 **/.DS_Store
 
+# Secrets
+Secrets.xcconfig
+
 # Misc
 *.moved-aside
 *.hmap

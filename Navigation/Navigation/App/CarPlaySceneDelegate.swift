@@ -2,6 +2,7 @@ import UIKit
 import CarPlay
 import MapKit
 import Combine
+import CoreLocation
 
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
@@ -84,9 +85,11 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     private func setupSearchHandler() {
+        let lbs = LBSServiceProvider.shared
         let handler = CarPlaySearchHandler(
-            routeService: RouteService(),
-            locationService: LocationService.shared
+            routeService: lbs.route,
+            locationService: LocationService.shared,
+            searchService: lbs.search
         )
 
         handler.onRouteSelected = { [weak self] route, destination in
@@ -103,8 +106,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func setupFavoritesHandler() {
         let handler = CarPlayFavoritesHandler(locationService: LocationService.shared)
 
-        handler.onDestinationSelected = { [weak self] mapItem in
-            self?.handleFavoritesDestination(mapItem)
+        handler.onDestinationSelected = { [weak self] place in
+            self?.handleFavoritesDestination(place)
         }
 
         self.favoritesHandler = handler
@@ -160,7 +163,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         interfaceController.pushTemplate(template, animated: true, completion: nil)
     }
 
-    private func handleFavoritesDestination(_ mapItem: MKMapItem) {
+    private func handleFavoritesDestination(_ place: Place) {
         guard let interfaceController, let mapTemplate else { return }
 
         // Pop favorites/recents template back to map
@@ -168,16 +171,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         // Calculate route and start navigation
         guard let userLocation = LocationService.shared.locationPublisher.value?.coordinate else { return }
-        let destination = mapItem.location.coordinate
 
         Task { [weak self] in
             guard let self else { return }
-            let routeService = RouteService()
+            let routeService = LBSServiceProvider.shared.route
 
             do {
                 let routes = try await routeService.calculateRoutes(
                     from: userLocation,
-                    to: destination
+                    to: place.coordinate,
+                    transportMode: .automobile
                 )
 
                 guard let primaryRoute = routes.first else { return }
@@ -190,6 +193,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
                 // Build trip preview
                 let origin = MKMapItem.forCurrentLocation()
+                let destMapItem = place.mkMapItem
                 let routeChoices = routes.map { route -> CPRouteChoice in
                     CPRouteChoice(
                         summaryVariants: [route.formattedTravelTime + " · " + route.formattedDistance],
@@ -197,7 +201,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
                         selectionSummaryVariants: [route.name]
                     )
                 }
-                let trip = CPTrip(origin: origin, destination: mapItem, routeChoices: routeChoices)
+                let trip = CPTrip(origin: origin, destination: destMapItem, routeChoices: routeChoices)
                 mapTemplate.showTripPreviews([trip], textConfiguration: nil)
             } catch {
                 print("[CarPlay] Favorite route calculation failed: \(error.localizedDescription)")
@@ -207,7 +211,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Navigation
 
-    private func startNavigationFromCarPlay(route: MKRoute, destination: MKMapItem) {
+    private func startNavigationFromCarPlay(route: Route, destination: Place) {
         sessionManager.startNavigation(
             route: route,
             destination: destination,
@@ -219,12 +223,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         // Create CPTrip for the navigation session
         let origin = MKMapItem.forCurrentLocation()
+        let destMapItem = destination.mkMapItem
         let routeChoice = CPRouteChoice(
             summaryVariants: [route.formattedTravelTime + " · " + route.formattedDistance],
             additionalInformationVariants: [route.formattedArrivalTime],
             selectionSummaryVariants: [route.name]
         )
-        let trip = CPTrip(origin: origin, destination: destination, routeChoices: [routeChoice])
+        let trip = CPTrip(origin: origin, destination: destMapItem, routeChoices: [routeChoice])
 
         navigationHandler?.startNavigation(
             trip: trip,
@@ -244,12 +249,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         // Create CPTrip from session data
         let origin = MKMapItem.forCurrentLocation()
+        let destMapItem = session.destination.mkMapItem
         let routeChoice = CPRouteChoice(
             summaryVariants: [session.route.formattedTravelTime + " · " + session.route.formattedDistance],
             additionalInformationVariants: [session.route.formattedArrivalTime],
             selectionSummaryVariants: [session.route.name]
         )
-        let trip = CPTrip(origin: origin, destination: session.destination, routeChoices: [routeChoice])
+        let trip = CPTrip(origin: origin, destination: destMapItem, routeChoices: [routeChoice])
 
         navigationHandler?.startNavigation(
             trip: trip,
@@ -294,7 +300,14 @@ extension CarPlaySceneDelegate: CPMapTemplateDelegate {
             let selectedRoute = searchHandler.calculatedRoutes.first
                 ?? searchHandler.calculatedRoutes[0]
 
-            let destination = trip.destination
+            // Convert CPTrip destination back to Place
+            let dest = trip.destination
+            let destination = Place(
+                name: dest.name,
+                coordinate: dest.location.coordinate,
+                address: nil,
+                phoneNumber: nil, url: nil, category: nil, providerRawData: nil
+            )
             startNavigationFromCarPlay(route: selectedRoute, destination: destination)
             mapTemplate.hideTripPreviews()
         }

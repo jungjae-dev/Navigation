@@ -1,5 +1,4 @@
 import UIKit
-import MapKit
 
 final class RouteOptionCell: UITableViewCell {
 
@@ -92,7 +91,7 @@ final class RouteOptionCell: UITableViewCell {
 
     // MARK: - Configure
 
-    func configure(with route: MKRoute, isSelected: Bool) {
+    func configure(with route: Route, isSelected: Bool) {
         timeLabel.text = route.formattedTravelTime
         distanceLabel.text = route.formattedDistance
         arrivalLabel.text = route.formattedArrivalTime

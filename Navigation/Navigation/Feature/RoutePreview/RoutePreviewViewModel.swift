@@ -1,13 +1,12 @@
 import Foundation
 import Combine
-import MapKit
 import CoreLocation
 
 final class RoutePreviewViewModel {
 
     // MARK: - Publishers
 
-    let routes = CurrentValueSubject<[MKRoute], Never>([])
+    let routes = CurrentValueSubject<[Route], Never>([])
     let selectedRouteIndex = CurrentValueSubject<Int, Never>(0)
     let isCalculating = CurrentValueSubject<Bool, Never>(false)
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
@@ -21,7 +20,7 @@ final class RoutePreviewViewModel {
 
     // MARK: - Private
 
-    private let routeService: RouteService
+    private let routeService: RouteProviding
     private let dataService: DataService
     private let origin: CLLocationCoordinate2D
     private let destination: CLLocationCoordinate2D
@@ -29,7 +28,7 @@ final class RoutePreviewViewModel {
     // MARK: - Init
 
     init(
-        routeService: RouteService,
+        routeService: RouteProviding,
         dataService: DataService = .shared,
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
@@ -73,7 +72,7 @@ final class RoutePreviewViewModel {
             let calculatedRoutes = try await routeService.calculateRoutes(
                 from: origin,
                 to: destination,
-                transportType: transportModePublisher.value.mkTransportType
+                transportMode: transportModePublisher.value
             )
             routes.send(calculatedRoutes)
         } catch {
@@ -88,7 +87,7 @@ final class RoutePreviewViewModel {
         selectedRouteIndex.send(index)
     }
 
-    func getSelectedRoute() -> MKRoute? {
+    func getSelectedRoute() -> Route? {
         let index = selectedRouteIndex.value
         guard index < routes.value.count else { return nil }
         return routes.value[index]

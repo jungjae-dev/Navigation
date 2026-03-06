@@ -10,11 +10,16 @@ final class SettingsViewController: UIViewController {
         case voice = 0
         case transport = 1
         case map = 2
-        case vehicle = 3
-        case haptic = 4
-        case data = 5
-        case info = 6
-        case devTools = 7
+        case lbsProvider = 3
+        case vehicle = 4
+        case haptic = 5
+        case data = 6
+        case info = 7
+        case devTools = 8
+    }
+
+    private enum LBSProviderRow: Int, CaseIterable {
+        case provider = 0
     }
 
     private enum DevToolsRow: Int, CaseIterable {
@@ -165,6 +170,13 @@ final class SettingsViewController: UIViewController {
         }
         .store(in: &cancellables)
 
+        viewModel.lbsProvider
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+
         VehicleIconService.shared.iconSourcePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -212,6 +224,23 @@ final class SettingsViewController: UIViewController {
                 self?.viewModel.setMapType(mapType)
             }
             if mapType == viewModel.mapType.value {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showLBSProviderPicker() {
+        let alert = UIAlertController(title: "검색/경로 제공자", message: "Kakao 선택 시 API 키가 필요합니다.", preferredStyle: .actionSheet)
+
+        for provider in LBSProviderType.allCases {
+            let action = UIAlertAction(title: provider.displayName, style: .default) { [weak self] _ in
+                self?.viewModel.setLBSProvider(provider)
+            }
+            if provider == viewModel.lbsProvider.value {
                 action.setValue(true, forKey: "checked")
             }
             alert.addAction(action)
@@ -408,6 +437,7 @@ extension SettingsViewController: UITableViewDataSource {
         case .voice: return VoiceRow.allCases.count
         case .transport: return TransportRow.allCases.count
         case .map: return MapRow.allCases.count
+        case .lbsProvider: return LBSProviderRow.allCases.count
         case .vehicle: return VehicleRow.allCases.count
         case .haptic: return HapticRow.allCases.count
         case .data: return DataRow.allCases.count
@@ -422,6 +452,7 @@ extension SettingsViewController: UITableViewDataSource {
         case .voice: return "음성 안내"
         case .transport: return "이동수단"
         case .map: return "지도"
+        case .lbsProvider: return "위치 서비스"
         case .vehicle: return "차량 아이콘"
         case .haptic: return "햅틱"
         case .data: return "데이터"
@@ -483,6 +514,17 @@ extension SettingsViewController: UITableViewDataSource {
                 config.secondaryText = viewModel.mapType.value.displayName
                 config.image = UIImage(systemName: "map.fill")
                 config.imageProperties.tintColor = Theme.Colors.success
+                cell.accessoryType = .disclosureIndicator
+            }
+
+        case .lbsProvider:
+            guard let row = LBSProviderRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .provider:
+                config.text = "검색/경로 제공자"
+                config.secondaryText = viewModel.lbsProvider.value.displayName
+                config.image = UIImage(systemName: "location.magnifyingglass")
+                config.imageProperties.tintColor = Theme.Colors.primary
                 cell.accessoryType = .disclosureIndicator
             }
 
@@ -604,6 +646,12 @@ extension SettingsViewController: UITableViewDelegate {
             guard let row = MapRow(rawValue: indexPath.row) else { return }
             if row == .type {
                 showMapTypePicker()
+            }
+
+        case .lbsProvider:
+            guard let row = LBSProviderRow(rawValue: indexPath.row) else { return }
+            if row == .provider {
+                showLBSProviderPicker()
             }
 
         case .vehicle:

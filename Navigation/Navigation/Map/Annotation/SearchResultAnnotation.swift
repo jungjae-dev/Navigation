@@ -2,22 +2,22 @@ import MapKit
 
 final class SearchResultAnnotation: NSObject, MKAnnotation {
 
-    let mapItem: MKMapItem
+    let place: Place
     var isFocused: Bool = false
 
     @objc dynamic var coordinate: CLLocationCoordinate2D
 
     var title: String? {
-        mapItem.name
+        place.name
     }
 
     var subtitle: String? {
-        mapItem.placemark.title
+        place.address
     }
 
-    init(mapItem: MKMapItem) {
-        self.mapItem = mapItem
-        self.coordinate = mapItem.placemark.coordinate
+    init(place: Place) {
+        self.place = place
+        self.coordinate = place.coordinate
         super.init()
     }
 }

@@ -8,31 +8,31 @@ final class CarPlaySearchHandler: NSObject {
 
     // MARK: - Callbacks
 
-    var onRouteSelected: ((MKRoute, MKMapItem) -> Void)?
-    var onRoutePreview: ((MKRoute) -> Void)?
+    var onRouteSelected: ((Route, Place) -> Void)?
+    var onRoutePreview: ((Route) -> Void)?
 
     // MARK: - Dependencies
 
     weak var interfaceController: CPInterfaceController?
     weak var mapTemplate: CPMapTemplate?
 
-    private let routeService: RouteService
+    private let routeService: RouteProviding
     private let locationService: LocationService
-    private let searchService: SearchService
+    private let searchService: SearchProviding
     private let dataService: DataService
 
     // MARK: - State
 
-    private var searchResults: [MKMapItem] = []
-    private var selectedDestination: MKMapItem?
-    var calculatedRoutes: [MKRoute] = []
+    private var searchResults: [Place] = []
+    private var selectedDestination: Place?
+    var calculatedRoutes: [Route] = []
 
     // MARK: - Init
 
-    init(routeService: RouteService, locationService: LocationService, dataService: DataService = .shared) {
+    init(routeService: RouteProviding, locationService: LocationService, searchService: SearchProviding, dataService: DataService = .shared) {
         self.routeService = routeService
         self.locationService = locationService
-        self.searchService = SearchService()
+        self.searchService = searchService
         self.dataService = dataService
         super.init()
     }
@@ -58,12 +58,13 @@ extension CarPlaySearchHandler: CPSearchTemplateDelegate {
                         image: UIImage(systemName: "clock.arrow.circlepath")
                     )
                     item.handler = { [weak self] _, completion in
-                        let mapItem = MKMapItem(
-                            location: CLLocation(latitude: history.latitude, longitude: history.longitude),
-                            address: nil
+                        let place = Place(
+                            name: history.placeName,
+                            coordinate: CLLocationCoordinate2D(latitude: history.latitude, longitude: history.longitude),
+                            address: history.address,
+                            phoneNumber: nil, url: nil, category: nil, providerRawData: nil
                         )
-                        mapItem.name = history.placeName
-                        self?.handleResultSelected(mapItem)
+                        self?.handleResultSelected(place)
                         completion()
                     }
                     return item
@@ -79,17 +80,16 @@ extension CarPlaySearchHandler: CPSearchTemplateDelegate {
                 }
 
                 do {
-                    let results = try await self.searchService.search(query: searchText)
+                    let results = try await self.searchService.search(query: searchText, region: nil)
                     self.searchResults = results
 
-                    let items = results.prefix(12).map { mapItem -> CPListItem in
-                        let addressText = mapItem.address?.fullAddress
+                    let items = results.prefix(12).map { place -> CPListItem in
                         let item = CPListItem(
-                            text: mapItem.name ?? "알 수 없는 장소",
-                            detailText: addressText
+                            text: place.name ?? "알 수 없는 장소",
+                            detailText: place.address
                         )
                         item.handler = { [weak self] _, completion in
-                            self?.handleResultSelected(mapItem)
+                            self?.handleResultSelected(place)
                             completion()
                         }
                         return item
@@ -118,14 +118,12 @@ extension CarPlaySearchHandler: CPSearchTemplateDelegate {
 
 extension CarPlaySearchHandler {
 
-    func handleResultSelected(_ mapItem: MKMapItem) {
-        selectedDestination = mapItem
+    func handleResultSelected(_ place: Place) {
+        selectedDestination = place
 
         guard let userLocation = locationService.locationPublisher.value?.coordinate else {
             return
         }
-
-        let destination = mapItem.location.coordinate
 
         Task { [weak self] in
             guard let self else { return }
@@ -133,7 +131,8 @@ extension CarPlaySearchHandler {
             do {
                 let routes = try await self.routeService.calculateRoutes(
                     from: userLocation,
-                    to: destination
+                    to: place.coordinate,
+                    transportMode: .automobile
                 )
 
                 self.calculatedRoutes = routes
@@ -144,7 +143,7 @@ extension CarPlaySearchHandler {
                 self.onRoutePreview?(primaryRoute)
 
                 // Show trip previews on map template
-                self.showTripPreviews(routes: routes, destination: mapItem)
+                self.showTripPreviews(routes: routes, destination: place)
 
             } catch {
                 print("[CarPlaySearch] Route calculation failed: \(error.localizedDescription)")
@@ -152,17 +151,18 @@ extension CarPlaySearchHandler {
         }
     }
 
-    func showTripPreviews(routes: [MKRoute], destination: MKMapItem) {
+    func showTripPreviews(routes: [Route], destination: Place) {
         guard let mapTemplate, let interfaceController else { return }
 
         // Pop search template
         interfaceController.popTemplate(animated: true, completion: nil)
 
         let origin = MKMapItem.forCurrentLocation()
+        let destMapItem = destination.mkMapItem
 
         let routeChoices = routes.map { route -> CPRouteChoice in
             CPRouteChoice(
-                summaryVariants: [route.formattedTravelTime + " \u{00B7} " + route.formattedDistance],
+                summaryVariants: [route.formattedTravelTime + " · " + route.formattedDistance],
                 additionalInformationVariants: [route.formattedArrivalTime],
                 selectionSummaryVariants: [route.name]
             )
@@ -170,7 +170,7 @@ extension CarPlaySearchHandler {
 
         let trip = CPTrip(
             origin: origin,
-            destination: destination,
+            destination: destMapItem,
             routeChoices: routeChoices
         )
 

@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import MapKit
 import CoreLocation
 
 final class OffRouteDetector {
@@ -18,22 +17,21 @@ final class OffRouteDetector {
 
     private var consecutiveOffRouteCount = 0
     private var currentSegmentIndex = 0
-    private var routePolyline: MKPolyline?
+    private var routeCoordinates: [CLLocationCoordinate2D] = []
 
     // MARK: - Public
 
-    func configure(with route: MKRoute) {
-        routePolyline = route.polyline
+    func configure(with route: Route) {
+        routeCoordinates = route.polylineCoordinates
         reset()
     }
 
     /// Check if location is off-route. Returns true if off-route is confirmed (3 consecutive checks).
     func checkLocation(_ location: CLLocation) -> Bool {
-        guard let polyline = routePolyline else { return false }
+        guard routeCoordinates.count >= 2 else { return false }
 
         let result = calculateDistanceToRoute(
-            from: location.coordinate,
-            polyline: polyline
+            from: location.coordinate
         )
 
         if result.distance > offRouteThreshold {
@@ -62,18 +60,17 @@ final class OffRouteDetector {
     // MARK: - Private
 
     private func calculateDistanceToRoute(
-        from coordinate: CLLocationCoordinate2D,
-        polyline: MKPolyline
+        from coordinate: CLLocationCoordinate2D
     ) -> (distance: CLLocationDistance, nearestSegment: Int) {
         // Search only in a window around the current segment for performance
         let windowSize = 5
         let lowerBound = max(0, currentSegmentIndex - windowSize)
-        let upperBound = min(polyline.pointCount - 2, currentSegmentIndex + windowSize)
+        let upperBound = min(routeCoordinates.count - 2, currentSegmentIndex + windowSize)
 
         let searchRange = lowerBound...upperBound
 
         let result = DistanceCalculator.nearestPointOnPolyline(
-            polyline,
+            routeCoordinates,
             from: coordinate,
             searchRange: searchRange
         )
