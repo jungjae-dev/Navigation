@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import Combine
 
-final class GPXSimulator {
+final class GPXSimulator: PlaybackControllable {
 
     // MARK: - Publishers
 
@@ -12,6 +12,8 @@ final class GPXSimulator {
     let speedMultiplierPublisher = CurrentValueSubject<Double, Never>(1.0)
 
     // MARK: - Configuration
+
+    private let speeds: [Double] = [0.5, 1.0, 2.0, 4.0]
 
     var speedMultiplier: Double = 1.0 {
         didSet { speedMultiplierPublisher.send(speedMultiplier) }
@@ -66,6 +68,11 @@ final class GPXSimulator {
     func reset() {
         stop()
         locations = []
+    }
+
+    func cycleSpeed() {
+        let idx = speeds.firstIndex(of: speedMultiplier) ?? 1
+        speedMultiplier = speeds[(idx + 1) % speeds.count]
     }
 
     // MARK: - Private

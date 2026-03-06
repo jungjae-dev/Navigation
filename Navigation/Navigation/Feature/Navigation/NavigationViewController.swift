@@ -30,23 +30,27 @@ final class NavigationViewController: UIViewController {
 
     // MARK: - Properties
 
-    private let viewModel: NavigationViewModel
+    private let mode: NavigationMode
+    private let viewModel: NavigationViewModel?
     private let mapViewController: MapViewController
-    private let turnPointPopupService: TurnPointPopupService
+    private let turnPointPopupService: TurnPointPopupService?
     private let hapticService = HapticService.shared
     private var cancellables = Set<AnyCancellable>()
     private var turnPointPopupView: TurnPointPopupView?
     private var vehicle3DOverlay: Vehicle3DOverlayView?
+    private var playbackControlView: PlaybackControlView?
 
     var onDismiss: (() -> Void)?
 
     // MARK: - Init
 
     init(
-        viewModel: NavigationViewModel,
+        mode: NavigationMode,
         mapViewController: MapViewController,
-        turnPointPopupService: TurnPointPopupService
+        viewModel: NavigationViewModel? = nil,
+        turnPointPopupService: TurnPointPopupService? = nil
     ) {
+        self.mode = mode
         self.viewModel = viewModel
         self.mapViewController = mapViewController
         self.turnPointPopupService = turnPointPopupService
@@ -62,11 +66,23 @@ final class NavigationViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapChild()
-        setupOverlayUI()
-        setup3DOverlay()
-        setupActions()
-        bindViewModel()
-        bindPopup()
+
+        switch mode {
+        case .realNavigation:
+            setupOverlayUI()
+            setup3DOverlay()
+            setupActions()
+            bindViewModel()
+            bindPopup()
+
+        case .virtualDrive(let engine):
+            setupPlaybackUI()
+            bindPlayback(engine)
+
+        case .gpxPlayback(let simulator):
+            setupPlaybackUI()
+            bindPlayback(simulator)
+        }
     }
 
     // MARK: - Setup
@@ -131,6 +147,57 @@ final class NavigationViewController: UIViewController {
         overlay.show()
     }
 
+    private func setupPlaybackUI() {
+        let close = UIButton(type: .system)
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.setImage(
+            UIImage(systemName: "xmark")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)),
+            for: .normal
+        )
+        close.tintColor = .white
+        close.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        close.layer.cornerRadius = 20
+        close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.addSubview(close)
+
+        let control = PlaybackControlView()
+        view.addSubview(control)
+        self.playbackControlView = control
+
+        NSLayoutConstraint.activate([
+            close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
+            close.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            close.widthAnchor.constraint(equalToConstant: 40),
+            close.heightAnchor.constraint(equalToConstant: 40),
+
+            control.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            control.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            control.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.lg),
+        ])
+    }
+
+    private func bindPlayback(_ source: PlaybackControllable) {
+        playbackControlView?.bind(to: source)
+
+        playbackControlView?.onPlayPause = { [weak source] in
+            guard let source else { return }
+            if source.isPlayingPublisher.value {
+                source.pause()
+            } else {
+                source.play()
+            }
+        }
+
+        playbackControlView?.onStop = { [weak self] in
+            self?.onDismiss?()
+        }
+
+        playbackControlView?.onSpeedCycle = { [weak source] in
+            source?.cycleSpeed()
+        }
+    }
+
     private func setupActions() {
         recenterButton.accessibilityLabel = "현재 위치로 이동"
         recenterButton.accessibilityHint = "지도를 현재 위치로 이동합니다"
@@ -141,13 +208,15 @@ final class NavigationViewController: UIViewController {
         }
 
         mapViewController.onUserInteraction = { [weak self] in
-            self?.viewModel.handleUserMapInteraction()
+            self?.viewModel?.handleUserMapInteraction()
         }
     }
 
     // MARK: - Binding
 
     private func bindViewModel() {
+        guard let viewModel else { return }
+
         // Maneuver banner
         Publishers.CombineLatest3(
             viewModel.maneuverInstruction,
@@ -206,6 +275,8 @@ final class NavigationViewController: UIViewController {
     }
 
     private func bindPopup() {
+        guard let turnPointPopupService else { return }
+
         turnPointPopupService.showPopupPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] show in
@@ -232,7 +303,7 @@ final class NavigationViewController: UIViewController {
 
     private func showTurnPointPopup() {
         guard turnPointPopupView == nil,
-              let config = turnPointPopupService.popupConfigPublisher.value else { return }
+              let config = turnPointPopupService?.popupConfigPublisher.value else { return }
 
         let popup = TurnPointPopupView()
         popup.translatesAutoresizingMaskIntoConstraints = false
@@ -287,7 +358,7 @@ final class NavigationViewController: UIViewController {
 
     private func activateParkingGuidance() {
         let parkingService = ParkingGuidanceService()
-        if let route = viewModel.currentRoute,
+        if let route = viewModel?.currentRoute,
            let lastCoord = route.polyline.coordinates.last {
             parkingService.configure(destination: lastCoord)
             parkingService.activate(on: mapViewController)
@@ -349,11 +420,15 @@ final class NavigationViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func recenterTapped() {
-        viewModel.recenterMap()
+        viewModel?.recenterMap()
+    }
+
+    @objc private func closeTapped() {
+        onDismiss?()
     }
 
     private func endNavigation() {
-        viewModel.stopNavigation()
+        viewModel?.stopNavigation()
         onDismiss?()
     }
 }

@@ -9,7 +9,6 @@ final class MapViewController: UIViewController {
     let mapView = MKMapView()
     private let locationService: LocationService
     private var cancellables = Set<AnyCancellable>()
-    private var hasMovedToInitialLocation = false
 
     // MARK: - Search & Route State
 
@@ -49,7 +48,6 @@ final class MapViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapView()
-        bindLocation()
     }
 
     // MARK: - Setup
@@ -78,27 +76,22 @@ final class MapViewController: UIViewController {
 
     // MARK: - Binding
 
-    private func bindLocation() {
-        locationService.locationPublisher
+    // MARK: - Initial Location
+
+    /// 인셋 설정 후 호출하여 첫 위치로 지도 이동
+    func moveToInitialLocation() {
+        locationService.rawLocationPublisher
             .compactMap { $0 }
+            .first()
             .sink { [weak self] location in
-                self?.handleLocationUpdate(location)
+                let region = MKCoordinateRegion(
+                    center: location.coordinate,
+                    latitudinalMeters: 1000,
+                    longitudinalMeters: 1000
+                )
+                self?.mapView.setRegion(region, animated: false)
             }
             .store(in: &cancellables)
-    }
-
-    // MARK: - Location Handling
-
-    private func handleLocationUpdate(_ location: CLLocation) {
-        guard !hasMovedToInitialLocation else { return }
-        hasMovedToInitialLocation = true
-
-        let region = MKCoordinateRegion(
-            center: location.coordinate,
-            latitudinalMeters: 1000,
-            longitudinalMeters: 1000
-        )
-        mapView.setRegion(region, animated: false)
     }
 
     // MARK: - Public: Map Insets

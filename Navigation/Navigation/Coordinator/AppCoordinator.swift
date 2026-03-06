@@ -38,10 +38,11 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private var navigationMapViewController: MapViewController?
 
-    // MARK: - Virtual Drive
+    // MARK: - Virtual Drive / GPX
 
     private var virtualDriveEngine: VirtualDriveEngine?
-    private var virtualDriveControlView: VirtualDriveControlView?
+    private var gpxSimulator: GPXSimulator?
+    private var simulationCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
@@ -90,6 +91,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
         DispatchQueue.main.async { [weak self] in
             self?.presentHomeDrawer()
+            self?.mapViewController.moveToInitialLocation()
         }
     }
 
@@ -265,6 +267,8 @@ final class AppCoordinator: NSObject, Coordinator {
                 self?.poiDetailDrawer = nil
                 self?.routePreviewDrawer = nil
                 self?.mapViewController.clearSearchResults()
+                self?.mapViewController.clearRoutes()
+                self?.mapViewController.clearDestination()
                 self?.mapViewController.onAnnotationSelected = nil
                 completion?()
             }
@@ -274,6 +278,8 @@ final class AppCoordinator: NSObject, Coordinator {
                 self?.poiDetailDrawer = nil
                 self?.routePreviewDrawer = nil
                 self?.mapViewController.clearSearchResults()
+                self?.mapViewController.clearRoutes()
+                self?.mapViewController.clearDestination()
                 self?.mapViewController.onAnnotationSelected = nil
                 completion?()
             }
@@ -420,8 +426,9 @@ final class AppCoordinator: NSObject, Coordinator {
         )
 
         let navVC = NavigationViewController(
-            viewModel: navViewModel,
+            mode: .realNavigation,
             mapViewController: navMapVC,
+            viewModel: navViewModel,
             turnPointPopupService: popup
         )
         self.navigationViewController = navVC
@@ -506,8 +513,8 @@ final class AppCoordinator: NSObject, Coordinator {
         dismissIntermediateDrawers { [weak self] in
             guard let self else { return }
             let destination = CLLocationCoordinate2D(latitude: favorite.latitude, longitude: favorite.longitude)
-            let userCoordinate = self.locationService.locationPublisher.value?.coordinate
-                ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+            let userCoordinate = self.locationService.bestAvailableLocation?.coordinate
+                ?? self.mapViewController.mapView.centerCoordinate
 
             self.mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
             self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: favorite.name)
@@ -519,8 +526,8 @@ final class AppCoordinator: NSObject, Coordinator {
         dismissIntermediateDrawers { [weak self] in
             guard let self else { return }
             let destination = history.coordinate
-            let userCoordinate = self.locationService.locationPublisher.value?.coordinate
-                ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780)
+            let userCoordinate = self.locationService.bestAvailableLocation?.coordinate
+                ?? self.mapViewController.mapView.centerCoordinate
 
             self.mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
             self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: history.placeName)
@@ -695,8 +702,8 @@ final class AppCoordinator: NSObject, Coordinator {
         )
 
         // Get current user location
-        let userCoordinate = locationService.locationPublisher.value?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780) // Seoul fallback
+        let userCoordinate = locationService.bestAvailableLocation?.coordinate
+            ?? mapViewController.mapView.centerCoordinate
 
         // Present route preview as drawer (map stays in HomeVC)
         presentRoutePreviewDrawer(
@@ -857,8 +864,9 @@ final class AppCoordinator: NSObject, Coordinator {
 
             // 7. Create NavigationViewController
             let navVC = NavigationViewController(
-                viewModel: navViewModel,
+                mode: .realNavigation,
                 mapViewController: navMapVC,
+                viewModel: navViewModel,
                 turnPointPopupService: popup
             )
             self.navigationViewController = navVC
@@ -887,161 +895,78 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: MKRoute, transportMode: TransportMode = .automobile) {
-        // 1. Dismiss all drawers first
         dismissAllDrawers(animated: false) { [weak self] in
             guard let self else { return }
 
-            // 2. Create virtual drive engine
             let engine = VirtualDriveEngine()
             engine.load(route: route, transportMode: transportMode)
             self.virtualDriveEngine = engine
 
-            // 3. Create a fresh map for virtual drive (home map stays untouched)
             let navMapVC = self.createNavigationMapVC()
             self.navigationMapViewController = navMapVC
 
-            // 4. Configure map for navigation-like view
             let camera = MapCamera()
             camera.transportMode = transportMode
             let interpolator = MapInterpolator(mapCamera: camera)
-
             self.mapCamera = camera
             self.mapInterpolator = interpolator
 
             navMapVC.configureForNavigation()
             navMapVC.showSingleRoute(route)
-
-            // 5. Create a container VC for map + controls
-            let containerVC = UIViewController()
-            containerVC.view.backgroundColor = Theme.Colors.background
-
-            containerVC.addChild(navMapVC)
-            containerVC.view.addSubview(navMapVC.view)
-            navMapVC.view.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                navMapVC.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
-                navMapVC.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
-                navMapVC.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
-                navMapVC.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
-            ])
-            navMapVC.didMove(toParent: containerVC)
-
-            // 6. Start interpolation
             interpolator.start(mapViewController: navMapVC)
 
-            // 7. Feed simulated locations into interpolator
+            // Feed simulated locations into interpolator
+            self.simulationCancellables.removeAll()
             engine.simulatedLocationPublisher
                 .compactMap { $0 }
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] location in
                     let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
-                    self?.mapInterpolator?.updateTarget(
-                        location: location,
-                        heading: heading
-                    )
+                    self?.mapInterpolator?.updateTarget(location: location, heading: heading)
                 }
-                .store(in: &self.cancellables)
+                .store(in: &self.simulationCancellables)
 
-            // 8. Add back button
-            let backButton = UIButton(type: .system)
-            backButton.translatesAutoresizingMaskIntoConstraints = false
-            backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-            backButton.tintColor = Theme.Colors.label
-            backButton.backgroundColor = Theme.Colors.secondaryBackground
-            backButton.layer.cornerRadius = 20
-            backButton.layer.shadowColor = Theme.Shadow.color
-            backButton.layer.shadowOpacity = Theme.Shadow.opacity
-            backButton.layer.shadowOffset = Theme.Shadow.offset
-            backButton.layer.shadowRadius = Theme.Shadow.radius
-            containerVC.view.addSubview(backButton)
+            let navVC = NavigationViewController(
+                mode: .virtualDrive(engine: engine),
+                mapViewController: navMapVC
+            )
+            self.navigationViewController = navVC
+            navVC.onDismiss = { [weak self] in self?.stopVirtualDrive() }
 
-            NSLayoutConstraint.activate([
-                backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
-                backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
-                backButton.widthAnchor.constraint(equalToConstant: 40),
-                backButton.heightAnchor.constraint(equalToConstant: 40),
-            ])
-
-            backButton.addAction(UIAction { [weak self] _ in
-                self?.stopVirtualDrive()
-            }, for: .touchUpInside)
-
-            // 9. Add virtual drive control overlay
-            let controlView = VirtualDriveControlView()
-            controlView.bind(to: engine)
-            self.virtualDriveControlView = controlView
-            containerVC.view.addSubview(controlView)
-
-            NSLayoutConstraint.activate([
-                controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
-                controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
-                controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            ])
-
-            controlView.onPlayPause = { [weak engine] in
-                guard let engine else { return }
-                switch engine.playStatePublisher.value {
-                case .playing:
-                    engine.pause()
-                case .idle, .paused, .finished:
-                    engine.play()
-                }
-            }
-
-            controlView.onStop = { [weak self] in
-                self?.stopVirtualDrive()
-            }
-
-            controlView.onSpeedCycle = { [weak engine] in
-                engine?.cycleSpeed()
-            }
-
-            // 10. Push container VC
-            self.navigationController.pushViewController(containerVC, animated: true)
-
-            // 11. Auto-play
+            self.navigationController.pushViewController(navVC, animated: true)
             engine.play()
         }
     }
 
     private func stopVirtualDrive() {
+        simulationCancellables.removeAll()
         virtualDriveEngine?.stop()
         virtualDriveEngine = nil
+        navigationViewController = nil
 
-        virtualDriveControlView?.removeFromSuperview()
-        virtualDriveControlView = nil
-
-        // Stop interpolation
         mapInterpolator?.stop()
         mapInterpolator = nil
         mapCamera = nil
-
-        // Discard navigation map (home map was never touched)
         navigationMapViewController = nil
 
-        // Pop to home
+        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
         presentHomeDrawer()
     }
 
     // MARK: - GPX Playback Flow
 
-    private var gpxSimulator: GPXSimulator?
-    private var gpxPlaybackControlView: GPXPlaybackControlView?
-
     private func startGPXPlayback(record: GPXRecord) {
         let simulator = GPXSimulator()
         guard simulator.load(gpxFileURL: record.fileURL) else { return }
         self.gpxSimulator = simulator
 
-        // Inject simulated locations into LocationService
         LocationService.shared.startLocationOverride(from: simulator.simulatedLocationPublisher)
 
-        // Create a fresh map for GPX playback (home map stays untouched)
         let navMapVC = createNavigationMapVC()
         self.navigationMapViewController = navMapVC
 
-        // Show the GPX track as a polyline overlay
+        // Show GPX track as polyline overlay
         let parser = GPXParser()
         let locations = parser.parse(fileURL: record.fileURL)
         if locations.count >= 2 {
@@ -1050,94 +975,27 @@ final class AppCoordinator: NSObject, Coordinator {
             navMapVC.addOverlay(polyline)
         }
 
-        // Create container VC
-        let containerVC = UIViewController()
-        containerVC.view.backgroundColor = Theme.Colors.background
+        let navVC = NavigationViewController(
+            mode: .gpxPlayback(simulator: simulator),
+            mapViewController: navMapVC
+        )
+        self.navigationViewController = navVC
+        navVC.onDismiss = { [weak self] in self?.stopGPXPlayback() }
 
-        containerVC.addChild(navMapVC)
-        containerVC.view.addSubview(navMapVC.view)
-        navMapVC.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            navMapVC.view.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
-            navMapVC.view.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
-            navMapVC.view.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor),
-            navMapVC.view.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor),
-        ])
-        navMapVC.didMove(toParent: containerVC)
-
-        // Back button
-        let backButton = UIButton(type: .system)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-        backButton.tintColor = Theme.Colors.label
-        backButton.backgroundColor = Theme.Colors.secondaryBackground
-        backButton.layer.cornerRadius = 20
-        backButton.layer.shadowColor = Theme.Shadow.color
-        backButton.layer.shadowOpacity = Theme.Shadow.opacity
-        backButton.layer.shadowOffset = Theme.Shadow.offset
-        backButton.layer.shadowRadius = Theme.Shadow.radius
-        containerVC.view.addSubview(backButton)
-
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
-            backButton.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: Theme.Spacing.lg),
-            backButton.widthAnchor.constraint(equalToConstant: 40),
-            backButton.heightAnchor.constraint(equalToConstant: 40),
-        ])
-
-        backButton.addAction(UIAction { [weak self] _ in
-            self?.stopGPXPlayback()
-        }, for: .touchUpInside)
-
-        // Playback control overlay
-        let controlView = GPXPlaybackControlView()
-        controlView.bind(to: simulator)
-        self.gpxPlaybackControlView = controlView
-        containerVC.view.addSubview(controlView)
-
-        NSLayoutConstraint.activate([
-            controlView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor, constant: 16),
-            controlView.trailingAnchor.constraint(equalTo: containerVC.view.trailingAnchor, constant: -16),
-            controlView.bottomAnchor.constraint(equalTo: containerVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-        ])
-
-        controlView.onPlayPause = { [weak simulator] in
-            guard let simulator else { return }
-            if simulator.isPlayingPublisher.value {
-                simulator.pause()
-            } else {
-                simulator.play()
-            }
-        }
-
-        controlView.onStop = { [weak self] in
-            self?.stopGPXPlayback()
-        }
-
-        controlView.onSpeedCycle = { [weak simulator] in
-            guard let simulator else { return }
-            let speeds: [Double] = [0.5, 1.0, 2.0, 4.0]
-            let currentIdx = speeds.firstIndex(of: simulator.speedMultiplier) ?? 1
-            simulator.speedMultiplier = speeds[(currentIdx + 1) % speeds.count]
-        }
-
-        navigationController.pushViewController(containerVC, animated: true)
+        navigationController.pushViewController(navVC, animated: true)
         simulator.play()
     }
 
     private func stopGPXPlayback() {
+        simulationCancellables.removeAll()
         gpxSimulator?.stop()
         gpxSimulator = nil
-
-        gpxPlaybackControlView?.removeFromSuperview()
-        gpxPlaybackControlView = nil
+        navigationViewController = nil
 
         LocationService.shared.stopLocationOverride()
-
-        // Discard navigation map (home map was never touched)
         navigationMapViewController = nil
 
-        // Pop to home
+        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
         presentHomeDrawer()
     }
@@ -1150,13 +1008,16 @@ final class AppCoordinator: NSObject, Coordinator {
         // 2. Discard navigation map (home map was never touched)
         navigationMapViewController = nil
 
-        // 3. Pop to HomeVC
+        // 3. Recenter home map to current location
+        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
+
+        // 4. Pop to HomeVC
         navigationController.popToViewController(homeViewController, animated: true)
 
-        // 4. Re-present home drawer
+        // 5. Re-present home drawer
         presentHomeDrawer()
 
-        // 5. Clear iPhone-only references
+        // 6. Clear iPhone-only references
         navigationViewController = nil
         mapInterpolator = nil
         mapCamera = nil

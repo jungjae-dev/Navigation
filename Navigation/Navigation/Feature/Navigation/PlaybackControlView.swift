@@ -1,8 +1,8 @@
 import UIKit
 import Combine
 
-/// Overlay control bar for virtual drive playback (play/pause, stop, speed)
-final class VirtualDriveControlView: UIView {
+/// Unified playback control overlay for virtual drive and GPX playback
+final class PlaybackControlView: UIView {
 
     // MARK: - Callbacks
 
@@ -65,7 +65,7 @@ final class VirtualDriveControlView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 12, weight: .medium)
         label.textColor = UIColor.white.withAlphaComponent(0.8)
-        label.text = "가상 주행"
+        label.text = "시뮬레이션"
         return label
     }()
 
@@ -125,64 +125,37 @@ final class VirtualDriveControlView: UIView {
         speedButton.addTarget(self, action: #selector(speedTapped), for: .touchUpInside)
     }
 
-    // MARK: - Bind to Engine
+    // MARK: - Bind
 
-    func bind(to engine: VirtualDriveEngine) {
+    func bind(to source: PlaybackControllable) {
         cancellables.removeAll()
 
-        engine.playStatePublisher
+        source.isPlayingPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] state in
-                self?.updatePlayPauseIcon(state: state)
-                self?.updateStatusLabel(state: state)
+            .sink { [weak self] isPlaying in
+                let iconName = isPlaying ? "pause.fill" : "play.fill"
+                let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
+                self?.playPauseButton.setImage(
+                    UIImage(systemName: iconName)?.withConfiguration(config),
+                    for: .normal
+                )
+                self?.statusLabel.text = isPlaying ? "시뮬레이션 중" : "시뮬레이션"
             }
             .store(in: &cancellables)
 
-        engine.progressPublisher
+        source.progressPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] progress in
                 self?.progressView.setProgress(Float(progress), animated: true)
             }
             .store(in: &cancellables)
 
-        engine.speedMultiplierPublisher
+        source.speedMultiplierPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] multiplier in
                 self?.speedButton.setTitle(String(format: "%.1fx", multiplier), for: .normal)
             }
             .store(in: &cancellables)
-    }
-
-    // MARK: - Update UI
-
-    private func updatePlayPauseIcon(state: VirtualDriveEngine.PlayState) {
-        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
-        let iconName: String
-
-        switch state {
-        case .playing:
-            iconName = "pause.fill"
-        case .idle, .paused, .finished:
-            iconName = "play.fill"
-        }
-
-        playPauseButton.setImage(
-            UIImage(systemName: iconName)?.withConfiguration(config),
-            for: .normal
-        )
-    }
-
-    private func updateStatusLabel(state: VirtualDriveEngine.PlayState) {
-        switch state {
-        case .idle:
-            statusLabel.text = "가상 주행"
-        case .playing:
-            statusLabel.text = "가상 주행 중"
-        case .paused:
-            statusLabel.text = "일시정지"
-        case .finished:
-            statusLabel.text = "주행 완료"
-        }
     }
 
     // MARK: - Actions

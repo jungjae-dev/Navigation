@@ -4,7 +4,7 @@ import CoreLocation
 import Combine
 
 /// Drives a virtual location along an MKRoute polyline for simulation/testing
-final class VirtualDriveEngine {
+final class VirtualDriveEngine: PlaybackControllable {
 
     // MARK: - State
 
@@ -20,8 +20,20 @@ final class VirtualDriveEngine {
     let simulatedLocationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
     let simulatedHeadingPublisher = CurrentValueSubject<CLLocationDirection, Never>(0)
     let playStatePublisher = CurrentValueSubject<PlayState, Never>(.idle)
+    let isPlayingPublisher = CurrentValueSubject<Bool, Never>(false)
     let progressPublisher = CurrentValueSubject<Double, Never>(0)
     let speedMultiplierPublisher = CurrentValueSubject<Double, Never>(1.0)
+
+    private var cancellables = Set<AnyCancellable>()
+
+    // MARK: - Init
+
+    init() {
+        playStatePublisher
+            .map { $0 == .playing }
+            .sink { [weak self] in self?.isPlayingPublisher.send($0) }
+            .store(in: &cancellables)
+    }
 
     // MARK: - Configuration
 

@@ -31,6 +31,8 @@ final class LocationService: NSObject {
     // MARK: - Publishers
 
     let locationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
+    /// 정확도 필터를 거치지 않은 raw 위치 (초기 지도 이동용)
+    let rawLocationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
     let headingPublisher = CurrentValueSubject<CLHeading?, Never>(nil)
     let authStatusPublisher = CurrentValueSubject<LocationAuthStatus, Never>(.notDetermined)
     let locationErrorPublisher = PassthroughSubject<Error, Never>()
@@ -51,6 +53,11 @@ final class LocationService: NSObject {
         super.init()
         locationManager.delegate = self
         authStatusPublisher.send(LocationAuthStatus(from: locationManager.authorizationStatus))
+    }
+
+    /// 정확한 위치 → raw 위치 순으로 최선의 위치를 반환 (경로 출발지 등에 사용)
+    var bestAvailableLocation: CLLocation? {
+        locationPublisher.value ?? rawLocationPublisher.value
     }
 
     // MARK: - Public Methods
@@ -125,6 +132,10 @@ extension LocationService: CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
+
+        MainActor.assumeIsolated {
+            rawLocationPublisher.send(location)
+        }
 
         // Filter inaccurate locations
         guard location.horizontalAccuracy >= 0,

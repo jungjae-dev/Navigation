@@ -22,7 +22,7 @@ final class HomeDrawerViewController: UIViewController {
         cv.register(FavoriteCell.self, forCellWithReuseIdentifier: FavoriteCell.reuseIdentifier)
         cv.register(RecentSearchCell.self, forCellWithReuseIdentifier: RecentSearchCell.reuseIdentifier)
         cv.register(HomeSectionHeaderView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: HomeSectionHeaderView.reuseIdentifier)
-        cv.alwaysBounceVertical = false
+        cv.bounces = false
         return cv
     }()
 
