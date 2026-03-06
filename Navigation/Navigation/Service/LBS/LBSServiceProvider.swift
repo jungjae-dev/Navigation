@@ -27,10 +27,9 @@ final class LBSServiceProvider {
             route = AppleRouteService()
             geocoding = AppleGeocodingService()
         case .kakao:
-            // Phase 4에서 Kakao 구현체 추가, 현재는 Apple fallback
-            search = AppleSearchService()
-            route = AppleRouteService()
-            geocoding = AppleGeocodingService()
+            search = KakaoSearchService()
+            route = KakaoRouteService()
+            geocoding = KakaoGeocodingService()
         }
     }
 }
