@@ -12,6 +12,10 @@ final class HomeDrawerViewController: UIViewController {
 
     // MARK: - UI Components
 
+    private let headerView = DrawerHeaderView()
+    private let searchBarView = SearchBarView(placeholder: "여기서 검색")
+    private let settingsButton = DrawerIconButton(preset: .settings)
+
     private lazy var collectionView: UICollectionView = {
         let layout = createCompositionalLayout()
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -33,6 +37,8 @@ final class HomeDrawerViewController: UIViewController {
 
     var onFavoriteTapped: ((FavoritePlace) -> Void)?
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
+    var onSearchBarTapped: (() -> Void)?
+    var onSettingsTapped: (() -> Void)?
 
     // MARK: - Init
 
@@ -58,14 +64,36 @@ final class HomeDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
+        // Header: searchBar + settings button
+        headerView.setCenterView(searchBarView)
+        headerView.addRightAction(settingsButton)
+
+        view.addSubview(headerView)
         view.addSubview(collectionView)
 
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.lg),
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            collectionView.topAnchor.constraint(
+                equalTo: headerView.bottomAnchor,
+                constant: Theme.Drawer.Layout.contentTopPadding
+            ),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
+
+        // Actions
+        searchBarView.onTapped = { [weak self] in
+            self?.onSearchBarTapped?()
+        }
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+    }
+
+    @objc private func settingsTapped() {
+        onSettingsTapped?()
     }
 
     // MARK: - Binding

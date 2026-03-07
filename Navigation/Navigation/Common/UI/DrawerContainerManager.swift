@@ -565,6 +565,33 @@ final class DrawerContainerManager: NSObject {
         }) ?? sorted[0]
     }
 
+    func snapToDetent(id: String, completion: (() -> Void)? = nil) {
+        guard let parent = parentViewController, !drawerStack.isEmpty else { return }
+        let containerHeight = parent.view.bounds.height
+
+        guard let detent = detents.first(where: { $0.identifier == id }) else { return }
+
+        let targetHeight = detent.height(in: containerHeight)
+        let entry = drawerStack[drawerStack.count - 1]
+
+        drawerStack[drawerStack.count - 1].activeDetent = detent
+        drawerStack[drawerStack.count - 1].currentHeight = targetHeight
+
+        UIView.animate(
+            withDuration: Self.animationDuration,
+            delay: 0,
+            usingSpringWithDamping: Self.springDamping,
+            initialSpringVelocity: 0,
+            options: .curveEaseOut
+        ) {
+            entry.heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+            parent.view.layoutIfNeeded()
+        } completion: { _ in
+            self.onHeightChanged?(targetHeight)
+            completion?()
+        }
+    }
+
     private func snapToDetent(_ detent: DrawerDetent, containerHeight: CGFloat) {
         guard let parent = parentViewController, !drawerStack.isEmpty else { return }
 

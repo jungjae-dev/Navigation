@@ -4,56 +4,6 @@ import Combine
 
 final class HomeViewController: UIViewController {
 
-    // MARK: - UI Components
-
-    private let searchBarContainer: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
-        view.layer.cornerRadius = Theme.CornerRadius.medium
-        view.layer.shadowColor = Theme.Shadow.color
-        view.layer.shadowOpacity = Theme.Shadow.opacity
-        view.layer.shadowOffset = Theme.Shadow.offset
-        view.layer.shadowRadius = Theme.Shadow.radius
-        return view
-    }()
-
-    private let searchIcon: UIImageView = {
-        let imageView = UIImageView()
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.image = UIImage(systemName: "magnifyingglass")
-        imageView.tintColor = Theme.Colors.secondaryLabel
-        imageView.contentMode = .scaleAspectFit
-        return imageView
-    }()
-
-    private let searchLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "여기서 검색"
-        label.font = Theme.Fonts.body
-        label.textColor = Theme.Colors.secondaryLabel
-        return label
-    }()
-
-    private let settingsButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(
-            UIImage(systemName: "gearshape.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
-            for: .normal
-        )
-        button.tintColor = Theme.Colors.secondaryLabel
-        button.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
-        button.layer.cornerRadius = 24
-        button.layer.shadowColor = Theme.Shadow.color
-        button.layer.shadowOpacity = Theme.Shadow.opacity
-        button.layer.shadowOffset = Theme.Shadow.offset
-        button.layer.shadowRadius = Theme.Shadow.radius
-        return button
-    }()
-
     // MARK: - Properties
 
     private var mapControlButtons: MapControlButtonsView!
@@ -64,9 +14,6 @@ final class HomeViewController: UIViewController {
     let mapViewController: MapViewController
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
-
-    var onSearchBarTapped: (() -> Void)?
-    var onSettingsTapped: (() -> Void)?
 
     // MARK: - Init
 
@@ -85,12 +32,9 @@ final class HomeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapChild()
-        setupSearchBar()
-        setupSettingsButton()
         setupCompassButton()
         setupMapControlButtons()
         setupDrawerContainer()
-        setupAccessibility()
         bindViewModel()
         handleInitialPermission()
     }
@@ -115,58 +59,6 @@ final class HomeViewController: UIViewController {
         ])
 
         mapViewController.didMove(toParent: self)
-    }
-
-    private func setupSearchBar() {
-        view.addSubview(settingsButton)
-        view.addSubview(searchBarContainer)
-        searchBarContainer.addSubview(searchIcon)
-        searchBarContainer.addSubview(searchLabel)
-
-        NSLayoutConstraint.activate([
-            settingsButton.topAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm
-            ),
-            settingsButton.trailingAnchor.constraint(
-                equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg
-            ),
-            settingsButton.widthAnchor.constraint(equalToConstant: 48),
-            settingsButton.heightAnchor.constraint(equalToConstant: 48),
-
-            searchBarContainer.topAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm
-            ),
-            searchBarContainer.leadingAnchor.constraint(
-                equalTo: view.leadingAnchor, constant: Theme.Spacing.lg
-            ),
-            searchBarContainer.trailingAnchor.constraint(
-                equalTo: settingsButton.leadingAnchor, constant: -Theme.Spacing.sm
-            ),
-            searchBarContainer.heightAnchor.constraint(equalToConstant: 48),
-
-            searchIcon.leadingAnchor.constraint(
-                equalTo: searchBarContainer.leadingAnchor, constant: Theme.Spacing.md
-            ),
-            searchIcon.centerYAnchor.constraint(equalTo: searchBarContainer.centerYAnchor),
-            searchIcon.widthAnchor.constraint(equalToConstant: 20),
-            searchIcon.heightAnchor.constraint(equalToConstant: 20),
-
-            searchLabel.leadingAnchor.constraint(
-                equalTo: searchIcon.trailingAnchor, constant: Theme.Spacing.sm
-            ),
-            searchLabel.centerYAnchor.constraint(equalTo: searchBarContainer.centerYAnchor),
-            searchLabel.trailingAnchor.constraint(
-                equalTo: searchBarContainer.trailingAnchor, constant: -Theme.Spacing.md
-            ),
-        ])
-
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(searchBarTapped))
-        searchBarContainer.addGestureRecognizer(tapGesture)
-        searchBarContainer.isUserInteractionEnabled = true
-    }
-
-    private func setupSettingsButton() {
-        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
     }
 
     private func setupMapControlButtons() {
@@ -210,25 +102,13 @@ final class HomeViewController: UIViewController {
                 equalTo: view.leadingAnchor, constant: Theme.Spacing.lg
             ),
             compass.topAnchor.constraint(
-                equalTo: searchBarContainer.bottomAnchor, constant: Theme.Spacing.sm
+                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm
             ),
         ])
     }
 
     private func setupDrawerContainer() {
         drawerManager.install(in: self)
-    }
-
-    // MARK: - Accessibility
-
-    private func setupAccessibility() {
-        searchBarContainer.isAccessibilityElement = true
-        searchBarContainer.accessibilityLabel = "검색"
-        searchBarContainer.accessibilityHint = "탭하여 장소를 검색합니다"
-        searchBarContainer.accessibilityTraits = .searchField
-
-        settingsButton.accessibilityLabel = "설정"
-        settingsButton.accessibilityHint = "앱 설정을 엽니다"
     }
 
     // MARK: - Binding
@@ -266,16 +146,6 @@ final class HomeViewController: UIViewController {
 
     func updateMapInsets(top: CGFloat, bottom: CGFloat) {
         mapViewController.updateMapInsets(top: top, bottom: bottom)
-    }
-
-    // MARK: - Actions
-
-    @objc private func searchBarTapped() {
-        onSearchBarTapped?()
-    }
-
-    @objc private func settingsTapped() {
-        onSettingsTapped?()
     }
 
     // MARK: - Permission Handling

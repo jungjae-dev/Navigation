@@ -74,14 +74,6 @@ final class AppCoordinator: NSObject, Coordinator {
         )
         self.homeViewController = homeVC
 
-        homeVC.onSearchBarTapped = { [weak self] in
-            self?.showSearch()
-        }
-
-        homeVC.onSettingsTapped = { [weak self] in
-            self?.showSettings()
-        }
-
         mapVC.onPOISelected = { [weak self] place in
             self?.showPOIDetail(place)
         }
@@ -116,6 +108,14 @@ final class AppCoordinator: NSObject, Coordinator {
         }
         drawerVC.onRecentSearchTapped = { [weak self] history in
             self?.showRoutePreviewForHistory(history)
+        }
+
+        drawerVC.onSearchBarTapped = { [weak self] in
+            self?.handleSearchBarTapped()
+        }
+
+        drawerVC.onSettingsTapped = { [weak self] in
+            self?.showSettings()
         }
 
         drawerManager.pushDrawer(
@@ -227,17 +227,16 @@ final class AppCoordinator: NSObject, Coordinator {
         completion?()
     }
 
-    /// Top map inset: below search bar (safeArea + spacing + searchBarHeight + spacing)
+    /// Top map inset: safeArea top with margin
     private func mapTopInset(in containerView: UIView) -> CGFloat {
-        return containerView.safeAreaInsets.top + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+        return containerView.safeAreaInsets.top + Theme.Spacing.sm
     }
 
-    /// Maximum drawer height (below search bar with margin)
+    /// Maximum drawer height: from safeArea bottom to safeArea top
     /// DrawerContainerManager adds safeAreaInsets.bottom to the height for the home indicator area,
-    /// so subtract it here to keep the drawer's visible top edge below the search bar.
+    /// so subtract it here to keep the drawer's visible top edge at safeArea top.
     private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
-        let searchBarBottom = mapTopInset(in: containerView)
-        return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm - containerView.safeAreaInsets.bottom
+        return containerView.bounds.height - containerView.safeAreaInsets.top - containerView.safeAreaInsets.bottom
     }
 
     private func standardDetents() -> [DrawerDetent] {
@@ -474,6 +473,13 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Search Flow
 
+    private func handleSearchBarTapped() {
+        // Snap home drawer to full, then present search
+        drawerManager.snapToDetent(id: "drawerLarge") { [weak self] in
+            self?.showSearch()
+        }
+    }
+
     private func showSearch() {
         // Clean up any existing drawer state
         if currentDrawer != nil {
@@ -493,11 +499,14 @@ final class AppCoordinator: NSObject, Coordinator {
         searchVC.modalPresentationStyle = .fullScreen
 
         searchVC.onDismiss = { [weak self] in
-            self?.navigationController.dismiss(animated: true)
+            self?.navigationController.dismiss(animated: true) {
+                self?.drawerManager.snapToDetent(id: "drawerMedium")
+            }
         }
 
         searchVC.onSearchResults = { [weak self] results in
             self?.navigationController.dismiss(animated: true) {
+                self?.drawerManager.snapToDetent(id: "drawerMedium")
                 self?.showSearchResults(results)
             }
         }
