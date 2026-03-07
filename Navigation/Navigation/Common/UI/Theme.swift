@@ -55,6 +55,18 @@ enum Theme {
         static let pill: CGFloat = 9999
     }
 
+    // MARK: - Icon Size
+
+    enum IconSize {
+        static let xs: CGFloat = 12
+        static let sm: CGFloat = 16
+        static let md: CGFloat = 18
+        static let lg: CGFloat = 20
+        static let xl: CGFloat = 24
+        static let xxl: CGFloat = 32
+        static let xxxl: CGFloat = 48
+    }
+
     // MARK: - Shadow
 
     enum Shadow {
