@@ -125,7 +125,7 @@ final class POIDetailViewController: UIViewController {
         let placeName = place.name ?? "알 수 없는 장소"
         let iconName = iconName(for: place.category)
         let categoryIcon = UIImage(systemName: iconName)?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.IconSize.lg, weight: .medium))
 
         headerView.setLeftIcon(categoryIcon, size: Theme.Drawer.Cell.iconSize)
         headerView.setTitle(placeName)

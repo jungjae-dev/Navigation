@@ -69,8 +69,8 @@ final class RouteOptionCell: UITableViewCell {
         NSLayoutConstraint.activate([
             transportIcon.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.Spacing.lg),
             transportIcon.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            transportIcon.widthAnchor.constraint(equalToConstant: 24),
-            transportIcon.heightAnchor.constraint(equalToConstant: 24),
+            transportIcon.widthAnchor.constraint(equalToConstant: Theme.IconSize.xl),
+            transportIcon.heightAnchor.constraint(equalToConstant: Theme.IconSize.xl),
 
             timeLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Theme.Spacing.md),
             timeLabel.leadingAnchor.constraint(equalTo: transportIcon.trailingAnchor, constant: Theme.Spacing.md),
@@ -84,8 +84,8 @@ final class RouteOptionCell: UITableViewCell {
 
             checkmark.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             checkmark.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Theme.Spacing.lg),
-            checkmark.widthAnchor.constraint(equalToConstant: 24),
-            checkmark.heightAnchor.constraint(equalToConstant: 24),
+            checkmark.widthAnchor.constraint(equalToConstant: Theme.IconSize.xl),
+            checkmark.heightAnchor.constraint(equalToConstant: Theme.IconSize.xl),
         ])
     }
 

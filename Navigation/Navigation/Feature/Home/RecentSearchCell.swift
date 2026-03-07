@@ -60,8 +60,8 @@ final class RecentSearchCell: UICollectionViewCell {
         NSLayoutConstraint.activate([
             iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.Spacing.lg),
             iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 20),
-            iconImageView.heightAnchor.constraint(equalToConstant: 20),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.IconSize.lg),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.IconSize.lg),
 
             nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.md),
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Theme.Spacing.sm),

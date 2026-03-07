@@ -58,8 +58,8 @@ final class FavoriteCell: UICollectionViewCell {
 
             iconImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: Theme.Spacing.sm),
             iconImageView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 28),
-            iconImageView.heightAnchor.constraint(equalToConstant: 28),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
 
             nameLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: Theme.Spacing.xs),
             nameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Spacing.xs),
@@ -73,7 +73,7 @@ final class FavoriteCell: UICollectionViewCell {
     func configure(with favorite: FavoritePlace) {
         nameLabel.text = favorite.name
         iconImageView.image = UIImage(systemName: iconName(for: favorite.category))?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.IconSize.lg, weight: .medium))
     }
 
     private func iconName(for category: String) -> String {

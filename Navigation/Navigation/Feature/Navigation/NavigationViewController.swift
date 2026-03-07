@@ -157,7 +157,7 @@ final class NavigationViewController: UIViewController {
         )
         close.tintColor = .white
         close.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        close.layer.cornerRadius = 20
+        close.layer.cornerRadius = Theme.Drawer.SearchBar.height / 2
         close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         view.addSubview(close)
 
@@ -168,8 +168,8 @@ final class NavigationViewController: UIViewController {
         NSLayoutConstraint.activate([
             close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
             close.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
-            close.widthAnchor.constraint(equalToConstant: 40),
-            close.heightAnchor.constraint(equalToConstant: 40),
+            close.widthAnchor.constraint(equalToConstant: Theme.Drawer.SearchBar.height),
+            close.heightAnchor.constraint(equalToConstant: Theme.Drawer.SearchBar.height),
 
             control.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             control.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),

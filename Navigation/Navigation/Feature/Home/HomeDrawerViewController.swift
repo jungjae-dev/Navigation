@@ -323,15 +323,15 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        iv.tintColor = Theme.Colors.primary
+        iv.tintColor = Theme.Drawer.SectionHeader.iconColor
         return iv
     }()
 
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.headline
-        label.textColor = Theme.Colors.label
+        label.font = Theme.Drawer.SectionHeader.titleFont
+        label.textColor = Theme.Drawer.SectionHeader.titleColor
         return label
     }()
 
@@ -344,8 +344,8 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         NSLayoutConstraint.activate([
             iconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Spacing.lg),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 16),
-            iconImageView.heightAnchor.constraint(equalToConstant: 16),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Drawer.SectionHeader.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Drawer.SectionHeader.iconSize),
 
             titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.xs),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -360,6 +360,6 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         titleLabel.text = title
         iconImageView.isHidden = !showIcon
         iconImageView.image = UIImage(systemName: iconName)?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Drawer.SectionHeader.iconSize, weight: .semibold))
     }
 }

@@ -121,12 +121,12 @@ final class SearchViewController: UIViewController {
             searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-            searchBar.heightAnchor.constraint(equalToConstant: 48),
+            searchBar.heightAnchor.constraint(equalToConstant: Theme.Card.size),
 
             backButton.leadingAnchor.constraint(equalTo: searchBar.leadingAnchor, constant: Theme.Spacing.sm),
             backButton.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.widthAnchor.constraint(equalToConstant: Theme.Button.Icon.size),
+            backButton.heightAnchor.constraint(equalToConstant: Theme.Button.Icon.size),
 
             searchTextField.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: Theme.Spacing.sm),
             searchTextField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -Theme.Spacing.md),
