@@ -468,6 +468,10 @@ extension SettingsViewController: UITableViewDataSource {
         cell.selectionStyle = .default
 
         var config = cell.defaultContentConfiguration()
+        config.textProperties.font = Theme.Table.cellFont
+        config.textProperties.color = Theme.Table.cellColor
+        config.secondaryTextProperties.font = Theme.Table.detailFont
+        config.secondaryTextProperties.color = Theme.Table.detailColor
 
         guard let sec = Section(rawValue: indexPath.section) else { return cell }
 
@@ -589,8 +593,8 @@ extension SettingsViewController: UITableViewDataSource {
                 config.text = "검색 기록 삭제"
                 config.secondaryText = "\(viewModel.searchHistoryCount.value)개"
                 config.image = UIImage(systemName: "trash.fill")
-                config.imageProperties.tintColor = Theme.Colors.destructive
-                config.textProperties.color = Theme.Colors.destructive
+                config.imageProperties.tintColor = Theme.Table.destructiveColor
+                config.textProperties.color = Theme.Table.destructiveColor
             }
 
         case .info:

@@ -58,20 +58,20 @@ final class MapControlButtonsView: UIView {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(
             UIImage(systemName: iconName)?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)),
             for: .normal
         )
         button.tintColor = Theme.Colors.secondaryLabel
-        button.backgroundColor = Theme.Colors.secondaryBackground.withAlphaComponent(0.9)
-        button.layer.cornerRadius = 24
+        button.backgroundColor = Theme.Card.backgroundColor.withAlphaComponent(Theme.Card.backgroundOpacity)
+        button.layer.cornerRadius = Theme.Card.cornerRadius
         button.layer.shadowColor = Theme.Shadow.color
         button.layer.shadowOpacity = Theme.Shadow.opacity
         button.layer.shadowOffset = Theme.Shadow.offset
         button.layer.shadowRadius = Theme.Shadow.radius
 
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 48),
-            button.heightAnchor.constraint(equalToConstant: 48),
+            button.widthAnchor.constraint(equalToConstant: Theme.Card.size),
+            button.heightAnchor.constraint(equalToConstant: Theme.Card.size),
         ])
     }
 
@@ -121,7 +121,7 @@ final class MapControlButtonsView: UIView {
 
         currentLocationButton.setImage(
             UIImage(systemName: iconName)?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)),
             for: .normal
         )
         currentLocationButton.tintColor = tintColor
@@ -132,7 +132,7 @@ final class MapControlButtonsView: UIView {
 
         mapModeButton.setImage(
             UIImage(systemName: iconName)?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)),
             for: .normal
         )
     }

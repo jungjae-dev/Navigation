@@ -16,7 +16,7 @@ final class PlaybackControlView: UIView {
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .horizontal
-        stack.spacing = 16
+        stack.spacing = Theme.Spacing.lg
         stack.alignment = .center
         stack.distribution = .equalSpacing
         return stack
@@ -24,25 +24,25 @@ final class PlaybackControlView: UIView {
 
     private let playPauseButton: UIButton = {
         let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
+        let config = UIImage.SymbolConfiguration(pointSize: Theme.Playback.iconSize, weight: .semibold)
         button.setImage(UIImage(systemName: "play.fill")?.withConfiguration(config), for: .normal)
-        button.tintColor = .white
+        button.tintColor = Theme.Banner.foregroundColor
         return button
     }()
 
     private let stopButton: UIButton = {
         let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)
         button.setImage(UIImage(systemName: "stop.fill")?.withConfiguration(config), for: .normal)
-        button.tintColor = .white
+        button.tintColor = Theme.Banner.foregroundColor
         return button
     }()
 
     private let speedButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("1.0x", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-        button.tintColor = .white
+        button.titleLabel?.font = Theme.Playback.speedFont
+        button.tintColor = Theme.Banner.foregroundColor
         button.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
         button.layer.borderWidth = 1
         button.layer.cornerRadius = 8
@@ -55,16 +55,16 @@ final class PlaybackControlView: UIView {
     private let progressView: UIProgressView = {
         let progress = UIProgressView(progressViewStyle: .default)
         progress.translatesAutoresizingMaskIntoConstraints = false
-        progress.trackTintColor = UIColor.white.withAlphaComponent(0.3)
-        progress.progressTintColor = .systemGreen
+        progress.trackTintColor = UIColor.white.withAlphaComponent(Theme.Playback.trackTintOpacity)
+        progress.progressTintColor = Theme.Playback.progressColor
         return progress
     }()
 
     private let statusLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textColor = UIColor.white.withAlphaComponent(0.8)
+        label.font = Theme.Playback.statusFont
+        label.textColor = Theme.Playback.statusColor
         label.text = "시뮬레이션"
         return label
     }()
@@ -89,8 +89,8 @@ final class PlaybackControlView: UIView {
 
     private func setupUI() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = UIColor.black.withAlphaComponent(0.85)
-        layer.cornerRadius = 16
+        backgroundColor = Theme.Playback.backgroundColor
+        layer.cornerRadius = Theme.Playback.cornerRadius
 
         addSubview(statusLabel)
         addSubview(progressView)
@@ -101,21 +101,21 @@ final class PlaybackControlView: UIView {
         containerStack.addArrangedSubview(speedButton)
 
         NSLayoutConstraint.activate([
-            statusLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            statusLabel.topAnchor.constraint(equalTo: topAnchor, constant: Theme.Spacing.md),
             statusLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
-            progressView.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 6),
-            progressView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            progressView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            progressView.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: Theme.Spacing.xs),
+            progressView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Playback.padding),
+            progressView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Playback.padding),
 
-            containerStack.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: 10),
+            containerStack.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: Theme.Spacing.md),
             containerStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            containerStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            containerStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Theme.Spacing.md),
 
-            playPauseButton.widthAnchor.constraint(equalToConstant: 44),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 44),
-            stopButton.widthAnchor.constraint(equalToConstant: 44),
-            stopButton.heightAnchor.constraint(equalToConstant: 44),
+            playPauseButton.widthAnchor.constraint(equalToConstant: Theme.Playback.buttonSize),
+            playPauseButton.heightAnchor.constraint(equalToConstant: Theme.Playback.buttonSize),
+            stopButton.widthAnchor.constraint(equalToConstant: Theme.Playback.buttonSize),
+            stopButton.heightAnchor.constraint(equalToConstant: Theme.Playback.buttonSize),
         ])
     }
 
@@ -134,7 +134,7 @@ final class PlaybackControlView: UIView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isPlaying in
                 let iconName = isPlaying ? "pause.fill" : "play.fill"
-                let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
+                let config = UIImage.SymbolConfiguration(pointSize: Theme.Playback.iconSize, weight: .semibold)
                 self?.playPauseButton.setImage(
                     UIImage(systemName: iconName)?.withConfiguration(config),
                     for: .normal

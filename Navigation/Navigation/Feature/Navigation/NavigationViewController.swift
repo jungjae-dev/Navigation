@@ -14,12 +14,12 @@ final class NavigationViewController: UIViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(
             UIImage(systemName: "location.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)),
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)),
             for: .normal
         )
         button.tintColor = Theme.Colors.primary
         button.backgroundColor = Theme.Colors.background
-        button.layer.cornerRadius = 24
+        button.layer.cornerRadius = Theme.Card.cornerRadius
         button.layer.shadowColor = Theme.Shadow.color
         button.layer.shadowOpacity = Theme.Shadow.opacity
         button.layer.shadowOffset = Theme.Shadow.offset
@@ -124,8 +124,8 @@ final class NavigationViewController: UIViewController {
             // Recenter button — right side above bottom bar
             recenterButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
             recenterButton.bottomAnchor.constraint(equalTo: bottomBar.topAnchor, constant: -Theme.Spacing.lg),
-            recenterButton.widthAnchor.constraint(equalToConstant: 48),
-            recenterButton.heightAnchor.constraint(equalToConstant: 48),
+            recenterButton.widthAnchor.constraint(equalToConstant: Theme.Card.size),
+            recenterButton.heightAnchor.constraint(equalToConstant: Theme.Card.size),
         ])
     }
 
@@ -152,7 +152,7 @@ final class NavigationViewController: UIViewController {
         close.translatesAutoresizingMaskIntoConstraints = false
         close.setImage(
             UIImage(systemName: "xmark")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)),
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .semibold)),
             for: .normal
         )
         close.tintColor = .white

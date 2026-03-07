@@ -8,8 +8,8 @@ final class ManeuverBannerView: UIView {
     private let containerView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.85)
-        view.layer.cornerRadius = Theme.CornerRadius.medium
+        view.backgroundColor = Theme.Banner.backgroundColor
+        view.layer.cornerRadius = Theme.Banner.cornerRadius
         view.layer.masksToBounds = true
         return view
     }()
@@ -18,7 +18,7 @@ final class ManeuverBannerView: UIView {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.contentMode = .scaleAspectFit
-        imageView.tintColor = .white
+        imageView.tintColor = Theme.Banner.foregroundColor
         imageView.image = UIImage(systemName: "arrow.up")
         return imageView
     }()
@@ -26,8 +26,8 @@ final class ManeuverBannerView: UIView {
     private let distanceLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.maneuverDistance
-        label.textColor = .white
+        label.font = Theme.Banner.distanceFont
+        label.textColor = Theme.Banner.foregroundColor
         label.text = "--"
         return label
     }()
@@ -35,8 +35,8 @@ final class ManeuverBannerView: UIView {
     private let instructionLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.maneuverInstruction
-        label.textColor = .white
+        label.font = Theme.Banner.instructionFont
+        label.textColor = Theme.Banner.foregroundColor
         label.numberOfLines = 2
         label.text = "경로를 따라 이동하세요"
         return label
@@ -74,19 +74,19 @@ final class ManeuverBannerView: UIView {
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Spacing.lg),
-            iconImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: Theme.Spacing.lg),
-            iconImageView.widthAnchor.constraint(equalToConstant: 48),
-            iconImageView.heightAnchor.constraint(equalToConstant: 48),
+            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Banner.padding),
+            iconImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: Theme.Banner.padding),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Banner.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Banner.iconSize),
 
             distanceLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.md),
             distanceLabel.centerYAnchor.constraint(equalTo: iconImageView.centerYAnchor),
-            distanceLabel.trailingAnchor.constraint(lessThanOrEqualTo: containerView.trailingAnchor, constant: -Theme.Spacing.lg),
+            distanceLabel.trailingAnchor.constraint(lessThanOrEqualTo: containerView.trailingAnchor, constant: -Theme.Banner.padding),
 
             instructionLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: Theme.Spacing.sm),
-            instructionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Spacing.lg),
-            instructionLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Theme.Spacing.lg),
-            instructionLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -Theme.Spacing.lg),
+            instructionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Banner.padding),
+            instructionLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Theme.Banner.padding),
+            instructionLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -Theme.Banner.padding),
         ])
     }
 
@@ -96,7 +96,7 @@ final class ManeuverBannerView: UIView {
         instructionLabel.text = instruction
         distanceLabel.text = distance
         iconImageView.image = UIImage(systemName: iconName)?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 36, weight: .bold))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Banner.iconSize, weight: .bold))
 
         accessibilityLabel = "\(distance) 후 \(instruction)"
     }
