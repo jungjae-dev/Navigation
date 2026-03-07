@@ -2,38 +2,10 @@ import UIKit
 
 final class SearchResultDrawerViewController: UIViewController {
 
-    // MARK: - Constants
-
-    static let titleBarHeight: CGFloat = 44
-
     // MARK: - UI Components
 
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.headline
-        label.textColor = Theme.Colors.label
-        return label
-    }()
-
-    private let closeButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(
-            UIImage(systemName: "xmark.circle.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
-            for: .normal
-        )
-        button.tintColor = Theme.Colors.secondaryLabel
-        return button
-    }()
-
-    private let titleSeparator: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.separator
-        return view
-    }()
+    private let headerView = DrawerHeaderView()
+    private let closeButton = DrawerIconButton(preset: .close)
 
     private let tableView: UITableView = {
         let tableView = UITableView()
@@ -66,24 +38,21 @@ final class SearchResultDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        view.addSubview(titleLabel)
-        view.addSubview(closeButton)
-        view.addSubview(titleSeparator)
+        headerView.setTitle("검색 결과", alignment: .center)
+        headerView.addRightAction(closeButton)
+
+        view.addSubview(headerView)
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight / 2),
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-
-            titleSeparator.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight),
-            titleSeparator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            titleSeparator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            titleSeparator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
-
-            tableView.topAnchor.constraint(equalTo: titleSeparator.bottomAnchor),
+            tableView.topAnchor.constraint(
+                equalTo: headerView.bottomAnchor,
+                constant: Theme.Drawer.Layout.contentTopPadding
+            ),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),

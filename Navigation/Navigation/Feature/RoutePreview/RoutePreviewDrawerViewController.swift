@@ -4,50 +4,11 @@ import MapKit
 
 final class RoutePreviewDrawerViewController: UIViewController {
 
-    // MARK: - Constants
-
-    static let titleBarHeight: CGFloat = 44
-
     // MARK: - UI Components
 
-    private let destinationLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.headline
-        label.textColor = Theme.Colors.label
-        return label
-    }()
-
-    private let favoriteButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(
-            UIImage(systemName: "star")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)),
-            for: .normal
-        )
-        button.tintColor = Theme.Colors.primary
-        return button
-    }()
-
-    private let closeButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(
-            UIImage(systemName: "xmark.circle.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
-            for: .normal
-        )
-        button.tintColor = Theme.Colors.secondaryLabel
-        return button
-    }()
-
-    private let titleSeparator: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.separator
-        return view
-    }()
+    private let headerView = DrawerHeaderView()
+    private let favoriteButton = DrawerIconButton(preset: .favorite)
+    private let closeButton = DrawerIconButton(preset: .close)
 
     private let transportModeSegment: UISegmentedControl = {
         let segment = UISegmentedControl(items: [
@@ -56,9 +17,9 @@ final class RoutePreviewDrawerViewController: UIViewController {
         ])
         segment.translatesAutoresizingMaskIntoConstraints = false
         segment.selectedSegmentIndex = 0
-        segment.selectedSegmentTintColor = Theme.Colors.primary
-        let normalAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Colors.label]
-        let selectedAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white]
+        segment.selectedSegmentTintColor = Theme.Segment.selectedTintColor
+        let normalAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Segment.normalTextColor]
+        let selectedAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: Theme.Segment.selectedTextColor]
         segment.setTitleTextAttributes(normalAttrs, for: .normal)
         segment.setTitleTextAttributes(selectedAttrs, for: .selected)
         return segment
@@ -73,29 +34,8 @@ final class RoutePreviewDrawerViewController: UIViewController {
         return tableView
     }()
 
-    private let startButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("안내 시작", for: .normal)
-        button.titleLabel?.font = Theme.Fonts.headline
-        button.backgroundColor = Theme.Colors.primary
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = Theme.CornerRadius.medium
-        return button
-    }()
-
-    private let virtualDriveButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("가상 주행", for: .normal)
-        button.titleLabel?.font = Theme.Fonts.subheadline
-        button.backgroundColor = Theme.Colors.secondaryBackground
-        button.setTitleColor(Theme.Colors.primary, for: .normal)
-        button.layer.cornerRadius = Theme.CornerRadius.medium
-        button.layer.borderColor = Theme.Colors.primary.cgColor
-        button.layer.borderWidth = 1
-        return button
-    }()
+    private let startButton = DrawerActionButton(style: .primary, title: "안내 시작")
+    private let virtualDriveButton = DrawerActionButton(style: .secondary, title: "가상 주행")
 
     private let loadingIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .medium)
@@ -134,7 +74,7 @@ final class RoutePreviewDrawerViewController: UIViewController {
         setupActions()
         bindViewModel()
 
-        destinationLabel.text = viewModel.destinationName ?? "목적지"
+        headerView.setTitle(viewModel.destinationName ?? "목적지")
 
         Task {
             await viewModel.calculateRoutes()
@@ -146,41 +86,33 @@ final class RoutePreviewDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        view.addSubview(destinationLabel)
-        view.addSubview(favoriteButton)
-        view.addSubview(closeButton)
-        view.addSubview(titleSeparator)
+        // Header: destination name + favorite + close
+        headerView.addRightAction(favoriteButton)
+        headerView.addRightAction(closeButton)
+
+        view.addSubview(headerView)
         view.addSubview(transportModeSegment)
         view.addSubview(tableView)
         view.addSubview(loadingIndicator)
         view.addSubview(virtualDriveButton)
         view.addSubview(startButton)
 
+        let padding = Theme.Drawer.Layout.contentHorizontalPadding
+
         NSLayoutConstraint.activate([
-            // Title bar
-            destinationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
-            destinationLabel.centerYAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight / 2),
-            destinationLabel.trailingAnchor.constraint(lessThanOrEqualTo: favoriteButton.leadingAnchor, constant: -Theme.Spacing.sm),
-
-            favoriteButton.centerYAnchor.constraint(equalTo: destinationLabel.centerYAnchor),
-            favoriteButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -Theme.Spacing.xs),
-            favoriteButton.widthAnchor.constraint(equalToConstant: 40),
-            favoriteButton.heightAnchor.constraint(equalToConstant: 40),
-
-            closeButton.centerYAnchor.constraint(equalTo: destinationLabel.centerYAnchor),
-            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-
-            // Separator
-            titleSeparator.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.titleBarHeight),
-            titleSeparator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            titleSeparator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            titleSeparator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            // Header
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
             // Transport mode segment
-            transportModeSegment.topAnchor.constraint(equalTo: titleSeparator.bottomAnchor, constant: Theme.Spacing.md),
-            transportModeSegment.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
-            transportModeSegment.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-            transportModeSegment.heightAnchor.constraint(equalToConstant: 32),
+            transportModeSegment.topAnchor.constraint(
+                equalTo: headerView.bottomAnchor,
+                constant: Theme.Drawer.Layout.contentTopPadding
+            ),
+            transportModeSegment.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: padding),
+            transportModeSegment.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -padding),
+            transportModeSegment.heightAnchor.constraint(equalToConstant: Theme.Segment.height),
 
             // Table view
             tableView.topAnchor.constraint(equalTo: transportModeSegment.bottomAnchor, constant: Theme.Spacing.md),
@@ -194,14 +126,12 @@ final class RoutePreviewDrawerViewController: UIViewController {
 
             // Buttons
             virtualDriveButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
-            virtualDriveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            virtualDriveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: padding),
             virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
-            virtualDriveButton.heightAnchor.constraint(equalToConstant: 48),
 
             startButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
             startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
-            startButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-            startButton.heightAnchor.constraint(equalToConstant: 48),
+            startButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -padding),
         ])
     }
 
@@ -280,10 +210,7 @@ final class RoutePreviewDrawerViewController: UIViewController {
         viewModel.isFavorite
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isFav in
-                let imageName = isFav ? "star.fill" : "star"
-                let image = UIImage(systemName: imageName)?
-                    .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
-                self?.favoriteButton.setImage(image, for: .normal)
+                self?.favoriteButton.setFavoriteState(isFav)
             }
             .store(in: &cancellables)
     }
