@@ -14,6 +14,7 @@ final class MapViewController: UIViewController {
 
     private var searchResultAnnotations: [SearchResultAnnotation] = []
     private var destinationAnnotation: DestinationAnnotation?
+    private var poiAnnotation: POIAnnotation?
     private var routeOverlays: [MKPolyline] = []
     private var routeIsPrimary: [MKPolyline: Bool] = [:]
 
@@ -155,13 +156,7 @@ final class MapViewController: UIViewController {
         }
 
         mapView.selectAnnotation(selected, animated: true)
-
-        let region = MKCoordinateRegion(
-            center: selected.coordinate,
-            latitudinalMeters: 500,
-            longitudinalMeters: 500
-        )
-        mapView.setRegion(region, animated: true)
+        mapView.setCenter(selected.coordinate, animated: true)
     }
 
     // MARK: - Public: Destination
@@ -178,6 +173,29 @@ final class MapViewController: UIViewController {
             mapView.removeAnnotation(annotation)
         }
         destinationAnnotation = nil
+    }
+
+    // MARK: - Public: POI Marker
+
+    func showPOIMarker(for place: Place, zoomIn: Bool = false) {
+        clearPOIMarker()
+        let annotation = POIAnnotation(place: place)
+        poiAnnotation = annotation
+        mapView.addAnnotation(annotation)
+        mapView.selectAnnotation(annotation, animated: true)
+
+        if zoomIn {
+            moveToLocation(annotation.coordinate)
+        } else {
+            mapView.setCenter(annotation.coordinate, animated: true)
+        }
+    }
+
+    func clearPOIMarker() {
+        if let annotation = poiAnnotation {
+            mapView.removeAnnotation(annotation)
+        }
+        poiAnnotation = nil
     }
 
     // MARK: - Public: Routes
@@ -209,6 +227,7 @@ final class MapViewController: UIViewController {
     func clearAll() {
         clearSearchResults()
         clearDestination()
+        clearPOIMarker()
         clearRoutes()
     }
 
@@ -450,6 +469,18 @@ extension MapViewController: MKMapViewDelegate {
             return view
         }
 
+        if let poi = annotation as? POIAnnotation {
+            let identifier = "POI"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            view.annotation = annotation
+            view.markerTintColor = Theme.Colors.primary
+            view.glyphImage = UIImage(systemName: poi.glyphIconName)
+            view.animatesWhenAdded = true
+            view.canShowCallout = true
+            return view
+        }
+
         if annotation is DestinationAnnotation {
             let identifier = "Destination"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
@@ -504,6 +535,7 @@ extension MapViewController: MKMapViewDelegate {
             }
         }
 
+        mapView.setCenter(searchAnnotation.coordinate, animated: true)
         onAnnotationSelected?(index)
     }
 }

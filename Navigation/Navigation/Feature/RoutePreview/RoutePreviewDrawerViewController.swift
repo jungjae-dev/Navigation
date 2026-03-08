@@ -86,8 +86,8 @@ final class RoutePreviewDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        // Header: destination name + favorite + close
-        headerView.addRightAction(favoriteButton)
+        // Header: favorite + destination name + close
+        headerView.addLeftAction(favoriteButton)
         headerView.addRightAction(closeButton)
 
         view.addSubview(headerView)
