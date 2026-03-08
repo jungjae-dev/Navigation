@@ -18,6 +18,8 @@ final class FallbackSearchService: SearchProviding {
         bindPrimary()
     }
 
+    var supportedCategories: [SearchCategory] { primary.supportedCategories }
+
     var currentRegion: MKCoordinateRegion? { primary.currentRegion }
 
     func updateRegion(_ region: MKCoordinateRegion) {
@@ -42,6 +44,14 @@ final class FallbackSearchService: SearchProviding {
             return try await primary.search(query: query, region: region, regionMode: regionMode)
         } catch let error as LBSError where error == .quotaExceeded {
             return try await fallback.search(query: query, region: region, regionMode: regionMode)
+        }
+    }
+
+    func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
+        do {
+            return try await primary.searchCategory(category, region: region, regionMode: regionMode)
+        } catch let error as LBSError where error == .quotaExceeded {
+            return try await fallback.search(query: category.query, region: region, regionMode: regionMode)
         }
     }
 

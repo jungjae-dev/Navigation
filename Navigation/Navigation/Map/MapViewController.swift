@@ -119,6 +119,12 @@ final class MapViewController: UIViewController {
     // MARK: - Public: Search Results
 
     func showSearchResults(_ places: [Place]) {
+        addSearchResults(places)
+        fitToSearchResults()
+    }
+
+    func addSearchResults(_ places: [Place]) {
+        print("[MapVC] addSearchResults called with \(places.count) places")
         clearSearchResults()
 
         let annotations = places.map { SearchResultAnnotation(place: $0) }
@@ -129,10 +135,18 @@ final class MapViewController: UIViewController {
         mapView.addAnnotations(annotations)
 
         if let first = annotations.first {
-            regionChangeSuppressionEnd = Date().addingTimeInterval(1.0)
-            fitAnnotations(annotations)
             mapView.selectAnnotation(first, animated: false)
         }
+    }
+
+    func fitToSearchResults() {
+        guard !searchResultAnnotations.isEmpty else {
+            print("[MapVC] fitToSearchResults: no annotations")
+            return
+        }
+        print("[MapVC] fitToSearchResults: \(searchResultAnnotations.count) annotations")
+        regionChangeSuppressionEnd = Date().addingTimeInterval(1.0)
+        fitAnnotations(searchResultAnnotations)
     }
 
     func clearSearchResults() {
@@ -411,7 +425,16 @@ final class MapViewController: UIViewController {
             rect = rect.union(pointRect)
         }
 
-        let padding = UIEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
+        let inset: CGFloat = 40
+        let margins = mapView.layoutMargins
+        let padding = UIEdgeInsets(
+            top: max(margins.top, inset),
+            left: max(margins.left, inset),
+            bottom: max(margins.bottom, inset),
+            right: max(margins.right, inset)
+        )
+        print("[MapVC] fitAnnotations: rect=\(rect), padding=\(padding), mapFrame=\(mapView.frame), margins=\(margins)")
+        print("[MapVC] fitAnnotations: currentRegion center=(\(mapView.region.center.latitude), \(mapView.region.center.longitude)) span=(\(mapView.region.span.latitudeDelta), \(mapView.region.span.longitudeDelta))")
         mapView.setVisibleMapRect(rect, edgePadding: padding, animated: true)
     }
 

@@ -30,6 +30,8 @@ final class AppleSearchService: NSObject, SearchProviding {
 
     // MARK: - SearchProviding
 
+    let supportedCategories = SearchCategory.appleAll
+
     var currentRegion: MKCoordinateRegion? { completer.region }
 
     func updateRegion(_ region: MKCoordinateRegion) {
@@ -80,6 +82,36 @@ final class AppleSearchService: NSObject, SearchProviding {
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
+        if let region {
+            request.region = region
+        } else {
+            request.region = completer.region
+        }
+        request.regionPriority = (regionMode == .strict) ? .required : .default
+
+        let search = MKLocalSearch(request: request)
+        currentSearch = search
+
+        do {
+            let response = try await search.start()
+            isSearchingPublisher.send(false)
+            return response.mapItems.map { AppleModelConverter.place(from: $0) }
+        } catch {
+            isSearchingPublisher.send(false)
+            throw error
+        }
+    }
+
+    func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
+        guard let poiCategory = category.applePOICategory else {
+            return try await search(query: category.query, region: region, regionMode: regionMode)
+        }
+
+        cancelCurrentSearch()
+        isSearchingPublisher.send(true)
+
+        let request = MKLocalSearch.Request()
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [poiCategory])
         if let region {
             request.region = region
         } else {

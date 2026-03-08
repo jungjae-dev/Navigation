@@ -13,16 +13,22 @@ protocol SearchProviding: AnyObject {
     var isSearchingPublisher: CurrentValueSubject<Bool, Never> { get }
     var errorPublisher: PassthroughSubject<Error, Never> { get }
     var currentRegion: MKCoordinateRegion? { get }
+    var supportedCategories: [SearchCategory] { get }
 
     func updateRegion(_ region: MKCoordinateRegion)
     func updateQuery(_ fragment: String)
     func search(for completion: SearchCompletion) async throws -> [Place]
     func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place]
+    func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place]
     func cancelCurrentSearch()
 }
 
 extension SearchProviding {
     func search(query: String, region: MKCoordinateRegion?) async throws -> [Place] {
         try await search(query: query, region: region, regionMode: .biased)
+    }
+
+    func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place] {
+        try await search(query: category.query, region: region, regionMode: regionMode)
     }
 }

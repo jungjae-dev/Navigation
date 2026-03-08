@@ -8,6 +8,8 @@ final class KakaoSearchService: SearchProviding {
     let isSearchingPublisher = CurrentValueSubject<Bool, Never>(false)
     let errorPublisher = PassthroughSubject<Error, Never>()
 
+    let supportedCategories = SearchCategory.kakaoAll
+
     private(set) var currentRegion: MKCoordinateRegion?
     private var searchTask: Task<Void, Never>?
 
@@ -55,6 +57,18 @@ final class KakaoSearchService: SearchProviding {
         return docs.map { KakaoModelConverter.place(from: $0) }
     }
 
+    func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
+        guard let code = category.kakaoCategoryCode else {
+            return try await search(query: category.query, region: region, regionMode: regionMode)
+        }
+
+        isSearchingPublisher.send(true)
+        defer { isSearchingPublisher.send(false) }
+
+        let docs = try await fetchCategorySearch(categoryCode: code, region: region, regionMode: regionMode)
+        return docs.map { KakaoModelConverter.place(from: $0) }
+    }
+
     func cancelCurrentSearch() {
         searchTask?.cancel()
     }
@@ -76,6 +90,8 @@ final class KakaoSearchService: SearchProviding {
                 let dLon = region.span.longitudeDelta / 2
                 let rect = "\(lon - dLon),\(lat - dLat),\(lon + dLon),\(lat + dLat)"
                 queryItems.append(URLQueryItem(name: "rect", value: rect))
+                queryItems.append(URLQueryItem(name: "x", value: "\(lon)"))
+                queryItems.append(URLQueryItem(name: "y", value: "\(lat)"))
                 queryItems.append(URLQueryItem(name: "sort", value: "distance"))
             } else {
                 queryItems.append(URLQueryItem(name: "x", value: "\(region.center.longitude)"))
@@ -86,6 +102,38 @@ final class KakaoSearchService: SearchProviding {
         let response: KakaoSearchResponse = try await KakaoAPIClient.shared.request(
             baseURL: KakaoAPIConfig.BaseURL.local,
             path: "/v2/local/search/keyword.json",
+            queryItems: queryItems,
+            apiKey: KakaoAPIConfig.restAPIKey
+        )
+        return response.documents
+    }
+
+    private func fetchCategorySearch(
+        categoryCode: String,
+        region: MKCoordinateRegion? = nil,
+        regionMode: RegionSearchMode = .biased
+    ) async throws -> [KakaoSearchResponse.Document] {
+        var queryItems = [URLQueryItem(name: "category_group_code", value: categoryCode)]
+
+        if let region {
+            if regionMode == .strict {
+                let lat = region.center.latitude
+                let lon = region.center.longitude
+                let dLat = region.span.latitudeDelta / 2
+                let dLon = region.span.longitudeDelta / 2
+                let rect = "\(lon - dLon),\(lat - dLat),\(lon + dLon),\(lat + dLat)"
+                queryItems.append(URLQueryItem(name: "rect", value: rect))
+                queryItems.append(URLQueryItem(name: "sort", value: "distance"))
+            } else {
+                queryItems.append(URLQueryItem(name: "x", value: "\(region.center.longitude)"))
+                queryItems.append(URLQueryItem(name: "y", value: "\(region.center.latitude)"))
+                queryItems.append(URLQueryItem(name: "sort", value: "distance"))
+            }
+        }
+
+        let response: KakaoSearchResponse = try await KakaoAPIClient.shared.request(
+            baseURL: KakaoAPIConfig.BaseURL.local,
+            path: "/v2/local/search/category.json",
             queryItems: queryItems,
             apiKey: KakaoAPIConfig.restAPIKey
         )

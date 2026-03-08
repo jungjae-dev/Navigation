@@ -1,0 +1,78 @@
+import UIKit
+
+final class CategoryCell: UICollectionViewCell {
+
+    static let reuseIdentifier = "CategoryCell"
+
+    // MARK: - UI
+
+    private let containerView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = Theme.Colors.secondaryBackground
+        view.layer.cornerRadius = Theme.CornerRadius.medium
+        return view
+    }()
+
+    private let iconImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
+        imageView.tintColor = Theme.Colors.primary
+        return imageView
+    }()
+
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.footnote
+        label.textColor = Theme.Colors.label
+        label.textAlignment = .center
+        label.numberOfLines = 1
+        return label
+    }()
+
+    // MARK: - Init
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Setup
+
+    private func setupUI() {
+        contentView.addSubview(containerView)
+        containerView.addSubview(iconImageView)
+        containerView.addSubview(nameLabel)
+
+        NSLayoutConstraint.activate([
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            iconImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: Theme.Spacing.sm),
+            iconImageView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
+
+            nameLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: Theme.Spacing.xs),
+            nameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Spacing.xs),
+            nameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Theme.Spacing.xs),
+            nameLabel.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -Theme.Spacing.xs),
+        ])
+    }
+
+    // MARK: - Configure
+
+    func configure(with category: SearchCategory) {
+        nameLabel.text = category.name
+        iconImageView.image = UIImage(systemName: category.iconName)?
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.IconSize.lg, weight: .medium))
+    }
+}

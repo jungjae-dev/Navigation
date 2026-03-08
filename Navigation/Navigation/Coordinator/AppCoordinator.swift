@@ -104,6 +104,10 @@ final class AppCoordinator: NSObject, Coordinator {
         drawerVC.onFavoriteTapped = { [weak self] favorite in
             self?.showRoutePreviewForFavorite(favorite)
         }
+        drawerVC.onCategoryTapped = { [weak self] category in
+            self?.searchCategory(category)
+        }
+
         drawerVC.onRecentSearchTapped = { [weak self] history in
             self?.showRoutePreviewForHistory(history)
         }
@@ -478,6 +482,23 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Search Flow
 
+    private func searchCategory(_ category: SearchCategory) {
+        let region = mapViewController.mapView.region
+
+        Task {
+            do {
+                let results = try await searchService.searchCategory(
+                    category,
+                    region: region,
+                    regionMode: .biased
+                )
+                showSearchResults(results, query: category.name)
+            } catch {
+                print("[AppCoordinator] Category search failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     private func handleSearchBarTapped() {
         showSearch()
     }
@@ -512,12 +533,18 @@ final class AppCoordinator: NSObject, Coordinator {
 
         searchVC.onSearchResults = { [weak self, weak searchVC] results, query in
             guard let searchVC else { return }
+            print("[AppCoordinator] onSearchResults: \(results.count) results for '\(query)'")
             self?.drawerManager.snapToDetent(id: "drawerMedium")
             UIView.animate(withDuration: 0.25, animations: {
                 searchVC.view.alpha = 0
             }) { _ in
+                print("[AppCoordinator] dismiss completion → calling showSearchResults")
                 self?.navigationController.dismiss(animated: false)
-                self?.showSearchResults(results, query: query)
+                // Delay to next run loop so map view layout is stable after dismiss
+                DispatchQueue.main.async {
+                    print("[AppCoordinator] DispatchQueue.main.async → showSearchResults now")
+                    self?.showSearchResults(results, query: query)
+                }
             }
         }
 
@@ -533,8 +560,8 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func showSearchResults(_ results: [Place], query: String = "") {
-        // Show markers on map
-        mapViewController.showSearchResults(results)
+        // Add markers on map (without fit — fit happens after drawer push)
+        mapViewController.addSearchResults(results)
         lastSearchQuery = query
 
         // Create search result drawer
@@ -578,12 +605,17 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.executeResearch()
         }
 
-        // Present as child VC via drawer manager
+        // Present drawer first, then fit map to results after layout settles
         drawerManager.pushDrawer(
             drawerVC,
             detents: standardDetents(),
             initialDetent: homeInitialDetent()
         )
+
+        // Fit map after drawer push so layoutMargins are stable
+        DispatchQueue.main.async { [weak self] in
+            self?.mapViewController.fitToSearchResults()
+        }
     }
 
     private func executeResearch() {

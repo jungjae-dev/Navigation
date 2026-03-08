@@ -7,7 +7,8 @@ final class HomeDrawerViewController: UIViewController {
 
     private enum HomeSection: Int, CaseIterable {
         case favorites = 0
-        case recentSearches = 1
+        case categories = 1
+        case recentSearches = 2
     }
 
     // MARK: - UI Components
@@ -30,6 +31,7 @@ final class HomeDrawerViewController: UIViewController {
         cv.delegate = self
         cv.dataSource = self
         cv.register(FavoriteCell.self, forCellWithReuseIdentifier: FavoriteCell.reuseIdentifier)
+        cv.register(CategoryCell.self, forCellWithReuseIdentifier: CategoryCell.reuseIdentifier)
         cv.register(RecentSearchCell.self, forCellWithReuseIdentifier: RecentSearchCell.reuseIdentifier)
         cv.register(HomeSectionHeaderView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: HomeSectionHeaderView.reuseIdentifier)
         cv.bounces = false
@@ -42,6 +44,7 @@ final class HomeDrawerViewController: UIViewController {
     private var cancellables = Set<AnyCancellable>()
 
     var onFavoriteTapped: ((FavoritePlace) -> Void)?
+    var onCategoryTapped: ((SearchCategory) -> Void)?
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
     var onSearchBarTapped: (() -> Void)?
     var onSettingsTapped: (() -> Void)?
@@ -129,6 +132,8 @@ final class HomeDrawerViewController: UIViewController {
             switch section {
             case .favorites:
                 return self?.createFavoritesSection()
+            case .categories:
+                return self?.createCategoriesSection()
             case .recentSearches:
                 return self?.createRecentSearchesSection()
             }
@@ -136,6 +141,25 @@ final class HomeDrawerViewController: UIViewController {
     }
 
     private func createFavoritesSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(72), heightDimension: .absolute(72))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(widthDimension: .absolute(72), heightDimension: .absolute(72))
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.orthogonalScrollingBehavior = .continuous
+        section.interGroupSpacing = Theme.Spacing.sm
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: Theme.Spacing.lg, bottom: Theme.Spacing.md, trailing: Theme.Spacing.lg)
+
+        let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .absolute(36))
+        let header = NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize, elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
+        section.boundarySupplementaryItems = [header]
+
+        return section
+    }
+
+    private func createCategoriesSection() -> NSCollectionLayoutSection {
         let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(72), heightDimension: .absolute(72))
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
 
@@ -204,6 +228,8 @@ extension HomeDrawerViewController: UICollectionViewDataSource {
         switch sec {
         case .favorites:
             return viewModel.favorites.value.count
+        case .categories:
+            return LBSServiceProvider.shared.search.supportedCategories.count
         case .recentSearches:
             return min(viewModel.recentSearches.value.count, 5)
         }
@@ -222,6 +248,15 @@ extension HomeDrawerViewController: UICollectionViewDataSource {
 
             let favorite = viewModel.favorites.value[indexPath.item]
             cell.configure(with: favorite)
+            return cell
+
+        case .categories:
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: CategoryCell.reuseIdentifier, for: indexPath
+            ) as? CategoryCell else { return UICollectionViewCell() }
+
+            let category = LBSServiceProvider.shared.search.supportedCategories[indexPath.item]
+            cell.configure(with: category)
             return cell
 
         case .recentSearches:
@@ -247,6 +282,8 @@ extension HomeDrawerViewController: UICollectionViewDataSource {
         switch sec {
         case .favorites:
             header.configure(title: "즐겨찾기", showIcon: true, iconName: "star.fill")
+        case .categories:
+            header.configure(title: "주변 검색", showIcon: true, iconName: "mappin.and.ellipse")
         case .recentSearches:
             header.configure(title: "최근 검색", showIcon: true, iconName: "clock.arrow.circlepath")
         }
@@ -267,6 +304,10 @@ extension HomeDrawerViewController: UICollectionViewDelegate {
             let favorite = viewModel.favorites.value[indexPath.item]
             onFavoriteTapped?(favorite)
 
+        case .categories:
+            let category = LBSServiceProvider.shared.search.supportedCategories[indexPath.item]
+            onCategoryTapped?(category)
+
         case .recentSearches:
             let history = viewModel.recentSearches.value[indexPath.item]
             onRecentSearchTapped?(history)
@@ -281,6 +322,9 @@ extension HomeDrawerViewController: UICollectionViewDelegate {
         guard let sec = HomeSection(rawValue: indexPath.section) else { return nil }
 
         switch sec {
+        case .categories:
+            return nil
+
         case .favorites:
             let favorite = viewModel.favorites.value[indexPath.item]
             return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
