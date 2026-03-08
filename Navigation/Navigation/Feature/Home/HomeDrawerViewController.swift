@@ -12,6 +12,16 @@ final class HomeDrawerViewController: UIViewController {
 
     // MARK: - UI Components
 
+    private let searchBarView = SearchBarView(placeholder: "여기서 검색")
+    private let settingsButton = DrawerIconButton(preset: .settings)
+
+    private let separator: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = Theme.Drawer.Separator.color
+        return view
+    }()
+
     private lazy var collectionView: UICollectionView = {
         let layout = createCompositionalLayout()
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -33,6 +43,8 @@ final class HomeDrawerViewController: UIViewController {
 
     var onFavoriteTapped: ((FavoritePlace) -> Void)?
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
+    var onSearchBarTapped: (() -> Void)?
+    var onSettingsTapped: (() -> Void)?
 
     // MARK: - Init
 
@@ -58,14 +70,44 @@ final class HomeDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
+        view.addSubview(searchBarView)
+        view.addSubview(settingsButton)
+        view.addSubview(separator)
         view.addSubview(collectionView)
 
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.lg),
+            // Search bar: full width, matching SearchVC layout
+            searchBarView.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.xs),
+            searchBarView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            searchBarView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            // Settings button overlaid on search bar's right side
+            settingsButton.centerYAnchor.constraint(equalTo: searchBarView.centerYAnchor),
+            settingsButton.trailingAnchor.constraint(equalTo: searchBarView.trailingAnchor, constant: -Theme.Spacing.xs),
+
+            separator.topAnchor.constraint(equalTo: searchBarView.bottomAnchor, constant: Theme.Spacing.xs),
+            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 0.5),
+
+            collectionView.topAnchor.constraint(
+                equalTo: separator.bottomAnchor,
+                constant: Theme.Drawer.Layout.contentTopPadding
+            ),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
+
+        // Actions
+        searchBarView.onTapped = { [weak self] in
+            self?.onSearchBarTapped?()
+        }
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+    }
+
+    @objc private func settingsTapped() {
+        onSettingsTapped?()
     }
 
     // MARK: - Binding
@@ -295,15 +337,15 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        iv.tintColor = Theme.Colors.primary
+        iv.tintColor = Theme.Drawer.SectionHeader.iconColor
         return iv
     }()
 
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.headline
-        label.textColor = Theme.Colors.label
+        label.font = Theme.Drawer.SectionHeader.titleFont
+        label.textColor = Theme.Drawer.SectionHeader.titleColor
         return label
     }()
 
@@ -316,8 +358,8 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         NSLayoutConstraint.activate([
             iconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Spacing.lg),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 16),
-            iconImageView.heightAnchor.constraint(equalToConstant: 16),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Drawer.SectionHeader.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Drawer.SectionHeader.iconSize),
 
             titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.xs),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -332,6 +374,6 @@ final class HomeSectionHeaderView: UICollectionReusableView {
         titleLabel.text = title
         iconImageView.isHidden = !showIcon
         iconImageView.image = UIImage(systemName: iconName)?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Drawer.SectionHeader.iconSize, weight: .semibold))
     }
 }

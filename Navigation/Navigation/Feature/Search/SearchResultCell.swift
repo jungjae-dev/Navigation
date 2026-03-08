@@ -51,8 +51,8 @@ final class SearchResultCell: UITableViewCell {
         NSLayoutConstraint.activate([
             iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.Spacing.lg),
             iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 28),
-            iconImageView.heightAnchor.constraint(equalToConstant: 28),
+            iconImageView.widthAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
+            iconImageView.heightAnchor.constraint(equalToConstant: Theme.Drawer.FavoriteCell.iconSize),
 
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Theme.Spacing.md),
             nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.md),

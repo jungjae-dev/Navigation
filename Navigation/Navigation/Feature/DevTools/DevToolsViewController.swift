@@ -192,6 +192,10 @@ extension DevToolsViewController: UITableViewDataSource {
         cell.selectionStyle = .default
 
         var config = cell.defaultContentConfiguration()
+        config.textProperties.font = Theme.Table.cellFont
+        config.textProperties.color = Theme.Table.cellColor
+        config.secondaryTextProperties.font = Theme.Table.detailFont
+        config.secondaryTextProperties.color = Theme.Table.detailColor
 
         guard let sec = Section(rawValue: indexPath.section) else { return cell }
 

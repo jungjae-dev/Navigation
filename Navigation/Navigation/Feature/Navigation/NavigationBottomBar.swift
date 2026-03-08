@@ -9,7 +9,7 @@ final class NavigationBottomBar: UIView {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = Theme.Colors.background
-        view.layer.cornerRadius = Theme.CornerRadius.large
+        view.layer.cornerRadius = Theme.BottomBar.cornerRadius
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         view.layer.shadowColor = Theme.Shadow.color
         view.layer.shadowOpacity = Theme.Shadow.opacity
@@ -21,8 +21,8 @@ final class NavigationBottomBar: UIView {
     private let etaLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.eta
-        label.textColor = Theme.Colors.primary
+        label.font = Theme.BottomBar.etaFont
+        label.textColor = Theme.BottomBar.etaColor
         label.text = "--:--"
         return label
     }()
@@ -30,8 +30,8 @@ final class NavigationBottomBar: UIView {
     private let distanceLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.body
-        label.textColor = Theme.Colors.label
+        label.font = Theme.BottomBar.infoFont
+        label.textColor = Theme.BottomBar.infoColor
         label.text = "-- km"
         return label
     }()
@@ -39,8 +39,8 @@ final class NavigationBottomBar: UIView {
     private let timeLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Theme.Fonts.body
-        label.textColor = Theme.Colors.secondaryLabel
+        label.font = Theme.BottomBar.infoFont
+        label.textColor = Theme.BottomBar.secondaryInfoColor
         label.text = "-- 분"
         return label
     }()
@@ -50,9 +50,9 @@ final class NavigationBottomBar: UIView {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setTitle("안내 종료", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.titleLabel?.font = Theme.Fonts.headline
-        button.backgroundColor = Theme.Colors.destructive
-        button.layer.cornerRadius = Theme.CornerRadius.small
+        button.titleLabel?.font = Theme.Button.Destructive.font
+        button.backgroundColor = Theme.Button.Destructive.backgroundColor
+        button.layer.cornerRadius = Theme.Button.Destructive.cornerRadius
         return button
     }()
 
@@ -101,7 +101,7 @@ final class NavigationBottomBar: UIView {
             separatorView.leadingAnchor.constraint(equalTo: etaLabel.trailingAnchor, constant: Theme.Spacing.md),
             separatorView.centerYAnchor.constraint(equalTo: etaLabel.centerYAnchor),
             separatorView.widthAnchor.constraint(equalToConstant: 1),
-            separatorView.heightAnchor.constraint(equalToConstant: 20),
+            separatorView.heightAnchor.constraint(equalToConstant: Theme.BottomBar.separatorHeight),
 
             distanceLabel.leadingAnchor.constraint(equalTo: separatorView.trailingAnchor, constant: Theme.Spacing.md),
             distanceLabel.centerYAnchor.constraint(equalTo: etaLabel.centerYAnchor),
@@ -112,7 +112,7 @@ final class NavigationBottomBar: UIView {
             endButton.topAnchor.constraint(equalTo: etaLabel.bottomAnchor, constant: Theme.Spacing.md),
             endButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Theme.Spacing.xl),
             endButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Theme.Spacing.xl),
-            endButton.heightAnchor.constraint(equalToConstant: 44),
+            endButton.heightAnchor.constraint(equalToConstant: Theme.BottomBar.buttonHeight),
             endButton.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.md),
         ])
     }

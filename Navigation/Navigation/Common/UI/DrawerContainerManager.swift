@@ -469,19 +469,6 @@ final class DrawerContainerManager: NSObject {
             }
 
         case .changed:
-            if !isDraggingDrawer, let sv = scrollView {
-                let atTop = isScrollAtTop(sv)
-                let atBottom = isScrollAtBottom(sv)
-
-                if (atTop && velocityY > 0) || (atBottom && velocityY < 0) {
-                    isDraggingDrawer = true
-                    sv.isScrollEnabled = false
-                    sv.contentOffset.y = atTop ? 0 : max(0, sv.contentSize.height - sv.bounds.height)
-                    gesture.setTranslation(.zero, in: parent.view)
-                    panStartHeight = entry.currentHeight
-                }
-            }
-
             guard isDraggingDrawer else { return }
 
             let translation = gesture.translation(in: parent.view)
@@ -563,6 +550,33 @@ final class DrawerContainerManager: NSObject {
             abs($0.height(in: containerHeight) - currentHeight) <
                 abs($1.height(in: containerHeight) - currentHeight)
         }) ?? sorted[0]
+    }
+
+    func snapToDetent(id: String, completion: (() -> Void)? = nil) {
+        guard let parent = parentViewController, !drawerStack.isEmpty else { return }
+        let containerHeight = parent.view.bounds.height
+
+        guard let detent = detents.first(where: { $0.identifier == id }) else { return }
+
+        let targetHeight = detent.height(in: containerHeight)
+        let entry = drawerStack[drawerStack.count - 1]
+
+        drawerStack[drawerStack.count - 1].activeDetent = detent
+        drawerStack[drawerStack.count - 1].currentHeight = targetHeight
+
+        UIView.animate(
+            withDuration: Self.animationDuration,
+            delay: 0,
+            usingSpringWithDamping: Self.springDamping,
+            initialSpringVelocity: 0,
+            options: .curveEaseOut
+        ) {
+            entry.heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+            parent.view.layoutIfNeeded()
+        } completion: { _ in
+            self.onHeightChanged?(targetHeight)
+            completion?()
+        }
     }
 
     private func snapToDetent(_ detent: DrawerDetent, containerHeight: CGFloat) {

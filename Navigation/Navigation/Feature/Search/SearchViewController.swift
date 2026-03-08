@@ -36,8 +36,8 @@ final class SearchViewController: UIViewController {
     private let searchBar: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = Theme.Colors.secondaryBackground
-        view.layer.cornerRadius = Theme.CornerRadius.medium
+        view.backgroundColor = Theme.Drawer.SearchBar.backgroundColor
+        view.layer.cornerRadius = Theme.Drawer.SearchBar.cornerRadius
         return view
     }()
 
@@ -99,6 +99,10 @@ final class SearchViewController: UIViewController {
         setupActions()
         bindViewModel()
         viewModel.loadRecentSearches()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         searchTextField.becomeFirstResponder()
     }
 
@@ -117,16 +121,20 @@ final class SearchViewController: UIViewController {
         queryChipHeightConstraint = queryChipScrollView.heightAnchor.constraint(equalToConstant: 0)
         tableViewTopToChipConstraint = tableView.topAnchor.constraint(equalTo: queryChipScrollView.bottomAnchor, constant: Theme.Spacing.sm)
 
+        // Match drawer search bar position: GrabberView(20) + top padding
+        let grabberHeight: CGFloat = 20
+        let searchBarTopOffset = grabberHeight + Theme.Spacing.xs
+
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
+            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: searchBarTopOffset),
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-            searchBar.heightAnchor.constraint(equalToConstant: 48),
+            searchBar.heightAnchor.constraint(equalToConstant: Theme.Drawer.SearchBar.height),
 
             backButton.leadingAnchor.constraint(equalTo: searchBar.leadingAnchor, constant: Theme.Spacing.sm),
             backButton.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.widthAnchor.constraint(equalToConstant: Theme.Button.Icon.size),
+            backButton.heightAnchor.constraint(equalToConstant: Theme.Button.Icon.size),
 
             searchTextField.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: Theme.Spacing.sm),
             searchTextField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -Theme.Spacing.md),

@@ -74,14 +74,6 @@ final class AppCoordinator: NSObject, Coordinator {
         )
         self.homeViewController = homeVC
 
-        homeVC.onSearchBarTapped = { [weak self] in
-            self?.showSearch()
-        }
-
-        homeVC.onSettingsTapped = { [weak self] in
-            self?.showSettings()
-        }
-
         mapVC.onPOISelected = { [weak self] place in
             self?.showPOIDetail(place)
         }
@@ -116,6 +108,14 @@ final class AppCoordinator: NSObject, Coordinator {
         }
         drawerVC.onRecentSearchTapped = { [weak self] history in
             self?.showRoutePreviewForHistory(history)
+        }
+
+        drawerVC.onSearchBarTapped = { [weak self] in
+            self?.handleSearchBarTapped()
+        }
+
+        drawerVC.onSettingsTapped = { [weak self] in
+            self?.showSettings()
         }
 
         drawerManager.pushDrawer(
@@ -227,33 +227,34 @@ final class AppCoordinator: NSObject, Coordinator {
         completion?()
     }
 
-    /// Top map inset: below search bar (safeArea + spacing + searchBarHeight + spacing)
+    /// Top map inset: safeArea top with margin
     private func mapTopInset(in containerView: UIView) -> CGFloat {
-        return containerView.safeAreaInsets.top + Theme.Spacing.sm + 48 + Theme.Spacing.sm
+        return containerView.safeAreaInsets.top + Theme.Spacing.sm
     }
 
-    /// Maximum drawer height (below search bar with margin)
+    /// Maximum drawer height: from safeArea bottom to safeArea top
     /// DrawerContainerManager adds safeAreaInsets.bottom to the height for the home indicator area,
-    /// so subtract it here to keep the drawer's visible top edge below the search bar.
+    /// so subtract it here to keep the drawer's visible top edge at safeArea top.
     private func drawerMaxHeight(in containerView: UIView) -> CGFloat {
-        let searchBarBottom = mapTopInset(in: containerView)
-        return containerView.bounds.height - searchBarBottom - Theme.Spacing.sm - containerView.safeAreaInsets.bottom
+        return containerView.bounds.height - containerView.safeAreaInsets.top - containerView.safeAreaInsets.bottom
+    }
+
+    private func drawerMediumHeight(in containerView: UIView) -> CGFloat {
+        return drawerMaxHeight(in: containerView) * 0.5
     }
 
     private func standardDetents() -> [DrawerDetent] {
         let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
         return [
             .absolute(200, id: "small"),
-            .absolute(maxHeight * 0.5, id: "drawerMedium"),
-            .absolute(maxHeight, id: "drawerLarge"),
+            .absolute(drawerMediumHeight(in: containerView), id: "drawerMedium"),
+            .absolute(drawerMaxHeight(in: containerView), id: "drawerLarge"),
         ]
     }
 
     private func homeInitialDetent() -> DrawerDetent {
         let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
-        return .absolute(maxHeight * 0.5, id: "drawerMedium")
+        return .absolute(drawerMediumHeight(in: containerView), id: "drawerMedium")
     }
 
     // MARK: - Debug Overlay
@@ -285,13 +286,11 @@ final class AppCoordinator: NSObject, Coordinator {
         drawerManager.onHeightChanged = { [weak self] height in
             guard let self else { return }
             let containerView = self.navigationController.view!
-            // Cap map control buttons at medium height when drawer is at large
-            let maxHeight = self.drawerMaxHeight(in: containerView)
-            let effectiveHeight = min(height, maxHeight * 0.5)
+            let effectiveHeight = min(height, self.drawerMediumHeight(in: containerView))
             self.homeViewController.updateMapControlBottomOffset(effectiveHeight)
             self.homeViewController.updateMapInsets(
                 top: self.mapTopInset(in: containerView),
-                bottom: height
+                bottom: effectiveHeight
             )
         }
     }
@@ -474,6 +473,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Search Flow
 
+    private func handleSearchBarTapped() {
+        showSearch()
+    }
+
     private func showSearch() {
         // Clean up any existing drawer state
         if currentDrawer != nil {
@@ -490,19 +493,38 @@ final class AppCoordinator: NSObject, Coordinator {
         )
         searchViewModel.updateSearchRegion(mapRegion)
         let searchVC = SearchViewController(viewModel: searchViewModel)
-        searchVC.modalPresentationStyle = .fullScreen
+        searchVC.modalPresentationStyle = .overFullScreen
 
-        searchVC.onDismiss = { [weak self] in
-            self?.navigationController.dismiss(animated: true)
+        searchVC.onDismiss = { [weak self, weak searchVC] in
+            guard let searchVC else { return }
+            self?.drawerManager.snapToDetent(id: "drawerMedium")
+            UIView.animate(withDuration: 0.25, animations: {
+                searchVC.view.alpha = 0
+            }) { _ in
+                self?.navigationController.dismiss(animated: false)
+            }
         }
 
-        searchVC.onSearchResults = { [weak self] results in
-            self?.navigationController.dismiss(animated: true) {
+        searchVC.onSearchResults = { [weak self, weak searchVC] results in
+            guard let searchVC else { return }
+            self?.drawerManager.snapToDetent(id: "drawerMedium")
+            UIView.animate(withDuration: 0.25, animations: {
+                searchVC.view.alpha = 0
+            }) { _ in
+                self?.navigationController.dismiss(animated: false)
                 self?.showSearchResults(results)
             }
         }
 
+        // Present transparent, then fade in with drawer snap
+        searchVC.loadViewIfNeeded()
+        searchVC.view.alpha = 0
         navigationController.present(searchVC, animated: false)
+
+        drawerManager.snapToDetent(id: "drawerLarge")
+        UIView.animate(withDuration: 0.3) {
+            searchVC.view.alpha = 1
+        }
     }
 
     private func showSearchResults(_ results: [Place]) {
