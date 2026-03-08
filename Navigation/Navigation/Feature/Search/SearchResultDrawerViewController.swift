@@ -18,12 +18,24 @@ final class SearchResultDrawerViewController: UIViewController {
 
     // MARK: - Properties
 
+    private let query: String
     private var searchResults: [Place] = []
     private var highlightedIndex: Int = 0
 
     var onItemSelected: ((Place, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
     var onClose: (() -> Void)?
+
+    // MARK: - Init
+
+    init(query: String = "") {
+        self.query = query
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     // MARK: - Lifecycle
 
@@ -38,7 +50,8 @@ final class SearchResultDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        headerView.setTitle("검색 결과", alignment: .center)
+        let title = query.isEmpty ? "검색 결과" : "검색: \(query)"
+        headerView.setTitle(title)
         headerView.addRightAction(closeButton)
 
         view.addSubview(headerView)

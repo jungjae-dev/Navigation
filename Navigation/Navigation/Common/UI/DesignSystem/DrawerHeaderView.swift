@@ -48,6 +48,8 @@ final class DrawerHeaderView: UIView {
     let separator = DrawerSeparator(style: .fullWidth)
 
     private var leftIconSizeConstraints: [NSLayoutConstraint] = []
+    private var centerLeadingToLeftArea: NSLayoutConstraint!
+    private var centerLeadingToSuperview: NSLayoutConstraint!
 
     // MARK: - Init
 
@@ -73,13 +75,15 @@ final class DrawerHeaderView: UIView {
         let padding = Theme.Drawer.Header.padding
         let height = Theme.Drawer.Header.height
 
+        centerLeadingToLeftArea = centerContainer.leadingAnchor.constraint(equalTo: leftArea.trailingAnchor, constant: Theme.Spacing.sm)
+        centerLeadingToSuperview = centerContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding)
+
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: height),
 
             leftArea.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
             leftArea.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            centerContainer.leadingAnchor.constraint(equalTo: leftArea.trailingAnchor, constant: Theme.Spacing.sm),
             centerContainer.trailingAnchor.constraint(equalTo: rightArea.leadingAnchor, constant: -Theme.Spacing.sm),
             centerContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
 
@@ -91,7 +95,16 @@ final class DrawerHeaderView: UIView {
             separator.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        leftArea.isHidden = true
+        updateCenterLeading(leftVisible: false)
+    }
+
+    private func updateCenterLeading(leftVisible: Bool) {
+        leftArea.isHidden = !leftVisible
+        // Deactivate first to avoid simultaneous constraint conflict
+        centerLeadingToLeftArea.isActive = false
+        centerLeadingToSuperview.isActive = false
+        centerLeadingToLeftArea.isActive = leftVisible
+        centerLeadingToSuperview.isActive = !leftVisible
     }
 
     // MARK: - Public API
@@ -126,7 +139,7 @@ final class DrawerHeaderView: UIView {
     }
 
     func setLeftIcon(_ image: UIImage?, size: CGFloat = Theme.Drawer.Cell.iconSize) {
-        leftArea.isHidden = (image == nil)
+        updateCenterLeading(leftVisible: image != nil)
         leftIconView.image = image
 
         NSLayoutConstraint.deactivate(leftIconSizeConstraints)
@@ -139,6 +152,11 @@ final class DrawerHeaderView: UIView {
         if leftIconView.superview == nil {
             leftArea.addArrangedSubview(leftIconView)
         }
+    }
+
+    func addLeftAction(_ button: UIButton) {
+        leftArea.addArrangedSubview(button)
+        updateCenterLeading(leftVisible: true)
     }
 
     func addRightAction(_ button: UIButton) {

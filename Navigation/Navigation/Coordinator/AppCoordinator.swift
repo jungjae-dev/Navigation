@@ -148,6 +148,8 @@ final class AppCoordinator: NSObject, Coordinator {
     private func showPOIDetail(_ place: Place) {
         guard navigationController.topViewController === homeViewController else { return }
 
+        mapViewController.showPOIMarker(for: place, zoomIn: true)
+
         if let existing = poiDetailDrawer {
             existing.update(with: place)
             return
@@ -162,6 +164,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func showPOIDetailFromDrawer(_ place: Place) {
         guard currentDrawer != nil else { return }
+
+        mapViewController.showPOIMarker(for: place)
 
         if let existing = poiDetailDrawer {
             existing.update(with: place)
@@ -207,6 +211,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func dismissPOIDetailWithCleanup() {
         poiDetailDrawer = nil
+        mapViewController.clearPOIMarker()
         drawerManager.popDrawer()
     }
 
@@ -505,14 +510,14 @@ final class AppCoordinator: NSObject, Coordinator {
             }
         }
 
-        searchVC.onSearchResults = { [weak self, weak searchVC] results in
+        searchVC.onSearchResults = { [weak self, weak searchVC] results, query in
             guard let searchVC else { return }
             self?.drawerManager.snapToDetent(id: "drawerMedium")
             UIView.animate(withDuration: 0.25, animations: {
                 searchVC.view.alpha = 0
             }) { _ in
                 self?.navigationController.dismiss(animated: false)
-                self?.showSearchResults(results)
+                self?.showSearchResults(results, query: query)
             }
         }
 
@@ -527,12 +532,12 @@ final class AppCoordinator: NSObject, Coordinator {
         }
     }
 
-    private func showSearchResults(_ results: [Place]) {
+    private func showSearchResults(_ results: [Place], query: String = "") {
         // Show markers on map
         mapViewController.showSearchResults(results)
 
         // Create search result drawer
-        let drawerVC = SearchResultDrawerViewController()
+        let drawerVC = SearchResultDrawerViewController(query: query)
         drawerVC.updateResults(results)
         currentDrawer = drawerVC
 

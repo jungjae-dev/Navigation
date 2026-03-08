@@ -76,7 +76,7 @@ final class SearchViewController: UIViewController {
     private let querySubject = PassthroughSubject<String, Never>()
     private var isSearching = false
 
-    var onSearchResults: (([Place]) -> Void)?
+    var onSearchResults: (([Place], String) -> Void)?
     var onDismiss: (() -> Void)?
 
     // MARK: - Init
@@ -244,7 +244,8 @@ final class SearchViewController: UIViewController {
 
     private func handleSearchResults(_ results: [Place]) {
         guard !results.isEmpty else { return }
-        onSearchResults?(results)
+        let query = searchTextField.text ?? ""
+        onSearchResults?(results, query)
         dismiss(animated: true)
     }
 
