@@ -74,7 +74,7 @@ final class AppleSearchService: NSObject, SearchProviding {
         }
     }
 
-    func search(query: String, region: MKCoordinateRegion? = nil) async throws -> [Place] {
+    func search(query: String, region: MKCoordinateRegion? = nil, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
         cancelCurrentSearch()
         isSearchingPublisher.send(true)
 
@@ -85,7 +85,7 @@ final class AppleSearchService: NSObject, SearchProviding {
         } else {
             request.region = completer.region
         }
-        request.regionPriority = .default
+        request.regionPriority = (regionMode == .strict) ? .required : .default
 
         let search = MKLocalSearch(request: request)
         currentSearch = search

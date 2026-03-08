@@ -14,8 +14,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private let window: UIWindow
     private let locationService: LocationService
-    private let searchService: SearchProviding
-    private let routeService: RouteProviding
+    private var searchService: SearchProviding { LBSServiceProvider.shared.search }
+    private var routeService: RouteProviding { LBSServiceProvider.shared.route }
     private let sessionManager = NavigationSessionManager.shared
 
     private var mapViewController: MapViewController!
@@ -23,6 +23,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeViewModel: HomeViewModel!
     private var homeDrawerVC: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
+    private var lastSearchQuery: String = ""
     private var poiDetailDrawer: POIDetailViewController?
     private var routePreviewDrawer: RoutePreviewDrawerViewController?
     private var cancellables = Set<AnyCancellable>()
@@ -53,9 +54,6 @@ final class AppCoordinator: NSObject, Coordinator {
     init(window: UIWindow) {
         self.window = window
         self.locationService = .shared
-        let lbs = LBSServiceProvider.shared
-        self.searchService = lbs.search
-        self.routeService = lbs.route
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
     }
@@ -204,8 +202,10 @@ final class AppCoordinator: NSObject, Coordinator {
     private func dismissSearchResultDrawerWithCleanup() {
         poiDetailDrawer = nil
         currentDrawer = nil
+        lastSearchQuery = ""
         mapViewController.clearSearchResults()
         mapViewController.onAnnotationSelected = nil
+        mapViewController.onRegionChanged = nil
         restoreHomeDrawer()
     }
 
@@ -535,6 +535,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private func showSearchResults(_ results: [Place], query: String = "") {
         // Show markers on map
         mapViewController.showSearchResults(results)
+        lastSearchQuery = query
 
         // Create search result drawer
         let drawerVC = SearchResultDrawerViewController(query: query)
@@ -567,12 +568,43 @@ final class AppCoordinator: NSObject, Coordinator {
             }
         }
 
+        // Region change → show refresh button
+        mapViewController.onRegionChanged = { [weak self] in
+            self?.currentDrawer?.showRefreshButton()
+        }
+
+        // Research button tapped
+        drawerVC.onResearch = { [weak self] in
+            self?.executeResearch()
+        }
+
         // Present as child VC via drawer manager
         drawerManager.pushDrawer(
             drawerVC,
             detents: standardDetents(),
             initialDetent: homeInitialDetent()
         )
+    }
+
+    private func executeResearch() {
+        let query = lastSearchQuery
+        guard !query.isEmpty else { return }
+        let region = mapViewController.mapView.region
+
+        Task {
+            do {
+                let results = try await searchService.search(
+                    query: query,
+                    region: region,
+                    regionMode: .strict
+                )
+                mapViewController.clearSearchResults()
+                mapViewController.showSearchResults(results)
+                currentDrawer?.updateResults(results)
+            } catch {
+                print("[AppCoordinator] Research failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Route Preview Flow

@@ -1,6 +1,11 @@
 import Combine
 import MapKit
 
+enum RegionSearchMode {
+    case biased
+    case strict
+}
+
 protocol SearchProviding: AnyObject {
 
     var completionsPublisher: CurrentValueSubject<[SearchCompletion], Never> { get }
@@ -12,6 +17,12 @@ protocol SearchProviding: AnyObject {
     func updateRegion(_ region: MKCoordinateRegion)
     func updateQuery(_ fragment: String)
     func search(for completion: SearchCompletion) async throws -> [Place]
-    func search(query: String, region: MKCoordinateRegion?) async throws -> [Place]
+    func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place]
     func cancelCurrentSearch()
+}
+
+extension SearchProviding {
+    func search(query: String, region: MKCoordinateRegion?) async throws -> [Place] {
+        try await search(query: query, region: region, regionMode: .biased)
+    }
 }

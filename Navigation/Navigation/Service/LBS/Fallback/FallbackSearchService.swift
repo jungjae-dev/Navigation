@@ -37,11 +37,11 @@ final class FallbackSearchService: SearchProviding {
         }
     }
 
-    func search(query: String, region: MKCoordinateRegion?) async throws -> [Place] {
+    func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
         do {
-            return try await primary.search(query: query, region: region)
+            return try await primary.search(query: query, region: region, regionMode: regionMode)
         } catch let error as LBSError where error == .quotaExceeded {
-            return try await fallback.search(query: query, region: region)
+            return try await fallback.search(query: query, region: region, regionMode: regionMode)
         }
     }
 

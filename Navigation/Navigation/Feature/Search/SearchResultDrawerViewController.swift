@@ -5,6 +5,7 @@ final class SearchResultDrawerViewController: UIViewController {
     // MARK: - UI Components
 
     private let headerView = DrawerHeaderView()
+    private let refreshButton = DrawerIconButton(iconName: "arrow.clockwise", tintColor: Theme.Colors.primary)
     private let closeButton = DrawerIconButton(preset: .close)
 
     private let tableView: UITableView = {
@@ -24,6 +25,7 @@ final class SearchResultDrawerViewController: UIViewController {
 
     var onItemSelected: ((Place, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
+    var onResearch: (() -> Void)?
     var onClose: (() -> Void)?
 
     // MARK: - Init
@@ -51,7 +53,23 @@ final class SearchResultDrawerViewController: UIViewController {
         view.backgroundColor = Theme.Colors.background
 
         let title = query.isEmpty ? "검색 결과" : "검색: \(query)"
-        headerView.setTitle(title)
+
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = Theme.Drawer.Header.titleFont
+        titleLabel.textColor = Theme.Drawer.Header.titleColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        refreshButton.isHidden = true
+        refreshButton.addTarget(self, action: #selector(refreshTapped), for: .touchUpInside)
+
+        let titleStack = UIStackView(arrangedSubviews: [titleLabel, refreshButton])
+        titleStack.axis = .horizontal
+        titleStack.alignment = .center
+        titleStack.spacing = Theme.Spacing.xs
+
+        headerView.setCenterView(titleStack)
         headerView.addRightAction(closeButton)
 
         view.addSubview(headerView)
@@ -74,6 +92,11 @@ final class SearchResultDrawerViewController: UIViewController {
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
     }
 
+    @objc private func refreshTapped() {
+        refreshButton.isHidden = true
+        onResearch?()
+    }
+
     @objc private func closeTapped() {
         onClose?()
     }
@@ -90,6 +113,15 @@ final class SearchResultDrawerViewController: UIViewController {
         searchResults = results
         highlightedIndex = 0
         tableView.reloadData()
+    }
+
+    func showRefreshButton() {
+        guard refreshButton.isHidden else { return }
+        refreshButton.isHidden = false
+        refreshButton.alpha = 0
+        UIView.animate(withDuration: 0.25) {
+            self.refreshButton.alpha = 1
+        }
     }
 
     func place(at index: Int) -> Place? {

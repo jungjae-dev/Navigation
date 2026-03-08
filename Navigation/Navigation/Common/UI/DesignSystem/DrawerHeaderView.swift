@@ -134,7 +134,7 @@ final class DrawerHeaderView: UIView {
             view.topAnchor.constraint(equalTo: centerContainer.topAnchor),
             view.bottomAnchor.constraint(equalTo: centerContainer.bottomAnchor),
             view.leadingAnchor.constraint(equalTo: centerContainer.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: centerContainer.trailingAnchor),
+            view.trailingAnchor.constraint(lessThanOrEqualTo: centerContainer.trailingAnchor),
         ])
     }
 

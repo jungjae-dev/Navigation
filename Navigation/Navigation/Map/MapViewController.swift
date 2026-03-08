@@ -129,6 +129,7 @@ final class MapViewController: UIViewController {
         mapView.addAnnotations(annotations)
 
         if let first = annotations.first {
+            regionChangeSuppressionEnd = Date().addingTimeInterval(1.0)
             fitAnnotations(annotations)
             mapView.selectAnnotation(first, animated: false)
         }
@@ -155,6 +156,7 @@ final class MapViewController: UIViewController {
             }
         }
 
+        regionChangeSuppressionEnd = Date().addingTimeInterval(1.0)
         mapView.selectAnnotation(selected, animated: true)
         mapView.setCenter(selected.coordinate, animated: true)
     }
@@ -364,6 +366,10 @@ final class MapViewController: UIViewController {
     /// Called when the user tracking mode changes (including auto-reset by MapKit)
     var onTrackingModeChanged: ((MKUserTrackingMode) -> Void)?
 
+    /// Called when the map region changes by user interaction
+    var onRegionChanged: (() -> Void)?
+    private var regionChangeSuppressionEnd: Date = .distantPast
+
     /// Cycle through MKUserTrackingMode: none → follow → followWithHeading → none
     @discardableResult
     func cycleUserTrackingMode() -> MKUserTrackingMode {
@@ -502,6 +508,11 @@ extension MapViewController: MKMapViewDelegate {
             return RouteOverlayRenderer(polyline: polyline, isPrimary: isPrimary)
         }
         return MKOverlayRenderer(overlay: overlay)
+    }
+
+    func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+        guard Date() > regionChangeSuppressionEnd else { return }
+        onRegionChanged?()
     }
 
     func mapView(_ mapView: MKMapView, didChange mode: MKUserTrackingMode, animated: Bool) {

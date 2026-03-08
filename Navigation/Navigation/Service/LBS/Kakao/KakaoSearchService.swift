@@ -47,11 +47,11 @@ final class KakaoSearchService: SearchProviding {
         try await search(query: completion.title, region: currentRegion)
     }
 
-    func search(query: String, region: MKCoordinateRegion?) async throws -> [Place] {
+    func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode = .biased) async throws -> [Place] {
         isSearchingPublisher.send(true)
         defer { isSearchingPublisher.send(false) }
 
-        let docs = try await fetchKeywordSearch(query: query, region: region)
+        let docs = try await fetchKeywordSearch(query: query, region: region, regionMode: regionMode)
         return docs.map { KakaoModelConverter.place(from: $0) }
     }
 
@@ -63,14 +63,24 @@ final class KakaoSearchService: SearchProviding {
 
     private func fetchKeywordSearch(
         query: String,
-        region: MKCoordinateRegion? = nil
+        region: MKCoordinateRegion? = nil,
+        regionMode: RegionSearchMode = .biased
     ) async throws -> [KakaoSearchResponse.Document] {
         var queryItems = [URLQueryItem(name: "query", value: query)]
 
         if let region {
-            queryItems.append(URLQueryItem(name: "x", value: "\(region.center.longitude)"))
-            queryItems.append(URLQueryItem(name: "y", value: "\(region.center.latitude)"))
-            // sort 미지정 → 기본값 accuracy (정확도순, 위치 참고)
+            if regionMode == .strict {
+                let lat = region.center.latitude
+                let lon = region.center.longitude
+                let dLat = region.span.latitudeDelta / 2
+                let dLon = region.span.longitudeDelta / 2
+                let rect = "\(lon - dLon),\(lat - dLat),\(lon + dLon),\(lat + dLat)"
+                queryItems.append(URLQueryItem(name: "rect", value: rect))
+                queryItems.append(URLQueryItem(name: "sort", value: "distance"))
+            } else {
+                queryItems.append(URLQueryItem(name: "x", value: "\(region.center.longitude)"))
+                queryItems.append(URLQueryItem(name: "y", value: "\(region.center.latitude)"))
+            }
         }
 
         let response: KakaoSearchResponse = try await KakaoAPIClient.shared.request(
