@@ -12,9 +12,15 @@ final class HomeDrawerViewController: UIViewController {
 
     // MARK: - UI Components
 
-    private let headerView = DrawerHeaderView()
     private let searchBarView = SearchBarView(placeholder: "여기서 검색")
     private let settingsButton = DrawerIconButton(preset: .settings)
+
+    private let separator: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = Theme.Drawer.Separator.color
+        return view
+    }()
 
     private lazy var collectionView: UICollectionView = {
         let layout = createCompositionalLayout()
@@ -64,20 +70,28 @@ final class HomeDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        // Header: searchBar + settings button
-        headerView.setCenterView(searchBarView)
-        headerView.addRightAction(settingsButton)
-
-        view.addSubview(headerView)
+        view.addSubview(searchBarView)
+        view.addSubview(settingsButton)
+        view.addSubview(separator)
         view.addSubview(collectionView)
 
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // Search bar: full width, matching SearchVC layout
+            searchBarView.topAnchor.constraint(equalTo: view.topAnchor, constant: Theme.Spacing.xs),
+            searchBarView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            searchBarView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            // Settings button overlaid on search bar's right side
+            settingsButton.centerYAnchor.constraint(equalTo: searchBarView.centerYAnchor),
+            settingsButton.trailingAnchor.constraint(equalTo: searchBarView.trailingAnchor, constant: -Theme.Spacing.xs),
+
+            separator.topAnchor.constraint(equalTo: searchBarView.bottomAnchor, constant: Theme.Spacing.xs),
+            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 0.5),
 
             collectionView.topAnchor.constraint(
-                equalTo: headerView.bottomAnchor,
+                equalTo: separator.bottomAnchor,
                 constant: Theme.Drawer.Layout.contentTopPadding
             ),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),

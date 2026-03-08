@@ -474,10 +474,7 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Search Flow
 
     private func handleSearchBarTapped() {
-        // Snap home drawer to full, then present search
-        drawerManager.snapToDetent(id: "drawerLarge") { [weak self] in
-            self?.showSearch()
-        }
+        showSearch()
     }
 
     private func showSearch() {
@@ -496,22 +493,38 @@ final class AppCoordinator: NSObject, Coordinator {
         )
         searchViewModel.updateSearchRegion(mapRegion)
         let searchVC = SearchViewController(viewModel: searchViewModel)
-        searchVC.modalPresentationStyle = .fullScreen
+        searchVC.modalPresentationStyle = .overFullScreen
 
-        searchVC.onDismiss = { [weak self] in
-            self?.navigationController.dismiss(animated: true) {
-                self?.drawerManager.snapToDetent(id: "drawerMedium")
+        searchVC.onDismiss = { [weak self, weak searchVC] in
+            guard let searchVC else { return }
+            self?.drawerManager.snapToDetent(id: "drawerMedium")
+            UIView.animate(withDuration: 0.25, animations: {
+                searchVC.view.alpha = 0
+            }) { _ in
+                self?.navigationController.dismiss(animated: false)
             }
         }
 
-        searchVC.onSearchResults = { [weak self] results in
-            self?.navigationController.dismiss(animated: true) {
-                self?.drawerManager.snapToDetent(id: "drawerMedium")
+        searchVC.onSearchResults = { [weak self, weak searchVC] results in
+            guard let searchVC else { return }
+            self?.drawerManager.snapToDetent(id: "drawerMedium")
+            UIView.animate(withDuration: 0.25, animations: {
+                searchVC.view.alpha = 0
+            }) { _ in
+                self?.navigationController.dismiss(animated: false)
                 self?.showSearchResults(results)
             }
         }
 
+        // Present transparent, then fade in with drawer snap
+        searchVC.loadViewIfNeeded()
+        searchVC.view.alpha = 0
         navigationController.present(searchVC, animated: false)
+
+        drawerManager.snapToDetent(id: "drawerLarge")
+        UIView.animate(withDuration: 0.3) {
+            searchVC.view.alpha = 1
+        }
     }
 
     private func showSearchResults(_ results: [Place]) {
