@@ -469,19 +469,6 @@ final class DrawerContainerManager: NSObject {
             }
 
         case .changed:
-            if !isDraggingDrawer, let sv = scrollView {
-                let atTop = isScrollAtTop(sv)
-                let atBottom = isScrollAtBottom(sv)
-
-                if (atTop && velocityY > 0) || (atBottom && velocityY < 0) {
-                    isDraggingDrawer = true
-                    sv.isScrollEnabled = false
-                    sv.contentOffset.y = atTop ? 0 : max(0, sv.contentSize.height - sv.bounds.height)
-                    gesture.setTranslation(.zero, in: parent.view)
-                    panStartHeight = entry.currentHeight
-                }
-            }
-
             guard isDraggingDrawer else { return }
 
             let translation = gesture.translation(in: parent.view)

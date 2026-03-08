@@ -239,20 +239,22 @@ final class AppCoordinator: NSObject, Coordinator {
         return containerView.bounds.height - containerView.safeAreaInsets.top - containerView.safeAreaInsets.bottom
     }
 
+    private func drawerMediumHeight(in containerView: UIView) -> CGFloat {
+        return drawerMaxHeight(in: containerView) * 0.5
+    }
+
     private func standardDetents() -> [DrawerDetent] {
         let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
         return [
             .absolute(200, id: "small"),
-            .absolute(maxHeight * 0.5, id: "drawerMedium"),
-            .absolute(maxHeight, id: "drawerLarge"),
+            .absolute(drawerMediumHeight(in: containerView), id: "drawerMedium"),
+            .absolute(drawerMaxHeight(in: containerView), id: "drawerLarge"),
         ]
     }
 
     private func homeInitialDetent() -> DrawerDetent {
         let containerView = navigationController.view!
-        let maxHeight = drawerMaxHeight(in: containerView)
-        return .absolute(maxHeight * 0.5, id: "drawerMedium")
+        return .absolute(drawerMediumHeight(in: containerView), id: "drawerMedium")
     }
 
     // MARK: - Debug Overlay
@@ -284,13 +286,11 @@ final class AppCoordinator: NSObject, Coordinator {
         drawerManager.onHeightChanged = { [weak self] height in
             guard let self else { return }
             let containerView = self.navigationController.view!
-            // Cap map control buttons at medium height when drawer is at large
-            let maxHeight = self.drawerMaxHeight(in: containerView)
-            let effectiveHeight = min(height, maxHeight * 0.5)
+            let effectiveHeight = min(height, self.drawerMediumHeight(in: containerView))
             self.homeViewController.updateMapControlBottomOffset(effectiveHeight)
             self.homeViewController.updateMapInsets(
                 top: self.mapTopInset(in: containerView),
-                bottom: height
+                bottom: effectiveHeight
             )
         }
     }
