@@ -551,6 +551,19 @@ final class DrawerContainerManager: NSObject {
 
         viewController.didMove(toParent: parent)
 
+        if let footerProvider = viewController as? DrawerFooterProviding {
+            let footer = footerProvider.footerContentView
+            footer.translatesAutoresizingMaskIntoConstraints = false
+            container.footerView.addSubview(footer)
+
+            NSLayoutConstraint.activate([
+                footer.topAnchor.constraint(equalTo: container.footerView.topAnchor),
+                footer.leadingAnchor.constraint(equalTo: container.footerView.leadingAnchor),
+                footer.trailingAnchor.constraint(equalTo: container.footerView.trailingAnchor),
+                footer.bottomAnchor.constraint(equalTo: container.footerView.bottomAnchor),
+            ])
+        }
+
         return DrawerEntry(
             viewController: viewController,
             containerView: container,

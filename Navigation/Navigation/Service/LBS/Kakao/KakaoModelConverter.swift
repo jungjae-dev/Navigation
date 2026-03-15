@@ -16,9 +16,11 @@ enum KakaoModelConverter {
     }
 
     static func route(from kakaoRoute: KakaoRouteResponse.KakaoRoute) -> Route {
+        let sections = kakaoRoute.sections ?? []
+
         // Extract polyline coordinates (vertexes: [lng, lat, lng, lat, ...])
         var coordinates: [CLLocationCoordinate2D] = []
-        for section in kakaoRoute.sections {
+        for section in sections {
             for road in section.roads {
                 let vertexes = road.vertexes
                 for i in stride(from: 0, to: vertexes.count - 1, by: 2) {
@@ -30,7 +32,7 @@ enum KakaoModelConverter {
         }
 
         // Extract steps from guides
-        let steps = kakaoRoute.sections.flatMap { section in
+        let steps = sections.flatMap { section in
             section.guides.map { guide in
                 RouteStep(
                     instructions: guide.guidance,
@@ -44,8 +46,8 @@ enum KakaoModelConverter {
 
         return Route(
             id: UUID().uuidString,
-            distance: CLLocationDistance(kakaoRoute.summary.distance),
-            expectedTravelTime: TimeInterval(kakaoRoute.summary.duration),
+            distance: CLLocationDistance(kakaoRoute.summary?.distance ?? 0),
+            expectedTravelTime: TimeInterval(kakaoRoute.summary?.duration ?? 0),
             name: "",
             steps: steps,
             polylineCoordinates: coordinates,

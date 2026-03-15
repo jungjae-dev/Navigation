@@ -83,7 +83,7 @@ final class POIDetailViewController: UIViewController {
         contactStack.axis = .vertical
         contactStack.spacing = 0
 
-        let contentStack = UIStackView(arrangedSubviews: [addressLabel, contactStack, routeButton])
+        let contentStack = UIStackView(arrangedSubviews: [addressLabel, contactStack])
         contentStack.axis = .vertical
         contentStack.spacing = Theme.Spacing.lg
         contentStack.translatesAutoresizingMaskIntoConstraints = false
@@ -168,5 +168,28 @@ final class POIDetailViewController: UIViewController {
     @objc private func routeTapped() {
         onRouteTapped?(place)
     }
+}
 
+// MARK: - DrawerFooterProviding
+
+extension POIDetailViewController: DrawerFooterProviding {
+
+    var footerContentView: UIView {
+        let container = UIView()
+        container.backgroundColor = Theme.Colors.background
+
+        routeButton.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(routeButton)
+
+        let padding = Theme.Drawer.Layout.contentHorizontalPadding
+
+        NSLayoutConstraint.activate([
+            routeButton.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
+            routeButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
+            routeButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -padding),
+            routeButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
+        ])
+
+        return container
+    }
 }

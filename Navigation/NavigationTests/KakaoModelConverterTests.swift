@@ -44,7 +44,7 @@ struct KakaoModelConverterTests {
     @Test func routeFromKakaoRoute_extractsPolyline() {
         let kakaoRoute = KakaoRouteResponse.KakaoRoute(
             resultCode: 0,
-            resultMessage: "",
+            resultMsg: "",
             summary: .init(distance: 5000, duration: 600),
             sections: [.init(
                 distance: 5000,
@@ -72,7 +72,7 @@ struct KakaoModelConverterTests {
     @Test func routeFromKakaoRoute_multipleSections() {
         let kakaoRoute = KakaoRouteResponse.KakaoRoute(
             resultCode: 0,
-            resultMessage: "",
+            resultMsg: "",
             summary: .init(distance: 10000, duration: 1200),
             sections: [
                 .init(distance: 5000, duration: 600,

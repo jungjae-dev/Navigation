@@ -4,7 +4,7 @@ struct Route: Sendable {
     let id: String
     let distance: CLLocationDistance
     let expectedTravelTime: TimeInterval
-    let name: String
+    var name: String
     let steps: [RouteStep]
     let polylineCoordinates: [CLLocationCoordinate2D]
     let transportMode: TransportMode

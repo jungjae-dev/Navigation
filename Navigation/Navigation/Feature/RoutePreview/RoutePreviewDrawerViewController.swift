@@ -94,8 +94,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
         view.addSubview(transportModeSegment)
         view.addSubview(tableView)
         view.addSubview(loadingIndicator)
-        view.addSubview(virtualDriveButton)
-        view.addSubview(startButton)
 
         let padding = Theme.Drawer.Layout.contentHorizontalPadding
 
@@ -123,15 +121,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
             // Loading indicator
             loadingIndicator.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
             loadingIndicator.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
-
-            // Buttons
-            virtualDriveButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
-            virtualDriveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: padding),
-            virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
-
-            startButton.topAnchor.constraint(equalTo: tableView.bottomAnchor, constant: Theme.Spacing.md),
-            startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
-            startButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -padding),
         ])
     }
 
@@ -273,5 +262,36 @@ extension RoutePreviewDrawerViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         viewModel.selectRoute(at: indexPath.row)
+    }
+}
+
+// MARK: - DrawerFooterProviding
+
+extension RoutePreviewDrawerViewController: DrawerFooterProviding {
+
+    var footerContentView: UIView {
+        let container = UIView()
+        container.backgroundColor = Theme.Colors.background
+
+        virtualDriveButton.translatesAutoresizingMaskIntoConstraints = false
+        startButton.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(virtualDriveButton)
+        container.addSubview(startButton)
+
+        let padding = Theme.Drawer.Layout.contentHorizontalPadding
+
+        NSLayoutConstraint.activate([
+            virtualDriveButton.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
+            virtualDriveButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
+            virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
+            virtualDriveButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
+
+            startButton.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
+            startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
+            startButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -padding),
+            startButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
+        ])
+
+        return container
     }
 }

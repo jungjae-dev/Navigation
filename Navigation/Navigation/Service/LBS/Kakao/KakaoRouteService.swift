@@ -16,22 +16,43 @@ final class KakaoRouteService: RouteProviding {
         }
 
         let task = Task {
-            let queryItems = [
-                URLQueryItem(name: "origin", value: "\(origin.longitude),\(origin.latitude)"),
-                URLQueryItem(name: "destination", value: "\(destination.longitude),\(destination.latitude)"),
-                URLQueryItem(name: "alternatives", value: "true"),
+            let priorities: [(value: String, name: String)] = [
+                ("RECOMMEND", "추천"),
+                ("TIME", "최단시간"),
             ]
 
-            let response: KakaoRouteResponse = try await KakaoAPIClient.shared.request(
-                baseURL: KakaoAPIConfig.BaseURL.mobility,
-                path: "/v1/directions",
-                queryItems: queryItems,
-                apiKey: KakaoAPIConfig.mobilityAppKey
-            )
+            let routes: [Route] = try await withThrowingTaskGroup(of: Route?.self) { group in
+                for priority in priorities {
+                    group.addTask {
+                        let queryItems = [
+                            URLQueryItem(name: "origin", value: "\(origin.longitude),\(origin.latitude)"),
+                            URLQueryItem(name: "destination", value: "\(destination.longitude),\(destination.latitude)"),
+                            URLQueryItem(name: "priority", value: priority.value),
+                        ]
 
-            let routes = response.routes
-                .filter { $0.resultCode == 0 }
-                .map { KakaoModelConverter.route(from: $0) }
+                        let response: KakaoRouteResponse = try await KakaoAPIClient.shared.request(
+                            baseURL: KakaoAPIConfig.BaseURL.mobility,
+                            path: "/v1/directions",
+                            queryItems: queryItems,
+                            apiKey: KakaoAPIConfig.restAPIKey
+                        )
+
+                        guard let kakaoRoute = response.routes.first(where: { $0.resultCode == 0 }) else {
+                            return nil
+                        }
+
+                        var route = KakaoModelConverter.route(from: kakaoRoute)
+                        route.name = priority.name
+                        return route
+                    }
+                }
+
+                var results: [Route] = []
+                for try await route in group {
+                    if let route { results.append(route) }
+                }
+                return results
+            }
 
             guard !routes.isEmpty else { throw LBSError.noRoutesFound }
             return routes

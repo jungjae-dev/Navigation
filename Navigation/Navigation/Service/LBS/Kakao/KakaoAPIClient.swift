@@ -30,9 +30,19 @@ final class KakaoAPIClient {
             throw LBSError.networkError("Bad server response")
         }
 
+        print("[KakaoAPI] \(path) → HTTP \(httpResponse.statusCode)")
+        if let body = String(data: data, encoding: .utf8) {
+            print("[KakaoAPI] Response body: \(body)")
+        }
+
         switch httpResponse.statusCode {
         case 200..<300:
-            return try JSONDecoder().decode(T.self, from: data)
+            do {
+                return try JSONDecoder().decode(T.self, from: data)
+            } catch {
+                print("[KakaoAPI] Decoding error: \(error)")
+                throw error
+            }
         case 429:
             throw LBSError.quotaExceeded
         default:

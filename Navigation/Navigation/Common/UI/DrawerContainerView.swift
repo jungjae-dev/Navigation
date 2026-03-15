@@ -11,6 +11,12 @@ final class DrawerContainerView: UIView {
         view.clipsToBounds = true
         return view
     }()
+    let footerView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.clipsToBounds = true
+        return view
+    }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -34,6 +40,7 @@ final class DrawerContainerView: UIView {
         grabber.translatesAutoresizingMaskIntoConstraints = false
         addSubview(grabber)
         addSubview(contentView)
+        addSubview(footerView)
 
         NSLayoutConstraint.activate([
             grabber.topAnchor.constraint(equalTo: topAnchor),
@@ -43,7 +50,16 @@ final class DrawerContainerView: UIView {
             contentView.topAnchor.constraint(equalTo: grabber.bottomAnchor),
             contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            contentView.bottomAnchor.constraint(equalTo: footerView.topAnchor),
+
+            footerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            footerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            footerView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
+            {
+                let c = footerView.heightAnchor.constraint(equalToConstant: 0)
+                c.priority = .defaultLow
+                return c
+            }(),
         ])
     }
 

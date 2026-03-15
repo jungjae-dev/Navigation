@@ -35,6 +35,14 @@ final class RouteOptionCell: UITableViewCell {
         return label
     }()
 
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.footnote
+        label.textColor = Theme.Colors.secondaryLabel
+        return label
+    }()
+
     private let checkmark: UIImageView = {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -64,6 +72,7 @@ final class RouteOptionCell: UITableViewCell {
         contentView.addSubview(timeLabel)
         contentView.addSubview(distanceLabel)
         contentView.addSubview(arrivalLabel)
+        contentView.addSubview(nameLabel)
         contentView.addSubview(checkmark)
 
         NSLayoutConstraint.activate([
@@ -82,6 +91,9 @@ final class RouteOptionCell: UITableViewCell {
             arrivalLabel.leadingAnchor.constraint(equalTo: timeLabel.leadingAnchor),
             arrivalLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -Theme.Spacing.md),
 
+            nameLabel.leadingAnchor.constraint(equalTo: arrivalLabel.trailingAnchor, constant: Theme.Spacing.sm),
+            nameLabel.lastBaselineAnchor.constraint(equalTo: arrivalLabel.lastBaselineAnchor),
+
             checkmark.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             checkmark.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Theme.Spacing.lg),
             checkmark.widthAnchor.constraint(equalToConstant: Theme.IconSize.xl),
@@ -92,9 +104,12 @@ final class RouteOptionCell: UITableViewCell {
     // MARK: - Configure
 
     func configure(with route: Route, isSelected: Bool) {
+        transportIcon.image = UIImage(systemName: route.transportMode.iconName)
         timeLabel.text = route.formattedTravelTime
         distanceLabel.text = route.formattedDistance
         arrivalLabel.text = route.formattedArrivalTime
+        nameLabel.text = route.name.isEmpty ? nil : route.name
+        nameLabel.isHidden = route.name.isEmpty
 
         let color = isSelected ? Theme.Colors.primary : Theme.Colors.secondaryLabel
         transportIcon.tintColor = color

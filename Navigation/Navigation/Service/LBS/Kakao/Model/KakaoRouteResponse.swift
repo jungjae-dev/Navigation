@@ -5,13 +5,13 @@ struct KakaoRouteResponse: Decodable, Sendable {
 
     struct KakaoRoute: Decodable, Sendable {
         let resultCode: Int
-        let resultMessage: String
-        let summary: Summary
-        let sections: [Section]
+        let resultMsg: String
+        let summary: Summary?
+        let sections: [Section]?
 
         enum CodingKeys: String, CodingKey {
             case resultCode = "result_code"
-            case resultMessage = "result_message"
+            case resultMsg = "result_msg"
             case summary, sections
         }
     }
