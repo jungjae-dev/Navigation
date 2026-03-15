@@ -22,6 +22,9 @@ struct KakaoSearchResponse: Decodable, Sendable {
         let roadAddressName: String?
         let phone: String?
         let categoryName: String?
+        let categoryGroupName: String?
+        let placeUrl: String?
+        let distance: String?
         let x: String   // longitude
         let y: String   // latitude
 
@@ -31,6 +34,9 @@ struct KakaoSearchResponse: Decodable, Sendable {
             case roadAddressName = "road_address_name"
             case phone
             case categoryName = "category_name"
+            case categoryGroupName = "category_group_name"
+            case placeUrl = "place_url"
+            case distance
             case x, y
         }
     }

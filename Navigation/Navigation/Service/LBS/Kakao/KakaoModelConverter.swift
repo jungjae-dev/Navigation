@@ -5,11 +5,13 @@ enum KakaoModelConverter {
     static func place(from doc: KakaoSearchResponse.Document) -> Place {
         let lat = Double(doc.y) ?? 0
         let lng = Double(doc.x) ?? 0
+        let placeURL = doc.placeUrl.flatMap { URL(string: $0) }
         return Place(
             name: doc.placeName,
             coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
             address: doc.roadAddressName ?? doc.addressName,
             phoneNumber: doc.phone,
+            url: placeURL,
             category: doc.categoryName,
             providerRawData: doc
         )

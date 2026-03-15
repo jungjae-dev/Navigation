@@ -7,7 +7,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
     // MARK: - UI Components
 
     private let headerView = DrawerHeaderView()
-    private let favoriteButton = DrawerIconButton(preset: .favorite)
     private let closeButton = DrawerIconButton(preset: .close)
 
     private let transportModeSegment: UISegmentedControl = {
@@ -86,8 +85,7 @@ final class RoutePreviewDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        // Header: favorite + destination name + close
-        headerView.addLeftAction(favoriteButton)
+        // Header: destination name + close
         headerView.addRightAction(closeButton)
 
         view.addSubview(headerView)
@@ -134,7 +132,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         startButton.addTarget(self, action: #selector(startNavigationTapped), for: .touchUpInside)
         virtualDriveButton.addTarget(self, action: #selector(virtualDriveTapped), for: .touchUpInside)
-        favoriteButton.addTarget(self, action: #selector(favoriteTapped), for: .touchUpInside)
         transportModeSegment.addTarget(self, action: #selector(transportModeChanged), for: .valueChanged)
 
         transportModeSegment.selectedSegmentIndex = viewModel.transportMode == .automobile ? 0 : 1
@@ -196,12 +193,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        viewModel.isFavorite
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isFav in
-                self?.favoriteButton.setFavoriteState(isFav)
-            }
-            .store(in: &cancellables)
     }
 
     // MARK: - Actions
@@ -218,10 +209,6 @@ final class RoutePreviewDrawerViewController: UIViewController {
     @objc private func virtualDriveTapped() {
         guard let selectedRoute = viewModel.getSelectedRoute() else { return }
         onStartVirtualDrive?(selectedRoute, viewModel.transportMode)
-    }
-
-    @objc private func favoriteTapped() {
-        viewModel.toggleFavorite()
     }
 
     @objc private func transportModeChanged() {

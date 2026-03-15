@@ -58,14 +58,14 @@ final class RecentSearchCell: UICollectionViewCell {
         contentView.addSubview(separatorView)
 
         NSLayoutConstraint.activate([
-            iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.Spacing.lg),
+            iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             iconImageView.widthAnchor.constraint(equalToConstant: Theme.IconSize.lg),
             iconImageView.heightAnchor.constraint(equalToConstant: Theme.IconSize.lg),
 
             nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: Theme.Spacing.md),
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Theme.Spacing.sm),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Theme.Spacing.lg),
+            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
 
             addressLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             addressLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: Theme.Spacing.xxs),

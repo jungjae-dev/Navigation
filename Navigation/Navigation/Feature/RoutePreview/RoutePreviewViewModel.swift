@@ -10,7 +10,6 @@ final class RoutePreviewViewModel {
     let selectedRouteIndex = CurrentValueSubject<Int, Never>(0)
     let isCalculating = CurrentValueSubject<Bool, Never>(false)
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
-    let isFavorite = CurrentValueSubject<Bool, Never>(false)
     let transportModePublisher = CurrentValueSubject<TransportMode, Never>(.automobile)
 
     // MARK: - Properties
@@ -21,7 +20,6 @@ final class RoutePreviewViewModel {
     // MARK: - Private
 
     private let routeService: RouteProviding
-    private let dataService: DataService
     private let origin: CLLocationCoordinate2D
     private let destination: CLLocationCoordinate2D
 
@@ -29,7 +27,6 @@ final class RoutePreviewViewModel {
 
     init(
         routeService: RouteProviding,
-        dataService: DataService = .shared,
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
         destinationName: String?,
@@ -37,17 +34,11 @@ final class RoutePreviewViewModel {
         transportMode: TransportMode = .automobile
     ) {
         self.routeService = routeService
-        self.dataService = dataService
         self.origin = origin
         self.destination = destination
         self.destinationName = destinationName
         self.destinationAddress = destinationAddress
         self.transportModePublisher.send(transportMode)
-
-        // Check initial favorite state
-        isFavorite.send(
-            dataService.isFavorite(latitude: destination.latitude, longitude: destination.longitude)
-        )
     }
 
     // MARK: - Transport Mode
@@ -93,26 +84,4 @@ final class RoutePreviewViewModel {
         return routes.value[index]
     }
 
-    // MARK: - Favorite
-
-    func toggleFavorite() {
-        if isFavorite.value {
-            // Remove favorite
-            if let existing = dataService.findFavorite(latitude: destination.latitude, longitude: destination.longitude) {
-                dataService.deleteFavorite(existing)
-            }
-            isFavorite.send(false)
-        } else {
-            // Add favorite
-            let name = destinationName ?? "즐겨찾기"
-            let address = destinationAddress ?? ""
-            dataService.saveFavoriteFromCoordinate(
-                name: name,
-                address: address,
-                latitude: destination.latitude,
-                longitude: destination.longitude
-            )
-            isFavorite.send(true)
-        }
-    }
 }
