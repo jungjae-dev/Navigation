@@ -123,7 +123,8 @@ final class AppCoordinator: NSObject, Coordinator {
         drawerManager.pushDrawer(
             drawerVC,
             detents: standardDetents(),
-            initialDetent: homeInitialDetent()
+            initialDetent: homeInitialDetent(),
+            animated: false
         )
     }
 
