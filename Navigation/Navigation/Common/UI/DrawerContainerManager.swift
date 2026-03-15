@@ -57,6 +57,7 @@ final class DrawerContainerManager: NSObject {
 
     private var topEntry: DrawerEntry? { drawerStack.last }
     private var topContainer: DrawerContainerView? { topEntry?.containerView }
+    private var topIndex: Int { drawerStack.count - 1 }
 
     var topViewController: UIViewController? { topEntry?.viewController }
     var stackDepth: Int { drawerStack.count }
@@ -65,7 +66,7 @@ final class DrawerContainerManager: NSObject {
         get { topEntry?.currentHeight ?? 200 }
         set {
             guard !drawerStack.isEmpty else { return }
-            drawerStack[drawerStack.count - 1].currentHeight = newValue
+            drawerStack[topIndex].currentHeight = newValue
         }
     }
 
@@ -77,7 +78,7 @@ final class DrawerContainerManager: NSObject {
         get { topEntry?.activeDetent }
         set {
             guard !drawerStack.isEmpty, let newValue else { return }
-            drawerStack[drawerStack.count - 1].activeDetent = newValue
+            drawerStack[topIndex].activeDetent = newValue
         }
     }
 
@@ -107,65 +108,33 @@ final class DrawerContainerManager: NSObject {
         let oldEntry = drawerStack.last
         drawerStack.append(entry)
 
-        // Move pan gesture to new container
         attachPanGesture(to: entry.containerView)
 
         if let oldEntry {
-            // Slide old down + new up simultaneously
             let oldOffset = oldEntry.currentHeight + parent.view.safeAreaInsets.bottom
             let newOffset = targetHeight + parent.view.safeAreaInsets.bottom
 
-            // Start new container offscreen
             entry.bottomConstraint.constant = newOffset
             parent.view.layoutIfNeeded()
 
-            if animated {
-                UIView.animate(
-                    withDuration: Self.animationDuration,
-                    delay: 0,
-                    usingSpringWithDamping: Self.springDamping,
-                    initialSpringVelocity: 0,
-                    options: .curveEaseOut
-                ) {
-                    oldEntry.bottomConstraint.constant = oldOffset
-                    entry.bottomConstraint.constant = 0
-                    parent.view.layoutIfNeeded()
-                } completion: { _ in
-                    oldEntry.containerView.isHidden = true
-                    self.trackedScrollView = self.findScrollView(in: viewController.view)
-                    self.onHeightChanged?(targetHeight)
-                }
-            } else {
+            animateTransition(in: parent, animated: animated) {
                 oldEntry.bottomConstraint.constant = oldOffset
-                oldEntry.containerView.isHidden = true
                 entry.bottomConstraint.constant = 0
-                trackedScrollView = findScrollView(in: viewController.view)
-                onHeightChanged?(targetHeight)
+            } completion: {
+                oldEntry.containerView.isHidden = true
+                self.trackedScrollView = self.findScrollView(in: viewController.view)
+                self.onHeightChanged?(targetHeight)
             }
         } else {
-            // First drawer — slide up
             let offset = targetHeight + parent.view.safeAreaInsets.bottom
             entry.bottomConstraint.constant = offset
             parent.view.layoutIfNeeded()
 
-            if animated {
-                UIView.animate(
-                    withDuration: Self.animationDuration,
-                    delay: 0,
-                    usingSpringWithDamping: Self.springDamping,
-                    initialSpringVelocity: 0,
-                    options: .curveEaseOut
-                ) {
-                    entry.bottomConstraint.constant = 0
-                    parent.view.layoutIfNeeded()
-                } completion: { _ in
-                    self.trackedScrollView = self.findScrollView(in: viewController.view)
-                    self.onHeightChanged?(targetHeight)
-                }
-            } else {
+            animateTransition(in: parent, animated: animated) {
                 entry.bottomConstraint.constant = 0
-                trackedScrollView = findScrollView(in: viewController.view)
-                onHeightChanged?(targetHeight)
+            } completion: {
+                self.trackedScrollView = self.findScrollView(in: viewController.view)
+                self.onHeightChanged?(targetHeight)
             }
         }
     }
@@ -176,38 +145,22 @@ final class DrawerContainerManager: NSObject {
         let topEntry = drawerStack.removeLast()
         let previousEntry = drawerStack.last!
 
-        // Move pan gesture to previous container
         attachPanGesture(to: previousEntry.containerView)
 
         let topOffset = topEntry.currentHeight + parent.view.safeAreaInsets.bottom
         let prevHeight = previousEntry.currentHeight
 
-        // Un-hide previous, start offscreen
         previousEntry.containerView.isHidden = false
         previousEntry.bottomConstraint.constant = prevHeight + parent.view.safeAreaInsets.bottom
         parent.view.layoutIfNeeded()
 
-        if animated {
-            UIView.animate(
-                withDuration: Self.animationDuration,
-                delay: 0,
-                usingSpringWithDamping: Self.springDamping,
-                initialSpringVelocity: 0,
-                options: .curveEaseOut
-            ) {
-                topEntry.bottomConstraint.constant = topOffset
-                previousEntry.bottomConstraint.constant = 0
-                parent.view.layoutIfNeeded()
-            } completion: { _ in
-                self.destroyEntry(topEntry, parent: parent)
-                self.trackedScrollView = self.findScrollView(in: previousEntry.viewController.view)
-                self.onHeightChanged?(prevHeight)
-            }
-        } else {
-            destroyEntry(topEntry, parent: parent)
+        animateTransition(in: parent, animated: animated) {
+            topEntry.bottomConstraint.constant = topOffset
             previousEntry.bottomConstraint.constant = 0
-            trackedScrollView = findScrollView(in: previousEntry.viewController.view)
-            onHeightChanged?(prevHeight)
+        } completion: {
+            self.destroyEntry(topEntry, parent: parent)
+            self.trackedScrollView = self.findScrollView(in: previousEntry.viewController.view)
+            self.onHeightChanged?(prevHeight)
         }
     }
 
@@ -217,7 +170,6 @@ final class DrawerContainerManager: NSObject {
         let topEntry = drawerStack.last!
         let rootEntry = drawerStack[0]
 
-        // Remove intermediates (not top, not root)
         for i in 1..<(drawerStack.count - 1) {
             destroyEntry(drawerStack[i], parent: parent)
         }
@@ -233,27 +185,13 @@ final class DrawerContainerManager: NSObject {
         rootEntry.bottomConstraint.constant = rootHeight + parent.view.safeAreaInsets.bottom
         parent.view.layoutIfNeeded()
 
-        if animated {
-            UIView.animate(
-                withDuration: Self.animationDuration,
-                delay: 0,
-                usingSpringWithDamping: Self.springDamping,
-                initialSpringVelocity: 0,
-                options: .curveEaseOut
-            ) {
-                topEntry.bottomConstraint.constant = topOffset
-                rootEntry.bottomConstraint.constant = 0
-                parent.view.layoutIfNeeded()
-            } completion: { _ in
-                self.destroyEntry(topEntry, parent: parent)
-                self.trackedScrollView = self.findScrollView(in: rootEntry.viewController.view)
-                self.onHeightChanged?(rootHeight)
-            }
-        } else {
-            destroyEntry(topEntry, parent: parent)
+        animateTransition(in: parent, animated: animated) {
+            topEntry.bottomConstraint.constant = topOffset
             rootEntry.bottomConstraint.constant = 0
-            trackedScrollView = findScrollView(in: rootEntry.viewController.view)
-            onHeightChanged?(rootHeight)
+        } completion: {
+            self.destroyEntry(topEntry, parent: parent)
+            self.trackedScrollView = self.findScrollView(in: rootEntry.viewController.view)
+            self.onHeightChanged?(rootHeight)
         }
     }
 
@@ -267,7 +205,6 @@ final class DrawerContainerManager: NSObject {
 
         let oldTopEntry = drawerStack.last
 
-        // Clean up all hidden entries (not the old top)
         for entry in drawerStack where entry.containerView !== oldTopEntry?.containerView {
             destroyEntry(entry, parent: parent)
         }
@@ -291,52 +228,24 @@ final class DrawerContainerManager: NSObject {
             newEntry.bottomConstraint.constant = newOffset
             parent.view.layoutIfNeeded()
 
-            if animated {
-                UIView.animate(
-                    withDuration: Self.animationDuration,
-                    delay: 0,
-                    usingSpringWithDamping: Self.springDamping,
-                    initialSpringVelocity: 0,
-                    options: .curveEaseOut
-                ) {
-                    oldTopEntry.bottomConstraint.constant = oldOffset
-                    newEntry.bottomConstraint.constant = 0
-                    parent.view.layoutIfNeeded()
-                } completion: { _ in
-                    self.destroyEntry(oldTopEntry, parent: parent)
-                    self.trackedScrollView = self.findScrollView(in: viewController.view)
-                    self.onHeightChanged?(targetHeight)
-                }
-            } else {
-                destroyEntry(oldTopEntry, parent: parent)
+            animateTransition(in: parent, animated: animated) {
+                oldTopEntry.bottomConstraint.constant = oldOffset
                 newEntry.bottomConstraint.constant = 0
-                trackedScrollView = findScrollView(in: viewController.view)
-                onHeightChanged?(targetHeight)
+            } completion: {
+                self.destroyEntry(oldTopEntry, parent: parent)
+                self.trackedScrollView = self.findScrollView(in: viewController.view)
+                self.onHeightChanged?(targetHeight)
             }
         } else {
-            // No old entry — just slide up
             let offset = targetHeight + parent.view.safeAreaInsets.bottom
             newEntry.bottomConstraint.constant = offset
             parent.view.layoutIfNeeded()
 
-            if animated {
-                UIView.animate(
-                    withDuration: Self.animationDuration,
-                    delay: 0,
-                    usingSpringWithDamping: Self.springDamping,
-                    initialSpringVelocity: 0,
-                    options: .curveEaseOut
-                ) {
-                    newEntry.bottomConstraint.constant = 0
-                    parent.view.layoutIfNeeded()
-                } completion: { _ in
-                    self.trackedScrollView = self.findScrollView(in: viewController.view)
-                    self.onHeightChanged?(targetHeight)
-                }
-            } else {
+            animateTransition(in: parent, animated: animated) {
                 newEntry.bottomConstraint.constant = 0
-                trackedScrollView = findScrollView(in: viewController.view)
-                onHeightChanged?(targetHeight)
+            } completion: {
+                self.trackedScrollView = self.findScrollView(in: viewController.view)
+                self.onHeightChanged?(targetHeight)
             }
         }
     }
@@ -349,18 +258,7 @@ final class DrawerContainerManager: NSObject {
 
         let offset = entry.currentHeight + parent.view.safeAreaInsets.bottom
 
-        if animated {
-            UIView.animate(
-                withDuration: Self.animationDuration,
-                delay: 0,
-                usingSpringWithDamping: 1.0,
-                initialSpringVelocity: 0,
-                options: .curveEaseIn
-            ) {
-                entry.bottomConstraint.constant = offset
-                parent.view.layoutIfNeeded()
-            }
-        } else {
+        animateTransition(in: parent, damping: 1.0, options: .curveEaseIn, animated: animated) {
             entry.bottomConstraint.constant = offset
         }
     }
@@ -369,22 +267,10 @@ final class DrawerContainerManager: NSObject {
         guard let parent = parentViewController, let entry = topEntry else { return }
         isVisible = true
 
-        if animated {
-            UIView.animate(
-                withDuration: Self.animationDuration,
-                delay: 0,
-                usingSpringWithDamping: Self.springDamping,
-                initialSpringVelocity: 0,
-                options: .curveEaseOut
-            ) {
-                entry.bottomConstraint.constant = 0
-                parent.view.layoutIfNeeded()
-            } completion: { _ in
-                self.onHeightChanged?(entry.currentHeight)
-            }
-        } else {
+        animateTransition(in: parent, animated: animated) {
             entry.bottomConstraint.constant = 0
-            onHeightChanged?(entry.currentHeight)
+        } completion: {
+            self.onHeightChanged?(entry.currentHeight)
         }
     }
 
@@ -393,18 +279,12 @@ final class DrawerContainerManager: NSObject {
 
         let topEntry = drawerStack.last
 
-        if animated, let topEntry {
+        if let topEntry {
             let offset = topEntry.currentHeight + parent.view.safeAreaInsets.bottom
-            UIView.animate(
-                withDuration: Self.animationDuration,
-                delay: 0,
-                usingSpringWithDamping: 1.0,
-                initialSpringVelocity: 0,
-                options: .curveEaseIn
-            ) {
+
+            animateTransition(in: parent, damping: 1.0, options: .curveEaseIn, animated: animated) {
                 topEntry.bottomConstraint.constant = offset
-                parent.view.layoutIfNeeded()
-            } completion: { _ in
+            } completion: {
                 for entry in self.drawerStack {
                     self.destroyEntry(entry, parent: parent)
                 }
@@ -412,9 +292,6 @@ final class DrawerContainerManager: NSObject {
                 self.trackedScrollView = nil
             }
         } else {
-            for entry in drawerStack {
-                destroyEntry(entry, parent: parent)
-            }
             drawerStack.removeAll()
             trackedScrollView = nil
         }
@@ -430,7 +307,6 @@ final class DrawerContainerManager: NSObject {
     }
 
     private func attachPanGesture(to container: DrawerContainerView) {
-        // Remove from previous container
         panGesture.view?.removeGestureRecognizer(panGesture)
         container.addGestureRecognizer(panGesture)
     }
@@ -441,23 +317,28 @@ final class DrawerContainerManager: NSObject {
         let containerHeight = parent.view.bounds.height
         let scrollView = trackedScrollView
         let velocityY = gesture.velocity(in: parent.view).y
-        let entry = drawerStack[drawerStack.count - 1]
 
         switch gesture.state {
         case .began:
-            panStartHeight = entry.currentHeight
+            panStartHeight = drawerStack[topIndex].currentHeight
 
             if scrollView == nil {
                 isDraggingDrawer = true
             } else {
-                let touchInContainer = gesture.location(in: entry.containerView)
-                let isOnGrabber = touchInContainer.y < entry.containerView.grabber.frame.maxY
+                let initialTouch = drawerStack[topIndex].containerView.initialTouchPoint
+                    ?? gesture.location(in: drawerStack[topIndex].containerView)
+                let scrollOriginInContainer = scrollView!.superview?.convert(
+                    scrollView!.frame.origin, to: drawerStack[topIndex].containerView
+                )
+                let isOnHeader = scrollOriginInContainer.map { initialTouch.y < $0.y } ?? false
+                let atTop = isScrollAtTop(scrollView!)
+                let atBottom = isScrollAtBottom(scrollView!)
 
-                if isOnGrabber {
+                if isOnHeader {
                     isDraggingDrawer = true
-                } else if isScrollAtTop(scrollView!) && velocityY > 0 {
+                } else if atTop && velocityY > 0 {
                     isDraggingDrawer = true
-                } else if isScrollAtBottom(scrollView!) && velocityY < 0 {
+                } else if atBottom && velocityY < 0 {
                     isDraggingDrawer = true
                 } else {
                     isDraggingDrawer = false
@@ -469,7 +350,19 @@ final class DrawerContainerManager: NSObject {
             }
 
         case .changed:
-            guard isDraggingDrawer else { return }
+            if !isDraggingDrawer, let sv = scrollView {
+                let shouldHandoff = (isScrollAtTop(sv) && velocityY > 0)
+                    || (isScrollAtBottom(sv) && velocityY < 0)
+
+                if shouldHandoff {
+                    isDraggingDrawer = true
+                    sv.isScrollEnabled = false
+                    panStartHeight = drawerStack[topIndex].currentHeight
+                    gesture.setTranslation(.zero, in: parent.view)
+                } else {
+                    return
+                }
+            }
 
             let translation = gesture.translation(in: parent.view)
             let proposedHeight = panStartHeight - translation.y
@@ -488,8 +381,8 @@ final class DrawerContainerManager: NSObject {
                 newHeight = proposedHeight
             }
 
-            drawerStack[drawerStack.count - 1].currentHeight = newHeight
-            entry.heightConstraint.constant = newHeight + parent.view.safeAreaInsets.bottom
+            drawerStack[topIndex].currentHeight = newHeight
+            drawerStack[topIndex].heightConstraint.constant = newHeight + parent.view.safeAreaInsets.bottom
             onHeightChanged?(newHeight)
 
         case .ended, .cancelled:
@@ -497,7 +390,7 @@ final class DrawerContainerManager: NSObject {
 
             if isDraggingDrawer {
                 let targetDetent = resolveTargetDetent(
-                    currentHeight: entry.currentHeight,
+                    currentHeight: drawerStack[topIndex].currentHeight,
                     velocity: velocityY,
                     containerHeight: containerHeight
                 )
@@ -513,11 +406,12 @@ final class DrawerContainerManager: NSObject {
     // MARK: - Scroll Boundary Helpers
 
     private func isScrollAtTop(_ scrollView: UIScrollView) -> Bool {
-        scrollView.contentOffset.y <= 0
+        scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top
     }
 
     private func isScrollAtBottom(_ scrollView: UIScrollView) -> Bool {
-        let maxOffset = scrollView.contentSize.height - scrollView.bounds.height
+        let inset = scrollView.adjustedContentInset
+        let maxOffset = scrollView.contentSize.height + inset.bottom - scrollView.bounds.height
         guard maxOffset > 0 else { return true }
         return scrollView.contentOffset.y >= maxOffset - 1
     }
@@ -559,21 +453,13 @@ final class DrawerContainerManager: NSObject {
         guard let detent = detents.first(where: { $0.identifier == id }) else { return }
 
         let targetHeight = detent.height(in: containerHeight)
-        let entry = drawerStack[drawerStack.count - 1]
 
-        drawerStack[drawerStack.count - 1].activeDetent = detent
-        drawerStack[drawerStack.count - 1].currentHeight = targetHeight
+        drawerStack[topIndex].activeDetent = detent
+        drawerStack[topIndex].currentHeight = targetHeight
 
-        UIView.animate(
-            withDuration: Self.animationDuration,
-            delay: 0,
-            usingSpringWithDamping: Self.springDamping,
-            initialSpringVelocity: 0,
-            options: .curveEaseOut
-        ) {
-            entry.heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
-            parent.view.layoutIfNeeded()
-        } completion: { _ in
+        animateTransition(in: parent, animated: true) {
+            self.drawerStack[self.topIndex].heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+        } completion: {
             self.onHeightChanged?(targetHeight)
             completion?()
         }
@@ -583,22 +469,44 @@ final class DrawerContainerManager: NSObject {
         guard let parent = parentViewController, !drawerStack.isEmpty else { return }
 
         let targetHeight = detent.height(in: containerHeight)
-        let entry = drawerStack[drawerStack.count - 1]
 
-        drawerStack[drawerStack.count - 1].activeDetent = detent
-        drawerStack[drawerStack.count - 1].currentHeight = targetHeight
+        drawerStack[topIndex].activeDetent = detent
+        drawerStack[topIndex].currentHeight = targetHeight
 
-        UIView.animate(
-            withDuration: Self.animationDuration,
-            delay: 0,
-            usingSpringWithDamping: Self.springDamping,
-            initialSpringVelocity: 0,
-            options: .curveEaseOut
-        ) {
-            entry.heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
-            parent.view.layoutIfNeeded()
-        } completion: { _ in
+        animateTransition(in: parent, animated: true) {
+            self.drawerStack[self.topIndex].heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+        } completion: {
             self.onHeightChanged?(targetHeight)
+        }
+    }
+
+    // MARK: - Animation Helper
+
+    private func animateTransition(
+        in parent: UIViewController,
+        damping: CGFloat = springDamping,
+        options: UIView.AnimationOptions = .curveEaseOut,
+        animated: Bool,
+        animations: @escaping () -> Void,
+        completion: (() -> Void)? = nil
+    ) {
+        if animated {
+            UIView.animate(
+                withDuration: Self.animationDuration,
+                delay: 0,
+                usingSpringWithDamping: damping,
+                initialSpringVelocity: 0,
+                options: options
+            ) {
+                animations()
+                parent.view.layoutIfNeeded()
+            } completion: { _ in
+                completion?()
+            }
+        } else {
+            animations()
+            parent.view.layoutIfNeeded()
+            completion?()
         }
     }
 
@@ -630,7 +538,6 @@ final class DrawerContainerManager: NSObject {
             heightConstraint,
         ])
 
-        // Embed VC
         parent.addChild(viewController)
         viewController.view.translatesAutoresizingMaskIntoConstraints = false
         container.contentView.addSubview(viewController.view)

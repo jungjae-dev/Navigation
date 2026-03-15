@@ -2,6 +2,8 @@ import UIKit
 
 final class DrawerContainerView: UIView {
 
+    private(set) var initialTouchPoint: CGPoint?
+
     let grabber = GrabberView()
     let contentView: UIView = {
         let view = UIView()
@@ -43,6 +45,21 @@ final class DrawerContainerView: UIView {
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        initialTouchPoint = touches.first?.location(in: self)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesEnded(touches, with: event)
+        initialTouchPoint = nil
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesCancelled(touches, with: event)
+        initialTouchPoint = nil
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
