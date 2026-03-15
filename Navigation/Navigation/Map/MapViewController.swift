@@ -139,6 +139,12 @@ final class MapViewController: UIViewController {
         }
     }
 
+    func appendSearchResults(_ places: [Place]) {
+        let annotations = places.map { SearchResultAnnotation(place: $0) }
+        searchResultAnnotations.append(contentsOf: annotations)
+        mapView.addAnnotations(annotations)
+    }
+
     func fitToSearchResults() {
         guard !searchResultAnnotations.isEmpty else {
             print("[MapVC] fitToSearchResults: no annotations")

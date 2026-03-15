@@ -9,6 +9,7 @@ final class SearchViewModel {
     let completions: CurrentValueSubject<[SearchCompletion], Never>
     let queryCompletions: CurrentValueSubject<[SearchCompletion], Never>
     let isLoading: CurrentValueSubject<Bool, Never>
+    let hasMoreResults: CurrentValueSubject<Bool, Never>
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
     let recentSearches = CurrentValueSubject<[SearchHistory], Never>([])
 
@@ -26,6 +27,7 @@ final class SearchViewModel {
         self.completions = searchService.completionsPublisher
         self.queryCompletions = searchService.queryCompletionsPublisher
         self.isLoading = searchService.isSearchingPublisher
+        self.hasMoreResults = searchService.hasMoreResults
 
         searchService.errorPublisher
             .receive(on: DispatchQueue.main)
@@ -104,6 +106,17 @@ final class SearchViewModel {
     func clearAllRecentSearches() {
         dataService.clearAllSearchHistory()
         recentSearches.send([])
+    }
+
+    func loadMore() async -> [Place]? {
+        guard hasMoreResults.value else { return nil }
+        do {
+            let more = try await searchService.loadMoreResults()
+            return more.isEmpty ? nil : more
+        } catch {
+            errorMessage.send("추가 검색 실패: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     func clearSearch() {

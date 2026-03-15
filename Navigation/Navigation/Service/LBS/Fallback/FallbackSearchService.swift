@@ -55,6 +55,12 @@ final class FallbackSearchService: SearchProviding {
         }
     }
 
+    var hasMoreResults: CurrentValueSubject<Bool, Never> { primary.hasMoreResults }
+
+    func loadMoreResults() async throws -> [Place] {
+        try await primary.loadMoreResults()
+    }
+
     func cancelCurrentSearch() {
         primary.cancelCurrentSearch()
         fallback.cancelCurrentSearch()

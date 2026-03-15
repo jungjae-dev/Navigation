@@ -21,6 +21,10 @@ protocol SearchProviding: AnyObject {
     func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place]
     func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place]
     func cancelCurrentSearch()
+
+    // Pagination
+    var hasMoreResults: CurrentValueSubject<Bool, Never> { get }
+    func loadMoreResults() async throws -> [Place]
 }
 
 extension SearchProviding {
@@ -31,4 +35,11 @@ extension SearchProviding {
     func searchCategory(_ category: SearchCategory, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place] {
         try await search(query: category.query, region: region, regionMode: regionMode)
     }
+
+    // Default: no pagination support
+    var hasMoreResults: CurrentValueSubject<Bool, Never> {
+        CurrentValueSubject(false)
+    }
+
+    func loadMoreResults() async throws -> [Place] { [] }
 }

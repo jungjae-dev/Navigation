@@ -600,6 +600,19 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.currentDrawer?.showRefreshButton()
         }
 
+        // Load more results (pagination)
+        drawerVC.onLoadMore = { [weak self] in
+            guard let self else { return nil }
+            do {
+                let more = try await self.searchService.loadMoreResults()
+                guard !more.isEmpty else { return nil }
+                self.mapViewController.appendSearchResults(more)
+                return more
+            } catch {
+                return nil
+            }
+        }
+
         // Research button tapped
         drawerVC.onResearch = { [weak self] in
             self?.executeResearch()

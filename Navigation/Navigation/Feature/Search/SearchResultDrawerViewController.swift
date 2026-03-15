@@ -23,9 +23,12 @@ final class SearchResultDrawerViewController: UIViewController {
     private var searchResults: [Place] = []
     private var highlightedIndex: Int = 0
 
+    private var isLoadingMore = false
+
     var onItemSelected: ((Place, Int) -> Void)?
     var onFocusedIndexChanged: ((Int) -> Void)?
     var onResearch: (() -> Void)?
+    var onLoadMore: (() async -> [Place]?)?
     var onClose: (() -> Void)?
 
     // MARK: - Init
@@ -112,7 +115,16 @@ final class SearchResultDrawerViewController: UIViewController {
     func updateResults(_ results: [Place]) {
         searchResults = results
         highlightedIndex = 0
+        isLoadingMore = false
         tableView.reloadData()
+    }
+
+    func appendResults(_ results: [Place]) {
+        let startIndex = searchResults.count
+        searchResults.append(contentsOf: results)
+        let indexPaths = (startIndex..<searchResults.count).map { IndexPath(row: $0, section: 0) }
+        tableView.insertRows(at: indexPaths, with: .fade)
+        isLoadingMore = false
     }
 
     func showRefreshButton() {
@@ -176,6 +188,16 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
         onItemSelected?(item, indexPath.row)
     }
 
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let offsetY = scrollView.contentOffset.y
+        let contentHeight = scrollView.contentSize.height
+        let frameHeight = scrollView.frame.height
+
+        if offsetY > contentHeight - frameHeight * 2, !isLoadingMore {
+            loadMore()
+        }
+    }
+
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         notifyTopIndex()
     }
@@ -185,6 +207,18 @@ extension SearchResultDrawerViewController: UITableViewDelegate {
     }
 
     // MARK: - Private Helpers
+
+    private func loadMore() {
+        guard !isLoadingMore else { return }
+        isLoadingMore = true
+        Task {
+            guard let results = await onLoadMore?(), !results.isEmpty else {
+                isLoadingMore = false
+                return
+            }
+            appendResults(results)
+        }
+    }
 
     private func notifyTopIndex() {
         guard let topIndexPath = tableView.indexPathsForVisibleRows?.first else { return }
