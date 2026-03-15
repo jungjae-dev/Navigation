@@ -9,7 +9,7 @@ final class RecentSearchCell: UICollectionViewCell {
     private let iconImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.image = UIImage(systemName: "clock.arrow.circlepath")
+        imageView.image = UIImage(systemName: "mappin.circle.fill")
         imageView.tintColor = Theme.Colors.secondaryLabel
         imageView.contentMode = .scaleAspectFit
         return imageView

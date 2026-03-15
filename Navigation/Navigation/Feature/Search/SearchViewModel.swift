@@ -55,12 +55,6 @@ final class SearchViewModel {
     func selectCompletion(_ completion: SearchCompletion) async -> [Place]? {
         do {
             let results = try await searchService.search(for: completion)
-
-            // Save to history
-            if let firstItem = results.first {
-                dataService.saveSearchHistory(query: completion.title, place: firstItem)
-            }
-
             return results
         } catch {
             errorMessage.send("검색 실패: \(error.localizedDescription)")
@@ -72,12 +66,6 @@ final class SearchViewModel {
         guard !query.isEmpty else { return nil }
         do {
             let results = try await searchService.search(query: query, region: searchService.currentRegion)
-
-            // Save to history
-            if let firstItem = results.first {
-                dataService.saveSearchHistory(query: query, place: firstItem)
-            }
-
             return results
         } catch {
             errorMessage.send("검색 실패: \(error.localizedDescription)")

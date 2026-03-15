@@ -449,7 +449,7 @@ final class AppCoordinator: NSObject, Coordinator {
                 ?? self.mapViewController.mapView.centerCoordinate
 
             self.mapViewController.showDestination(coordinate: destination, title: favorite.name, subtitle: favorite.address)
-            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: favorite.name)
+            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: favorite.name, destinationAddress: favorite.address)
         }
     }
 
@@ -461,7 +461,7 @@ final class AppCoordinator: NSObject, Coordinator {
                 ?? self.mapViewController.mapView.centerCoordinate
 
             self.mapViewController.showDestination(coordinate: destination, title: history.placeName, subtitle: history.address)
-            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: history.placeName)
+            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: destination, destinationName: history.placeName, destinationAddress: history.address)
         }
     }
 
@@ -674,7 +674,8 @@ final class AppCoordinator: NSObject, Coordinator {
         presentRoutePreviewDrawer(
             origin: userCoordinate,
             destination: coordinate,
-            destinationName: place.name
+            destinationName: place.name,
+            destinationAddress: place.address
         )
     }
 
@@ -683,8 +684,18 @@ final class AppCoordinator: NSObject, Coordinator {
     private func presentRoutePreviewDrawer(
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
-        destinationName: String?
+        destinationName: String?,
+        destinationAddress: String? = nil
     ) {
+        // Save as recent destination
+        let place = Place(
+            name: destinationName,
+            coordinate: destination,
+            address: destinationAddress,
+            phoneNumber: nil, url: nil, category: nil, providerRawData: nil
+        )
+        DataService.shared.saveSearchHistory(query: destinationName ?? "", place: place)
+        homeViewModel.loadHomeData()
         let routePreviewVM = RoutePreviewViewModel(
             routeService: routeService,
             origin: origin,

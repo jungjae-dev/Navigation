@@ -285,7 +285,7 @@ extension HomeDrawerViewController: UICollectionViewDataSource {
         case .categories:
             header.configure(title: "주변 검색", showIcon: true, iconName: "mappin.and.ellipse")
         case .recentSearches:
-            header.configure(title: "최근 검색", showIcon: true, iconName: "clock.arrow.circlepath")
+            header.configure(title: "최근 목적지", showIcon: true, iconName: "mappin.circle.fill")
         }
 
         return header
