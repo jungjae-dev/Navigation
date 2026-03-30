@@ -17,7 +17,7 @@ enum KakaoModelConverter {
         )
     }
 
-    static func route(from kakaoRoute: KakaoRouteResponse.KakaoRoute) -> Route {
+    static func route(from kakaoRoute: KakaoRouteResponse.KakaoRoute, transportMode: TransportMode = .automobile) -> Route {
         let sections = kakaoRoute.sections ?? []
 
         // 1. 전체 폴리라인 추출 (vertexes: [lng, lat, lng, lat, ...])
@@ -39,16 +39,26 @@ enum KakaoModelConverter {
         // 3. 폴리라인을 guide 좌표 기준으로 분할하여 step별 polyline 생성
         let steps = splitPolylineByGuides(polyline: polyline, guides: allGuides)
 
-        return Route(
+        let route = Route(
             id: UUID().uuidString,
             distance: CLLocationDistance(kakaoRoute.summary?.distance ?? 0),
             expectedTravelTime: TimeInterval(kakaoRoute.summary?.duration ?? 0),
             name: "",
             steps: steps,
             polylineCoordinates: polyline,
-            transportMode: .automobile,
+            transportMode: transportMode,
             provider: .kakao
         )
+
+        // 변환 결과 로그
+        let logger = NavigationLogger.shared
+        logger.logRouteConverted(provider: .kakao, stepCount: steps.count, polylineCount: polyline.count)
+        for (i, step) in steps.enumerated() {
+            let rawType = i < allGuides.count ? allGuides[i].type : -1
+            logger.logRouteStep(index: i, instruction: step.instructions, turnType: step.turnType, roadName: step.roadName, polylineCount: step.polylineCoordinates.count, rawType: rawType)
+        }
+
+        return route
     }
 
     // MARK: - Polyline Split
