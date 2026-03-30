@@ -32,12 +32,7 @@ final class AppCoordinator: NSObject, Coordinator {
         homeViewController.drawerManager
     }
 
-    // MARK: - iPhone-only Navigation Services
-
-    private var navigationViewController: NavigationViewController?
-    private var mapInterpolator: MapInterpolator?
-    private var mapCamera: MapCamera?
-    private var turnPointPopupService: TurnPointPopupService?
+    // MARK: - iPhone-only Navigation Services (stub — 새 엔진 구현 시 교체 예정)
 
     // MARK: - Navigation Map (ephemeral, created per session)
 
@@ -319,9 +314,7 @@ final class AppCoordinator: NSObject, Coordinator {
                     }
                 case .stopped:
                     // Navigation stopped (from either side)
-                    if self?.navigationViewController != nil {
-                        self?.cleanUpNavigationUI()
-                    }
+                    self?.cleanUpNavigationUI()
                 }
             }
             .store(in: &cancellables)
@@ -330,8 +323,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private func handleCarPlayNavigationStarted() {
         guard let session = sessionManager.activeSessionPublisher.value else { return }
 
-        // If already showing navigation, skip
-        guard navigationViewController == nil else { return }
+        // TODO: 주행 중 여부 체크는 새 엔진 구현 시 교체
 
         // Dismiss all drawers (home, search, POI, route preview)
         dismissAllDrawers { [weak self] in
@@ -340,48 +332,8 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func presentNavigationFromSession(_ session: NavigationSession) {
-        let camera = MapCamera()
-        let interpolator = MapInterpolator(mapCamera: camera)
-        let popup = TurnPointPopupService(
-            guidanceEngine: session.guidanceEngine,
-            locationService: locationService
-        )
-
-        self.mapCamera = camera
-        self.mapInterpolator = interpolator
-        self.turnPointPopupService = popup
-
-        // Create a fresh map for navigation (home map stays untouched)
-        let navMapVC = createNavigationMapVC()
-        self.navigationMapViewController = navMapVC
-        navMapVC.configureForNavigation()
-        navMapVC.showSingleRoute(session.route)
-
-        // Create NavigationViewModel with shared GuidanceEngine
-        let navViewModel = NavigationViewModel(
-            guidanceEngine: session.guidanceEngine,
-            mapInterpolator: interpolator,
-            turnPointPopupService: popup,
-            locationService: locationService,
-            mapCamera: camera
-        )
-
-        let navVC = NavigationViewController(
-            mode: .realNavigation,
-            mapViewController: navMapVC,
-            viewModel: navViewModel,
-            turnPointPopupService: popup
-        )
-        self.navigationViewController = navVC
-
-        navVC.onDismiss = { [weak self] in
-            self?.dismissNavigation()
-        }
-
-        interpolator.start(mapViewController: navMapVC)
-        navViewModel.startNavigation(with: session.route)
-
-        navigationController.pushViewController(navVC, animated: true)
+        // TODO: 새 NavigationEngine + NavigationViewController로 교체 예정
+        print("[TODO] presentNavigationFromSession - 새 엔진으로 교체 예정")
     }
 
     // MARK: - Settings Flow
@@ -758,139 +710,29 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Navigation Flow
 
     private func startNavigation(with route: Route, destination: Place? = nil, transportMode: TransportMode = .automobile) {
-        // 1. Resolve destination
-        let lastCoord = route.polylineCoordinates.last ?? CLLocationCoordinate2D()
-        let resolvedDestination = destination
-            ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
-
-        // 2. Start shared navigation session via SessionManager
-        sessionManager.startNavigation(
-            route: route,
-            destination: resolvedDestination,
-            source: .phone
-        )
-
-        guard let session = sessionManager.activeSessionPublisher.value else { return }
-
-        // 3. Dismiss all drawers first
-        dismissAllDrawers { [weak self] in
-            guard let self else { return }
-
-            // 4. Create iPhone-only services
-            let camera = MapCamera()
-            camera.transportMode = transportMode
-            let interpolator = MapInterpolator(mapCamera: camera)
-            let popup = TurnPointPopupService(
-                guidanceEngine: session.guidanceEngine,
-                locationService: self.locationService
-            )
-
-            self.mapCamera = camera
-            self.mapInterpolator = interpolator
-            self.turnPointPopupService = popup
-
-            // 5. Create a fresh map for navigation (home map stays untouched)
-            let navMapVC = self.createNavigationMapVC()
-            self.navigationMapViewController = navMapVC
-            navMapVC.configureForNavigation()
-            navMapVC.showSingleRoute(route)
-
-            // 6. Create NavigationViewModel with shared GuidanceEngine
-            let navViewModel = NavigationViewModel(
-                guidanceEngine: session.guidanceEngine,
-                mapInterpolator: interpolator,
-                turnPointPopupService: popup,
-                locationService: self.locationService,
-                mapCamera: camera
-            )
-
-            // 7. Create NavigationViewController
-            let navVC = NavigationViewController(
-                mode: .realNavigation,
-                mapViewController: navMapVC,
-                viewModel: navViewModel,
-                turnPointPopupService: popup
-            )
-            self.navigationViewController = navVC
-
-            navVC.onDismiss = { [weak self] in
-                self?.dismissNavigation()
-            }
-
-            // 8. Start iPhone-only services
-            interpolator.start(mapViewController: navMapVC)
-            navViewModel.startNavigation(with: route, transportMode: transportMode)
-
-            // 9. Push NavigationVC
-            self.navigationController.pushViewController(navVC, animated: true)
-        }
+        // TODO: 새 NavigationEngine + NavigationViewController로 교체 예정
+        print("[TODO] startNavigation - 새 엔진으로 교체 예정")
     }
 
     private func dismissNavigation() {
-        // Clean up iPhone-only UI first (before stop triggers observer)
-        cleanUpNavigationUI()
-
-        // Stop shared navigation session (notifies CarPlay too)
         sessionManager.stopNavigation()
+        navigationMapViewController = nil
+        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
+        navigationController.popToViewController(homeViewController, animated: true)
     }
 
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
-        dismissAllDrawers { [weak self] in
-            guard let self else { return }
-
-            let engine = VirtualDriveEngine()
-            engine.load(route: route)
-            self.virtualDriveEngine = engine
-
-            let navMapVC = self.createNavigationMapVC()
-            self.navigationMapViewController = navMapVC
-
-            let camera = MapCamera()
-            camera.transportMode = transportMode
-            let interpolator = MapInterpolator(mapCamera: camera)
-            self.mapCamera = camera
-            self.mapInterpolator = interpolator
-
-            navMapVC.configureForNavigation()
-            navMapVC.showSingleRoute(route)
-            interpolator.start(mapViewController: navMapVC)
-
-            // Feed simulated locations into interpolator
-            self.simulationCancellables.removeAll()
-            engine.simulatedLocationPublisher
-                .compactMap { $0 }
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] location in
-                    let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
-                    self?.mapInterpolator?.updateTarget(location: location, heading: heading)
-                }
-                .store(in: &self.simulationCancellables)
-
-            let navVC = NavigationViewController(
-                mode: .virtualDrive(engine: engine),
-                mapViewController: navMapVC
-            )
-            self.navigationViewController = navVC
-            navVC.onDismiss = { [weak self] in self?.stopVirtualDrive() }
-
-            self.navigationController.pushViewController(navVC, animated: true)
-            engine.play()
-        }
+        // TODO: 새 SimulGPSProvider + NavigationEngine으로 교체 예정
+        print("[TODO] startVirtualDrive - 새 엔진으로 교체 예정")
     }
 
     private func stopVirtualDrive() {
         simulationCancellables.removeAll()
         virtualDriveEngine?.stop()
         virtualDriveEngine = nil
-        navigationViewController = nil
-
-        mapInterpolator?.stop()
-        mapInterpolator = nil
-        mapCamera = nil
         navigationMapViewController = nil
-
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
     }
@@ -898,67 +740,24 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - GPX Playback Flow
 
     private func startGPXPlayback(record: GPXRecord) {
-        let simulator = GPXSimulator()
-        guard simulator.load(gpxFileURL: record.fileURL) else { return }
-        self.gpxSimulator = simulator
-
-        LocationService.shared.startLocationOverride(from: simulator.simulatedLocationPublisher)
-
-        let navMapVC = createNavigationMapVC()
-        self.navigationMapViewController = navMapVC
-
-        // Show GPX track as polyline overlay
-        let parser = GPXParser()
-        let locations = parser.parse(fileURL: record.fileURL)
-        if locations.count >= 2 {
-            let coordinates = locations.map { $0.coordinate }
-            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-            navMapVC.addOverlay(polyline)
-        }
-
-        let navVC = NavigationViewController(
-            mode: .gpxPlayback(simulator: simulator),
-            mapViewController: navMapVC
-        )
-        self.navigationViewController = navVC
-        navVC.onDismiss = { [weak self] in self?.stopGPXPlayback() }
-
-        navigationController.pushViewController(navVC, animated: true)
-        simulator.play()
+        // TODO: 새 FileGPSProvider + NavigationEngine으로 교체 예정
+        print("[TODO] startGPXPlayback - 새 엔진으로 교체 예정")
     }
 
     private func stopGPXPlayback() {
         simulationCancellables.removeAll()
         gpxSimulator?.stop()
         gpxSimulator = nil
-        navigationViewController = nil
-
         LocationService.shared.stopLocationOverride()
         navigationMapViewController = nil
-
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
     }
 
     private func cleanUpNavigationUI() {
-        // 1. Stop iPhone-only services
-        mapInterpolator?.stop()
-        turnPointPopupService?.reset()
-
-        // 2. Discard navigation map (home map was never touched)
         navigationMapViewController = nil
-
-        // 3. Recenter home map to current location
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
-
-        // 4. Pop to HomeVC (delegate auto-presents home drawer)
         navigationController.popToViewController(homeViewController, animated: true)
-
-        // 5. Clear iPhone-only references
-        navigationViewController = nil
-        mapInterpolator = nil
-        mapCamera = nil
-        turnPointPopupService = nil
     }
 }
 

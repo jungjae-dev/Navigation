@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import Combine
 
-final class GPXSimulator: PlaybackControllable {
+final class GPXSimulator {
 
     // MARK: - Publishers
 

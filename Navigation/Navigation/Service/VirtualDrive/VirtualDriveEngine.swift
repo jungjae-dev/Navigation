@@ -3,7 +3,7 @@ import CoreLocation
 import Combine
 
 /// Drives a virtual location along a Route polyline for simulation/testing
-final class VirtualDriveEngine: PlaybackControllable {
+final class VirtualDriveEngine {
 
     // MARK: - State
 

@@ -11,6 +11,9 @@ struct KakaoModelConverterTests {
             roadAddressName: "서울 강남구 강남대로 396",
             phone: "02-1234-5678",
             categoryName: "지하철역",
+            categoryGroupName: nil,
+            placeUrl: nil,
+            distance: nil,
             x: "127.0276",
             y: "37.4979"
         )
@@ -32,6 +35,9 @@ struct KakaoModelConverterTests {
             roadAddressName: nil,
             phone: nil,
             categoryName: nil,
+            categoryGroupName: nil,
+            placeUrl: nil,
+            distance: nil,
             x: "127.0",
             y: "37.5"
         )

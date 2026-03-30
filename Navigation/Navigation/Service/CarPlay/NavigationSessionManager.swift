@@ -2,14 +2,11 @@ import Foundation
 import Combine
 import CoreLocation
 
-// MARK: - Navigation Session
+// MARK: - Navigation Session (stub — 새 엔진 구현 시 교체 예정)
 
 struct NavigationSession {
     let route: Route
     let destination: Place
-    let guidanceEngine: GuidanceEngine
-    let voiceService: VoiceGuidanceService
-    let offRouteDetector: OffRouteDetector
 }
 
 // MARK: - Navigation Command
@@ -35,11 +32,6 @@ final class NavigationSessionManager {
     let activeSessionPublisher = CurrentValueSubject<NavigationSession?, Never>(nil)
     let navigationCommandPublisher = PassthroughSubject<NavigationCommand, Never>()
 
-    // MARK: - Dependencies
-
-    private let locationService = LocationService.shared
-    private let routeService: RouteProviding = LBSServiceProvider.shared.route
-
     // MARK: - Init
 
     private init() {}
@@ -55,49 +47,22 @@ final class NavigationSessionManager {
         destination: Place,
         source: NavigationSource
     ) {
-        // Stop existing session if any
         if isNavigating {
             stopNavigation()
         }
 
-        // Create shared services
-        let voiceService = VoiceGuidanceService()
-        let offRouteDetector = OffRouteDetector()
-
-        let guidanceEngine = GuidanceEngine(
-            locationService: locationService,
-            routeService: routeService,
-            voiceService: voiceService,
-            offRouteDetector: offRouteDetector
-        )
-
         let session = NavigationSession(
             route: route,
-            destination: destination,
-            guidanceEngine: guidanceEngine,
-            voiceService: voiceService,
-            offRouteDetector: offRouteDetector
+            destination: destination
         )
 
-        // Configure location for navigation
-        locationService.configureForNavigation()
-
-        // Start guidance
-        guidanceEngine.startNavigation(with: route)
-
-        // Publish
         activeSessionPublisher.send(session)
         navigationCommandPublisher.send(.started(source: source))
+
+        print("[TODO] NavigationEngine 생성 및 연결 예정")
     }
 
     func stopNavigation() {
-        guard let session = activeSessionPublisher.value else { return }
-
-        session.guidanceEngine.stopNavigation()
-        session.voiceService.stop()
-        session.offRouteDetector.reset()
-        locationService.configureForStandard()
-
         activeSessionPublisher.send(nil)
         navigationCommandPublisher.send(.stopped)
     }
