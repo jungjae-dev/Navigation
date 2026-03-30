@@ -619,6 +619,8 @@ Feature/Navigation/
     SpeedometerView.swift        ← SwiftUI
     ArrivalPopupView.swift       ← SwiftUI
     RouteOverviewButton.swift    ← SwiftUI (경로 전체 보기 버튼)
+  Formatter/
+    UnitFormatter.swift          ← 거리/속도 단위 포맷 (시스템/미터법/야드법)
   NavigationViewController.swift ← UI 요소 통합
 ```
 
@@ -675,6 +677,9 @@ Theme.Navigation.Sizes:
      - 속도계
      - 마커/아바타
   ✅ "안내 종료" 버튼 → 주행 종료 → 홈 복귀
+  ✅ 단위 설정: 시스템/미터법/야드법 전환 시 거리/속도 표시 변경
+     - 미터법: 300m, 12.5km, 58km/h
+     - 야드법: 1000ft, 7.8mi, 36mph
 ```
 
 ---

@@ -1328,6 +1328,8 @@ Navigation/
 │   │   ├── SpeedometerView.swift
 │   │   ├── ArrivalPopupView.swift
 │   │   └── RouteOverviewButton.swift    ← 경로 전체 보기
+│   └── Formatter/
+│       └── UnitFormatter.swift          ← 거리/속도 단위 포맷
 │   └── Helper/
 │       ├── LocationInterpolator.swift
 │       └── NavigationCameraHelper.swift
@@ -1368,7 +1370,67 @@ Navigation/
 
 ---
 
-## 15. 다크모드
+## 15. 단위 설정
+
+```
+설정 옵션:
+  ○ 시스템 설정 (Locale 기반, 기본값)
+  ○ 미터법 (km, m, km/h)
+  ○ 야드법 (mi, ft, mph)
+```
+
+### 15.1 UnitFormatter (Presentation 계층)
+
+```swift
+enum UnitSystem: String, Sendable {
+    case system     // Locale.current.measurementSystem 따름
+    case metric     // km, m, km/h
+    case imperial   // mi, ft, mph
+}
+
+struct UnitFormatter {
+    let unitSystem: UnitSystem
+
+    /// 거리 표시 (ManeuverBanner, BottomBar)
+    func formatDistance(_ meters: CLLocationDistance) -> String {
+        // 미터법: < 1km → "300m", >= 1km → "1.2km"
+        // 야드법: < 0.1mi → "1000ft", >= 0.1mi → "0.8mi"
+    }
+
+    /// 속도 표시 (속도계)
+    func formatSpeed(_ mps: CLLocationSpeed) -> String {
+        // 미터법: "58km/h"
+        // 야드법: "36mph"
+    }
+
+    /// 음성 안내용 거리 텍스트
+    func formatDistanceForVoice(_ meters: CLLocationDistance) -> String {
+        // 미터법: "300미터" / "1.2킬로미터"
+        // 야드법: "1000피트" / "0.8마일"
+    }
+}
+```
+
+### 15.2 적용 범위
+
+```
+┌──────────────────────┬──────────────────┬──────────────────┐
+│ 요소                  │ 미터법            │ 야드법            │
+├──────────────────────┼──────────────────┼──────────────────┤
+│ ManeuverBanner 거리   │ 300m / 1.2km    │ 1000ft / 0.8mi  │
+│ BottomBar 남은 거리   │ 12.5km           │ 7.8mi            │
+│ 속도계               │ 58km/h           │ 36mph            │
+│ 음성 안내            │ "300미터 앞"      │ "1000피트 앞"     │
+│ ETA (시간)           │ 변화 없음         │ 변화 없음         │
+│ 카메라 고도 (내부)    │ m/s 기준 (변화 없음)│ m/s 기준 (변화 없음)│
+└──────────────────────┴──────────────────┴──────────────────┘
+
+설정 저장: UserDefaults (앱 설정 화면에서 변경)
+```
+
+---
+
+## 16. 다크모드
 
 ```
 ┌─────────────────┬──────────────────────────────────┐
@@ -1383,7 +1445,7 @@ Navigation/
 
 ---
 
-## 16. 시나리오 검증 결과
+## 17. 시나리오 검증 결과
 
 | 시나리오 | 결과 | 관련 섹션 |
 |----------|------|-----------|

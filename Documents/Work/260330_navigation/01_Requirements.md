@@ -275,6 +275,8 @@ preparing ──→ navigating ──→ arrived (30m 이내)
 - **ManeuverBanner**: current + next 회전 안내 (아이콘 + 거리 + 안내문)
 - **BottomBar**: ETA, 남은 거리, 남은 시간, 안내 종료 버튼
 - **속도계**: 현재 GPS 속도 표시
+- **단위 설정**: 시스템 설정(Locale 기반) / 미터법(km, m, km/h) / 야드법(mi, ft, mph) 선택
+  - 거리(ManeuverBanner, BottomBar), 속도(속도계), 음성 안내에 적용
 - **리센터 버튼**: 자동 추적 해제 시 표시
 - **GPS 상태 아이콘**: GPS invalid 시 표시
 - **재탐색 표시**: "경로를 재탐색 중입니다" 배너
