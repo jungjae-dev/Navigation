@@ -42,7 +42,8 @@ enum AppleModelConverter {
             name: mkRoute.name,
             steps: mkRoute.steps.map { routeStep(from: $0) },
             polylineCoordinates: mkRoute.polyline.coordinates,
-            transportMode: mkRoute.transportType == .walking ? .walking : .automobile
+            transportMode: mkRoute.transportType == .walking ? .walking : .automobile,
+            provider: .apple
         )
     }
 
@@ -50,7 +51,10 @@ enum AppleModelConverter {
         RouteStep(
             instructions: mkStep.instructions,
             distance: mkStep.distance,
-            polylineCoordinates: mkStep.polyline.coordinates
+            polylineCoordinates: mkStep.polyline.coordinates,
+            duration: nil,
+            turnType: TurnType.from(appleInstructions: mkStep.instructions),
+            roadName: nil
         )
     }
 
