@@ -711,11 +711,11 @@ final class AppCoordinator: NSObject, Coordinator {
         let resolvedDestination = destination
             ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
-        // Step 7 검증: SimulGPSProvider로 엔진 동작 확인 (UI 없이 로그만)
-        // Step 8에서 NavigationViewController 연결 시 교체 예정
+        // GPS Provider 생성 (SimulGPS로 테스트, 추후 RealGPS로 교체)
         let simulProvider = SimulGPSProvider()
         simulProvider.load(polyline: route.polylineCoordinates, transportMode: transportMode)
 
+        // 엔진 시작
         sessionManager.startNavigation(
             route: route,
             destination: resolvedDestination,
@@ -724,20 +724,18 @@ final class AppCoordinator: NSObject, Coordinator {
             source: .phone
         )
 
-        // guidePublisher 구독하여 주요 상태 로그 출력
-        sessionManager.guidePublisher
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] guide in
-                // arrived 시 자동 종료
-                if guide.state == .arrived {
-                    print("[Engine] ★ 도착! 3초 후 자동 종료")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        self?.dismissNavigation()
-                    }
-                }
+        // 주행 화면 생성 + 엔진 바인딩
+        dismissAllDrawers { [weak self] in
+            guard let self else { return }
+
+            let navVC = NavigationViewController(route: route, transportMode: transportMode)
+            navVC.bind(to: self.sessionManager.guidePublisher)
+            navVC.onDismiss = { [weak self] in
+                self?.dismissNavigation()
             }
-            .store(in: &cancellables)
+
+            self.navigationController.pushViewController(navVC, animated: true)
+        }
     }
 
     private func dismissNavigation() {
@@ -750,8 +748,8 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
-        // TODO: 새 SimulGPSProvider + NavigationEngine으로 교체 예정
-        print("[TODO] startVirtualDrive - 새 엔진으로 교체 예정")
+        // SimulGPSProvider로 가상 주행 (startNavigation과 동일 — 추후 속도 제어 UI 추가)
+        startNavigation(with: route, transportMode: transportMode)
     }
 
     private func stopVirtualDrive() {
