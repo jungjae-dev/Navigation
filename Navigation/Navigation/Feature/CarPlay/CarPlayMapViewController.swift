@@ -78,12 +78,16 @@ final class CarPlayMapViewController: UIViewController {
     }
 
     private func bindNavigationSession() {
-        sessionManager.activeSessionPublisher
+        // 주행 시작/종료 감지
+        sessionManager.navigationCommandPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] session in
-                if let session {
-                    self?.configureForNavigation(session: session)
-                } else {
+            .sink { [weak self] command in
+                switch command {
+                case .started:
+                    if let session = self?.sessionManager.activeSession {
+                        self?.configureForNavigation(session: session)
+                    }
+                case .stopped:
                     self?.configureForStandard()
                 }
             }

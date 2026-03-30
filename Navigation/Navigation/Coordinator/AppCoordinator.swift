@@ -321,14 +321,11 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     private func handleCarPlayNavigationStarted() {
-        guard let session = sessionManager.activeSessionPublisher.value else { return }
+        guard sessionManager.activeSession != nil else { return }
 
-        // TODO: 주행 중 여부 체크는 새 엔진 구현 시 교체
-
-        // Dismiss all drawers (home, search, POI, route preview)
-        dismissAllDrawers { [weak self] in
-            self?.presentNavigationFromSession(session)
-        }
+        // TODO: 주행 중 여부 체크는 Step 8에서 NavigationVC 연결 시 교체
+        // 현재는 CarPlay에서 시작해도 iPhone에 주행 화면을 표시하지 않음 (stub)
+        print("[TODO] handleCarPlayNavigationStarted - Step 8에서 구현 예정")
     }
 
     private func presentNavigationFromSession(_ session: NavigationSession) {
@@ -710,8 +707,37 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Navigation Flow
 
     private func startNavigation(with route: Route, destination: Place? = nil, transportMode: TransportMode = .automobile) {
-        // TODO: 새 NavigationEngine + NavigationViewController로 교체 예정
-        print("[TODO] startNavigation - 새 엔진으로 교체 예정")
+        let lastCoord = route.polylineCoordinates.last ?? CLLocationCoordinate2D()
+        let resolvedDestination = destination
+            ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
+
+        // Step 7 검증: SimulGPSProvider로 엔진 동작 확인 (UI 없이 로그만)
+        // Step 8에서 NavigationViewController 연결 시 교체 예정
+        let simulProvider = SimulGPSProvider()
+        simulProvider.load(polyline: route.polylineCoordinates, transportMode: transportMode)
+
+        sessionManager.startNavigation(
+            route: route,
+            destination: resolvedDestination,
+            transportMode: transportMode,
+            gpsProvider: simulProvider,
+            source: .phone
+        )
+
+        // guidePublisher 구독하여 주요 상태 로그 출력
+        sessionManager.guidePublisher
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] guide in
+                // arrived 시 자동 종료
+                if guide.state == .arrived {
+                    print("[Engine] ★ 도착! 3초 후 자동 종료")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        self?.dismissNavigation()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func dismissNavigation() {

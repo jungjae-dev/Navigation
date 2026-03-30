@@ -111,8 +111,9 @@ NavigationGuide (단일 구조체 발행)
 ## 5. 경로 진행 추적
 
 ### 5.1 스텝 전진 판정
-- 현재 안내 포인트까지 남은 거리 ≤ 30m → 다음 스텝으로 전진
-- TMAP 방식 동일
+- TMAP 방식: segmentIndex 기반 통과 판정
+- MapMatcher의 매칭 segmentIndex가 현재 Step의 끝 segmentIndex를 지나가면 전진
+- 출발지 step (polyline=1pts) 자동 스킵
 
 ### 5.2 동시 추적
 - **current step**: 현재 회전 안내 (아이콘 + 거리 + 안내문)

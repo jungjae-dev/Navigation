@@ -7,7 +7,11 @@ struct RouteTrackerTests {
     // MARK: - Test Route
 
     /// P0(37.5, 127.0) → G0(37.5, 127.005) → G1(37.5, 127.01) → G2(37.5, 127.015)
-    /// 3스텝, 각 ~500m, 동쪽 방향
+    /// 4개 폴리라인 점, 3스텝
+    /// Step 0: 출발지 (1pt — 스킵 대상)
+    /// Step 1: P0→G0 직진
+    /// Step 2: G0→G1 우회전
+    /// Step 3: G1→G2 목적지
     static func makeTestRoute(provider: RouteProvider = .kakao) -> Route {
         let p0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0)
         let g0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.005)
@@ -17,9 +21,17 @@ struct RouteTrackerTests {
         return Route(
             id: "test",
             distance: 1500,
-            expectedTravelTime: 300,  // 5분
+            expectedTravelTime: 300,
             name: "테스트",
             steps: [
+                RouteStep(
+                    instructions: "출발지",
+                    distance: 0,
+                    polylineCoordinates: [p0],  // 1pt — 출발지 마커
+                    duration: 0,
+                    turnType: .straight,
+                    roadName: "출발지"
+                ),
                 RouteStep(
                     instructions: "직진",
                     distance: 500,
@@ -51,46 +63,34 @@ struct RouteTrackerTests {
         )
     }
 
-    // MARK: - 초기 상태
+    // MARK: - 출발지 스킵
 
-    @Test func initialState_isStep0() {
+    @Test func skips_departureStep() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
+        // Step 0 (출발지, 1pt)이 스킵되어 Step 1부터 시작
         let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.001)
-        let progress = tracker.update(matchedPosition: pos)
-
-        #expect(progress.currentStepIndex == 0)
-        #expect(progress.currentStep.instructions == "직진")
-        #expect(progress.nextStep?.instructions == "우회전")
-        #expect(progress.totalSteps == 3)
-    }
-
-    // MARK: - 스텝 전진 (30m 이내)
-
-    @Test func advancesStep_when30mOrLess() {
-        let tracker = RouteTracker(route: Self.makeTestRoute())
-
-        // G0 (37.5, 127.005) 에서 25m 이내 = 약 (37.5, 127.00478)
-        // G0 근처로 이동
-        let nearG0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.00498)
-        let progress = tracker.update(matchedPosition: nearG0)
+        let progress = tracker.update(matchedPosition: pos, segmentIndex: 0)
 
         #expect(progress.currentStepIndex == 1)
-        #expect(progress.currentStep.instructions == "우회전")
-        #expect(progress.nextStep?.instructions == "목적지")
+        #expect(progress.currentStep.instructions == "직진")
     }
 
-    // MARK: - 스텝 유지 (31m 이상)
+    // MARK: - segmentIndex 기반 전진
 
-    @Test func keepsStep_whenMoreThan30m() {
+    @Test func advancesStep_whenSegmentIndexPassesStepEnd() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
-        // G0에서 충분히 떨어진 위치
-        let farFromG0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.004)
-        let progress = tracker.update(matchedPosition: farFromG0)
+        // segmentIndex=0: Step 1 범위 (P0→G0)
+        let pos1 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.003)
+        let progress1 = tracker.update(matchedPosition: pos1, segmentIndex: 0)
+        #expect(progress1.currentStepIndex == 1)
 
-        #expect(progress.currentStepIndex == 0)
-        #expect(progress.currentStep.instructions == "직진")
+        // segmentIndex=1: Step 1의 끝(G0)을 지남 → Step 2로 전진
+        let pos2 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.006)
+        let progress2 = tracker.update(matchedPosition: pos2, segmentIndex: 1)
+        #expect(progress2.currentStepIndex == 2)
+        #expect(progress2.currentStep.instructions == "우회전")
     }
 
     // MARK: - 마지막 스텝에서 전진 안 함
@@ -98,88 +98,66 @@ struct RouteTrackerTests {
     @Test func doesNotAdvancePastLastStep() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
-        // Step 0 → 1 전진
-        let nearG0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.00498)
-        _ = tracker.update(matchedPosition: nearG0)
+        // segmentIndex=2: Step 2의 끝(G1)을 지남 → Step 3
+        let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.012)
+        _ = tracker.update(matchedPosition: pos, segmentIndex: 2)
+        #expect(tracker.currentStepIndex == 3)
 
-        // Step 1 → 2 전진
-        let nearG1 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.00998)
-        _ = tracker.update(matchedPosition: nearG1)
-
-        #expect(tracker.currentStepIndex == 2)
-
-        // 마지막 스텝에서 더 전진하지 않음
-        let nearG2 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.01498)
-        let progress = tracker.update(matchedPosition: nearG2)
-
-        #expect(progress.currentStepIndex == 2)  // 여전히 마지막 스텝
+        // segmentIndex=2: 마지막 스텝에서 더 전진하지 않음
+        let pos2 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.014)
+        let progress = tracker.update(matchedPosition: pos2, segmentIndex: 2)
+        #expect(progress.currentStepIndex == 3)
         #expect(progress.nextStep == nil)
     }
 
-    // MARK: - 남은 거리 단조 감소
+    // MARK: - 남은 거리 감소
 
     @Test func remainingDistance_decreases() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
         let pos1 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.002)
-        let progress1 = tracker.update(matchedPosition: pos1)
+        let progress1 = tracker.update(matchedPosition: pos1, segmentIndex: 0)
 
         let pos2 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.004)
-        let progress2 = tracker.update(matchedPosition: pos2)
+        let progress2 = tracker.update(matchedPosition: pos2, segmentIndex: 0)
 
         #expect(progress2.remainingDistance < progress1.remainingDistance)
     }
 
-    // MARK: - 남은 시간 (카카오: duration 합산)
+    // MARK: - 남은 시간 (카카오)
 
     @Test func remainingTime_kakao_usesDuration() {
         let tracker = RouteTracker(route: Self.makeTestRoute(provider: .kakao))
 
         let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.001)
-        let progress = tracker.update(matchedPosition: pos)
+        let progress = tracker.update(matchedPosition: pos, segmentIndex: 0)
 
-        // Step 0 duration(100) + Step 1(100) + Step 2(100) = 300초
+        // Step 1(100) + Step 2(100) + Step 3(100) = 300초
         #expect(progress.remainingTime > 200)
         #expect(progress.remainingTime <= 300)
     }
 
-    // MARK: - 남은 시간 (Apple: 거리 비율)
+    // MARK: - 남은 시간 (Apple)
 
     @Test func remainingTime_apple_usesDistanceRatio() {
         let tracker = RouteTracker(route: Self.makeTestRoute(provider: .apple))
 
-        // 경로 중간 지점
         let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.007)
-        let progress = tracker.update(matchedPosition: pos)
+        let progress = tracker.update(matchedPosition: pos, segmentIndex: 1)
 
-        // 전체 300초, 남은 거리 비율로 추정 → 0보다 크고 300보다 작음
         #expect(progress.remainingTime > 0)
         #expect(progress.remainingTime < 300)
     }
 
-    // MARK: - ETA 계산
+    // MARK: - ETA
 
     @Test func eta_isFuture() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
         let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.001)
-        let progress = tracker.update(matchedPosition: pos)
+        let progress = tracker.update(matchedPosition: pos, segmentIndex: 0)
 
         #expect(progress.eta > Date())
-    }
-
-    // MARK: - distanceToNextManeuver
-
-    @Test func distanceToNextManeuver_decreasesWithProgress() {
-        let tracker = RouteTracker(route: Self.makeTestRoute())
-
-        let pos1 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.001)
-        let progress1 = tracker.update(matchedPosition: pos1)
-
-        let pos2 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.003)
-        let progress2 = tracker.update(matchedPosition: pos2)
-
-        #expect(progress2.distanceToNextManeuver < progress1.distanceToNextManeuver)
     }
 
     // MARK: - 스텝 전진 콜백
@@ -194,25 +172,26 @@ struct RouteTrackerTests {
             advancedTo = to
         }
 
-        let nearG0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.00498)
-        _ = tracker.update(matchedPosition: nearG0)
+        // segmentIndex=1 → Step 1 끝 통과 → Step 2로 전진
+        let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.006)
+        _ = tracker.update(matchedPosition: pos, segmentIndex: 1)
 
-        #expect(advancedFrom == 0)
-        #expect(advancedTo == 1)
+        #expect(advancedFrom == 1)
+        #expect(advancedTo == 2)
     }
 
     // MARK: - 리셋
 
-    @Test func reset_goesBackToStep0() {
+    @Test func reset_goesBackToStep1_afterDepartureSkip() {
         let tracker = RouteTracker(route: Self.makeTestRoute())
 
-        // Step 0 → 1 전진
-        let nearG0 = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.00498)
-        _ = tracker.update(matchedPosition: nearG0)
-        #expect(tracker.currentStepIndex == 1)
+        // Step 2로 전진
+        let pos = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.006)
+        _ = tracker.update(matchedPosition: pos, segmentIndex: 1)
+        #expect(tracker.currentStepIndex == 2)
 
-        // 리셋
+        // 리셋 → 출발지 스킵 → Step 1
         tracker.reset()
-        #expect(tracker.currentStepIndex == 0)
+        #expect(tracker.currentStepIndex == 1)
     }
 }

@@ -119,16 +119,23 @@ final class VoiceEngine {
     // MARK: - Private: Find Effective Band
 
     /// 현재 거리에서 가장 적합한 (아직 안내 안 한) 밴드 찾기
-    /// 짧은 스텝에서 큰 밴드를 건너뛰고 가까운 밴드로 안내
+    /// 순서 보장: 먼 밴드부터 탐색하여 가장 먼 미안내 밴드 선택
+    /// 짧은 스텝에서는 이미 지나간 큰 밴드를 건너뛰고 가장 먼 유효 밴드로 안내
     private func findEffectiveBand(
         distance: CLLocationDistance,
         bands: [(band: DistanceBand, distance: CLLocationDistance, tolerance: CLLocationDistance)],
         stepIndex: Int
     ) -> (DistanceBand, CLLocationDistance)? {
-        // 현재 거리 이상인 밴드 중 가장 가까운 것 (아직 안내 안 한 것)
-        for (band, triggerDist, _) in bands.reversed() {
+        // 정방향 탐색: 먼 밴드(1200m)부터 → 가까운 밴드(120m) 순서
+        for (band, triggerDist, _) in bands {
             let key = AnnouncementKey(stepIndex: stepIndex, band: band)
             if distance <= triggerDist && !announcedKeys.contains(key) {
+                // 이 밴드보다 먼 밴드들은 이미 지나갔으므로 모두 마킹 (순서 역전 방지)
+                for (prevBand, prevDist, _) in bands {
+                    if prevDist > triggerDist {
+                        announcedKeys.insert(AnnouncementKey(stepIndex: stepIndex, band: prevBand))
+                    }
+                }
                 return (band, triggerDist)
             }
         }

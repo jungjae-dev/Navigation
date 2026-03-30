@@ -56,6 +56,7 @@ enum AppleModelConverter {
             logger.logRouteStep(index: i, instruction: step.instructions, turnType: step.turnType, roadName: step.roadName, polylineCount: step.polylineCoordinates.count)
         }
 
+
         return route
     }
 

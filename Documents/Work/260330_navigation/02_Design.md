@@ -504,41 +504,45 @@ sequenceDiagram
 ### 4.3 RouteTracker
 
 ```swift
-final class RouteTracker: Sendable {
+final class RouteTracker {
     private let steps: [RouteStep]
     private var currentStepIndex: Int = 0
-    private let advanceThreshold: CLLocationDistance = 30  // m
+    private let stepEndSegmentIndices: [Int]  // 각 Step 끝의 전체 폴리라인 인덱스
 
-    func update(matchedPosition: CLLocationCoordinate2D) -> RouteProgress {
-        // 1. 현재 스텝 안내 포인트까지 남은 거리 계산
-        // 2. 30m 이하 → currentStepIndex += 1
-        // 3. current/next ManeuverInfo 생성
-        // 4. 목적지까지 남은 거리 계산
-        // 5. 남은 시간/ETA 계산 (provider별 분기):
-        //    카카오: 현재 스텝 이후 step.duration 합산 (정확)
-        //    Apple: route.expectedTravelTime × (remainingDistance / route.distance) (추정)
+    init(route: Route) {
+        // 1. 각 Step의 끝 좌표 → 전체 폴리라인 인덱스 매핑
+        // 2. 출발지 step 스킵 (polyline=1pts인 시작점 마커)
+    }
+
+    func update(matchedPosition: CLLocationCoordinate2D, segmentIndex: Int) -> RouteProgress {
+        // 1. segmentIndex >= stepEndSegmentIndices[currentStep] → 전진 (TMAP 방식)
+        // 2. current/next ManeuverInfo 생성
+        // 3. 목적지까지 남은 거리 계산
+        // 4. 남은 시간/ETA (카카오: duration 합산, Apple: 거리 비율)
     }
 }
 ```
 
-**스텝 전진 시퀀스**:
+**스텝 전진 방식 (TMAP 참고 — segmentIndex 기반 통과 판정)**:
 
 ```
-     Step 0           Step 1           Step 2
-═══════════ G₀ ════════════ G₁ ════════════ G₂ 🏁
+전체 폴리라인:  P0 ──── P1(G0) ──── P2(G1) ──── P3(G2)
+segmentIndex:    0         1           2
 
-  🚗 ──────────→
-  distanceToG₀ = 450m    → Step 0 유지, 안내 "450m 우회전"
+Step 0: 출발지 (1pt, P0) → 스킵
+Step 1: P0→G0, stepEndIndex=0
+Step 2: G0→G1, stepEndIndex=1
+Step 3: G1→G2, stepEndIndex=2
 
-       🚗 ────→
-  distanceToG₀ = 300m    → Step 0 유지, 음성 "300미터 앞 우회전"
+  🚗 segmentIndex=0    → Step 1 유지 (0 < stepEnd[1]=0? → 같으면 통과!)
+  🚗 segmentIndex=1    → Step 2로 전진! (1 >= stepEnd[1])
+  🚗 segmentIndex=2    → Step 3로 전진! (2 >= stepEnd[2])
 
-            🚗 →
-  distanceToG₀ = 25m     → Step 1로 전진! (< 30m)
-                            current = Step 1, next = Step 2
-
-                    🚗 ──→
-  distanceToG₁ = 800m    → Step 1 유지, 안내 "800m 좌회전"
+장점 (vs 30m 임계값):
+  - GPS 오차에 무관하게 "실제 통과"를 판정
+  - 짧은 스텝(출발지 등)에서 오작동 없음
+  - 카카오/Apple 모두 동일하게 동작
+    (Apple Step polyline 좌표가 전체 polyline과 일치 확인됨)
 ```
 
 ### 4.4 OffRouteDetector
