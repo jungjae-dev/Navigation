@@ -728,7 +728,7 @@ final class AppCoordinator: NSObject, Coordinator {
         dismissAllDrawers { [weak self] in
             guard let self else { return }
 
-            let navVC = NavigationViewController(route: route, transportMode: transportMode)
+            let navVC = NavigationViewController(route: route, transportMode: transportMode, destinationName: resolvedDestination.name)
             navVC.bind(to: self.sessionManager.guidePublisher)
             navVC.onDismiss = { [weak self] in
                 self?.dismissNavigation()

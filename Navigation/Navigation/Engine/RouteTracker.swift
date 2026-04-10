@@ -39,15 +39,6 @@ final class RouteTracker {
             polyline: route.polylineCoordinates
         )
 
-        // 디버그: stepEndSegmentIndices 로그
-        for (i, endIdx) in stepEndSegmentIndices.enumerated() {
-            let stepCoordCount = route.steps[i].polylineCoordinates.count
-            let lastCoord = route.steps[i].polylineCoordinates.last
-            let lastStr = lastCoord.map { "(\(String(format: "%.6f", $0.latitude)),\(String(format: "%.6f", $0.longitude)))" } ?? "nil"
-            print("[RouteTracker] Step \(i) endSegIdx=\(endIdx) polyline=\(stepCoordCount)pts last=\(lastStr) instruction=\(route.steps[i].instructions)")
-        }
-        print("[RouteTracker] Total polyline=\(route.polylineCoordinates.count)pts")
-
         // 출발지 step 스킵 (카카오 type=100: polyline=1pts, 안내가 아닌 시작점 마커)
         skipDepartureStep()
     }
