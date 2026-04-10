@@ -12,6 +12,8 @@ import CarPlay
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // 화면 꺼짐 방지 (앱 시작 시 항상)
+        application.isIdleTimerDisabled = true
         return true
     }
 
