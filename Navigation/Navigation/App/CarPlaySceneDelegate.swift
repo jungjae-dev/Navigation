@@ -235,7 +235,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         navigationHandler?.startNavigation(
             trip: trip,
-            mapTemplate: mapTemplate
+            mapTemplate: mapTemplate,
+            guidePublisher: sessionManager.guidePublisher
         )
     }
 
@@ -260,7 +261,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         navigationHandler?.startNavigation(
             trip: trip,
-            mapTemplate: mapTemplate
+            mapTemplate: mapTemplate,
+            guidePublisher: sessionManager.guidePublisher
         )
     }
 

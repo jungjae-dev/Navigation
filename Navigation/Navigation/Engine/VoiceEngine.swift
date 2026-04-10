@@ -35,7 +35,7 @@ final class VoiceEngine {
 
     // MARK: - Configuration
 
-    private let minimumAnnouncementInterval: TimeInterval = 5  // 최소 안내 간격 (초)
+    let minimumAnnouncementInterval: TimeInterval  // 최소 안내 간격 (초)
 
     // MARK: - State
 
@@ -48,8 +48,9 @@ final class VoiceEngine {
 
     // MARK: - Init
 
-    init(provider: RouteProvider) {
+    init(provider: RouteProvider, minimumAnnouncementInterval: TimeInterval = 5) {
         self.provider = provider
+        self.minimumAnnouncementInterval = minimumAnnouncementInterval
     }
 
     // MARK: - Initial Announcement

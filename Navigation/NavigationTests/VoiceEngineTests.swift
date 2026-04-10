@@ -25,7 +25,7 @@ struct VoiceEngineTests {
     // MARK: - 초기 안내
 
     @Test func initialAnnouncement_firesOnce() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
 
         let first = engine.checkInitial()
         #expect(first != nil)
@@ -38,7 +38,7 @@ struct VoiceEngineTests {
     // MARK: - 1200m 트리거 (일반도로)
 
     @Test func trigger_preRoadName_kakao() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep(roadName: "테헤란로")
 
         let cmd = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
@@ -51,7 +51,7 @@ struct VoiceEngineTests {
     // MARK: - 300m 트리거 (일반도로)
 
     @Test func trigger_preDistance_normal() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep()
 
         // 1200m 먼저 소비
@@ -66,7 +66,7 @@ struct VoiceEngineTests {
     // MARK: - 120m 트리거 (일반도로)
 
     @Test func trigger_imminent_normal() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep()
 
         _ = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
@@ -81,7 +81,7 @@ struct VoiceEngineTests {
     // MARK: - 500m 트리거 (고속도로)
 
     @Test func trigger_preDistance_highway() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep()
 
         _ = engine.check(distanceToManeuver: 1200, speed: 25, stepIndex: 0, step: step)  // 90km/h
@@ -95,7 +95,7 @@ struct VoiceEngineTests {
     // MARK: - 중복 방지
 
     @Test func duplicatePrevention_sameBand() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep()
 
         let first = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
@@ -108,7 +108,7 @@ struct VoiceEngineTests {
     // MARK: - 짧은 스텝 (100m) → 즉시 안내
 
     @Test func shortStep_triggersImmediately() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep(distance: 100)
 
         // 100m 스텝 → 1200m/300m 밴드 스킵, imminent로 즉시 안내
@@ -120,7 +120,7 @@ struct VoiceEngineTests {
     // MARK: - Apple 텍스트
 
     @Test func appleProvider_usesInstructions() {
-        let engine = VoiceEngine(provider: .apple)
+        let engine = VoiceEngine(provider: .apple, minimumAnnouncementInterval: 0)
         let step = makeStep(instructions: "상암사거리에서 증산로(으)로 좌회전")
 
         let cmd = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
@@ -130,7 +130,7 @@ struct VoiceEngineTests {
     }
 
     @Test func appleProvider_preDistance_addsPrefix() {
-        let engine = VoiceEngine(provider: .apple)
+        let engine = VoiceEngine(provider: .apple, minimumAnnouncementInterval: 0)
         let step = makeStep(instructions: "좌회전")
 
         _ = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
@@ -145,7 +145,7 @@ struct VoiceEngineTests {
     // MARK: - 스텝 전진 시 이전 기록 정리
 
     @Test func onStepAdvanced_clearsOldKeys() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step0 = makeStep()
         let step1 = makeStep(instructions: "좌회전", turnType: .leftTurn, roadName: "강남대로")
 
@@ -164,7 +164,7 @@ struct VoiceEngineTests {
     // MARK: - 리셋
 
     @Test func reset_clearsAll() {
-        let engine = VoiceEngine(provider: .kakao)
+        let engine = VoiceEngine(provider: .kakao, minimumAnnouncementInterval: 0)
         let step = makeStep()
 
         _ = engine.check(distanceToManeuver: 1200, speed: 15, stepIndex: 0, step: step)
