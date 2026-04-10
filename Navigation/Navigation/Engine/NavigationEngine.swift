@@ -150,7 +150,7 @@ final class NavigationEngine {
             startReroute(from: gps.coordinate)
         }
 
-        // 음성 트리거
+        // 음성 트리거 (모든 음성은 VoiceEngine에서 관리)
         var voiceCommand: VoiceCommand?
 
         // 초기 안내 (preparing → navigating 전환 시)
@@ -158,7 +158,7 @@ final class NavigationEngine {
             voiceCommand = voiceEngine.checkInitial()
         }
 
-        // 일반 음성 안내
+        // 거리별 안내
         if voiceCommand == nil && state == .navigating {
             voiceCommand = voiceEngine.check(
                 distanceToManeuver: routeProgress.distanceToNextManeuver,
@@ -168,14 +168,9 @@ final class NavigationEngine {
             )
         }
 
-        // 도착 음성
-        if state == .arrived && voiceCommand == nil {
-            voiceCommand = VoiceCommand(text: "목적지에 도착했습니다", priority: .urgent)
-        }
-
-        // 재탐색 음성
-        if isOffRoute && state == .rerouting {
-            voiceCommand = VoiceCommand(text: "경로를 재탐색합니다", priority: .urgent)
+        // 상태 변화 안내 (도착/재탐색 — 각 1회)
+        if voiceCommand == nil {
+            voiceCommand = voiceEngine.checkStateChange(state: state)
         }
 
         if let vc = voiceCommand {

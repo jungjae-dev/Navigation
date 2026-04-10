@@ -733,12 +733,16 @@ final class AppCoordinator: NSObject, Coordinator {
             navVC.onDismiss = { [weak self] in
                 self?.dismissNavigation()
             }
+            navVC.onReroute = { [weak self] in
+                self?.sessionManager.requestReroute()
+            }
 
             self.navigationController.pushViewController(navVC, animated: true)
         }
     }
 
     private func dismissNavigation() {
+        VoiceTTSPlayer.shared.stop()
         sessionManager.stopNavigation()
         navigationMapViewController = nil
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)

@@ -50,8 +50,14 @@ final class NavigationViewController: UIViewController {
         return f
     }()
 
+    // 재탐색 버튼
+    private let rerouteButton = UIButton(type: .system)
+
     /// 주행 종료 콜백
     var onDismiss: (() -> Void)?
+
+    /// 수동 재탐색 콜백
+    var onReroute: (() -> Void)?
 
     /// 현재 guide
     private var currentGuide: NavigationGuide?
@@ -84,6 +90,7 @@ final class NavigationViewController: UIViewController {
         setupRecenterButton()
         setupMuteButton()
         setupGPSStatusIcon()
+        setupRerouteButton()
         setupRerouteBanner()
         setupGestureDetection()
         startDisplayLink()
@@ -125,6 +132,11 @@ final class NavigationViewController: UIViewController {
         updateSpeedometer(guide)
         updateGPSStatus(guide)
         updateRerouteBanner(guide)
+
+        // 음성 재생
+        if let voiceCommand = guide.voiceCommand {
+            VoiceTTSPlayer.shared.enqueue(voiceCommand)
+        }
 
         if guide.state == .arrived && !hasShownArrival {
             hasShownArrival = true
@@ -303,6 +315,7 @@ final class NavigationViewController: UIViewController {
     @objc private func muteTapped() {
         isMuted.toggle()
         updateMuteButtonIcon()
+        VoiceTTSPlayer.shared.setMuted(isMuted)
     }
 
     private func updateMuteButtonIcon() {
@@ -335,6 +348,30 @@ final class NavigationViewController: UIViewController {
 
     private func updateGPSStatus(_ guide: NavigationGuide) {
         gpsStatusIcon.isHidden = guide.isGPSValid
+    }
+
+    // MARK: - Setup: Reroute Button
+
+    private func setupRerouteButton() {
+        rerouteButton.setImage(
+            UIImage(systemName: "arrow.triangle.2.circlepath")?.withConfiguration(
+                UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+            ), for: .normal
+        )
+        configureFloatingButton(rerouteButton)
+        rerouteButton.addTarget(self, action: #selector(rerouteTapped), for: .touchUpInside)
+
+        view.addSubview(rerouteButton)
+        NSLayoutConstraint.activate([
+            rerouteButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            rerouteButton.bottomAnchor.constraint(equalTo: gpsStatusIcon.topAnchor, constant: -12),
+            rerouteButton.widthAnchor.constraint(equalToConstant: 44),
+            rerouteButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
+    }
+
+    @objc private func rerouteTapped() {
+        onReroute?()
     }
 
     // MARK: - Setup: Reroute Banner

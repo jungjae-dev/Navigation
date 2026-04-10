@@ -33,10 +33,17 @@ final class VoiceEngine {
         (.imminent,    200,  50),
     ]
 
+    // MARK: - Configuration
+
+    private let minimumAnnouncementInterval: TimeInterval = 5  // 최소 안내 간격 (초)
+
     // MARK: - State
 
     private var announcedKeys = Set<AnnouncementKey>()
     private var hasAnnouncedInitial = false
+    private var hasAnnouncedArrival = false
+    private var hasAnnouncedReroute = false
+    private var lastAnnouncementTime: Date = .distantPast
     private let provider: RouteProvider
 
     // MARK: - Init
@@ -51,6 +58,7 @@ final class VoiceEngine {
     func checkInitial() -> VoiceCommand? {
         guard !hasAnnouncedInitial else { return nil }
         hasAnnouncedInitial = true
+        lastAnnouncementTime = Date()
         return VoiceCommand(text: "경로 안내를 시작합니다", priority: .normal)
     }
 
@@ -63,6 +71,11 @@ final class VoiceEngine {
         stepIndex: Int,
         step: RouteStep
     ) -> VoiceCommand? {
+        // 최소 안내 간격 체크
+        guard Date().timeIntervalSince(lastAnnouncementTime) >= minimumAnnouncementInterval else {
+            return nil
+        }
+
         let isHighway = speed * 3.6 >= 80  // km/h
         let bands = isHighway ? highwayBands : normalBands
 
@@ -98,11 +111,39 @@ final class VoiceEngine {
                     distance: distanceToManeuver,
                     step: step
                 )
+                lastAnnouncementTime = Date()
                 return VoiceCommand(text: text, priority: .normal)
             }
         }
 
         return nil
+    }
+
+    // MARK: - State Change
+
+    /// 상태 전이 시 음성 (도착/재탐색 — 각 1회)
+    func checkStateChange(state: NavigationState) -> VoiceCommand? {
+        switch state {
+        case .arrived:
+            guard !hasAnnouncedArrival else { return nil }
+            hasAnnouncedArrival = true
+            lastAnnouncementTime = Date()
+            return VoiceCommand(text: "목적지에 도착했습니다", priority: .urgent)
+
+        case .rerouting:
+            guard !hasAnnouncedReroute else { return nil }
+            hasAnnouncedReroute = true
+            lastAnnouncementTime = Date()
+            return VoiceCommand(text: "경로를 재탐색합니다", priority: .urgent)
+
+        case .navigating:
+            // rerouting → navigating 복귀 시 재탐색 플래그 리셋 (다음 이탈 시 다시 안내)
+            hasAnnouncedReroute = false
+            return nil
+
+        default:
+            return nil
+        }
     }
 
     /// 스텝 전진 시 이전 스텝의 안내 기록 정리
@@ -114,6 +155,9 @@ final class VoiceEngine {
     func reset() {
         announcedKeys.removeAll()
         hasAnnouncedInitial = false
+        hasAnnouncedArrival = false
+        hasAnnouncedReroute = false
+        lastAnnouncementTime = .distantPast
     }
 
     // MARK: - Private: Find Effective Band
