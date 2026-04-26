@@ -805,12 +805,56 @@ protocol GPSProviding: Sendable {
 }
 ```
 
-### 5.2 구현체
+### 5.2 LocationSimulator (공통 재생 엔진)
 
 ```swift
-final class RealGPSProvider: GPSProviding { ... }   // CoreLocation + 1초 틱 타이머
-final class SimulGPSProvider: GPSProviding { ... }  // 경로 폴리라인 위 자동 이동
-final class FileGPSProvider: GPSProviding { ... }   // GPXSimulator 래핑
+/// CLLocation 배열을 타이밍에 맞게 재생하는 공통 시뮬레이터
+/// SimulGPSProvider, FileGPSProvider 모두 이 클래스를 사용
+final class LocationSimulator {
+    // 출력
+    let simulatedLocationPublisher: PassthroughSubject<CLLocation, Never>
+    let isPlayingPublisher: CurrentValueSubject<Bool, Never>
+    let progressPublisher: CurrentValueSubject<Double, Never>
+    let speedMultiplierPublisher: CurrentValueSubject<Double, Never>
+
+    // 입력
+    func load(locations: [CLLocation])    // CLLocation 배열 직접 전달
+    func load(gpxFileURL: URL) -> Bool    // GPX 파일 파싱 → CLLocation 배열
+
+    // 제어
+    func play() / pause() / stop() / reset()
+    func cycleSpeed()  // 0.5x → 1x → 2x → 4x
+
+    // 재생 방식: 포인트 간 타임스탬프 간격, speedMultiplier 적용
+}
+```
+
+```
+                  LocationSimulator
+                 /                 \
+  SimulGPSProvider               FileGPSProvider
+  (폴리라인 → locations)         (GPX 파일 → locations)
+        \                           /
+         \                         /
+          GPSProviding 프로토콜
+                    │
+            NavigationEngine
+```
+
+### 5.3 구현체
+
+```swift
+final class RealGPSProvider: GPSProviding { ... }
+// CoreLocation + 1초 틱 타이머
+
+final class SimulGPSProvider: GPSProviding { ... }
+// 경로 폴리라인 → CLLocation 배열 변환 (속도 기반 타임스탬프 생성)
+// → LocationSimulator.load(locations:) → 재생
+// play/pause/cycleSpeed → LocationSimulator에 위임
+
+final class FileGPSProvider: GPSProviding { ... }
+// GPX 파일 → LocationSimulator.load(gpxFileURL:) → 재생
+// play/pause/cycleSpeed → LocationSimulator에 위임
 ```
 
 ### 5.3 Provider별 진입점
@@ -881,30 +925,107 @@ sequenceDiagram
     PROV->>TIMER: reset (1초)
 ```
 
-### 5.5 GPX 녹화 시퀀스
+### 5.5 GPX 녹화 (1회 자동 녹화)
+
+```
+녹화 상태:  [OFF] → [ON 대기] → [녹화 중] → [OFF] (자동 복귀)
+                 ↑ 개발자 메뉴    ↑ 주행 시작   ↑ 주행 종료
+```
+
+**실제 주행 녹화:**
 
 ```mermaid
 sequenceDiagram
     participant DEV as 개발자 메뉴
     participant REC as GPXRecorder
-    participant USER as 사용자
-    participant SM as SessionManager
+    participant COORD as AppCoordinator
     participant LOC as LocationService
+    participant ENG as NavigationEngine
 
-    USER->>DEV: "GPX 녹화 시작"
-    DEV->>REC: startRecording()
+    DEV->>REC: 녹화 ON (대기 상태)
+
+    COORD->>COORD: "안내 시작" (Real GPS)
+    COORD->>REC: 녹화 ON 감지 → startRecording()
     REC->>LOC: locationPublisher 구독
 
-    USER->>SM: 경로요약 → "안내 시작"
-    Note over REC,LOC: 주행 중 GPS를 엔진 + 녹화기가 동시에 수신
+    loop 매 1초
+        LOC-->>ENG: GPS → 엔진 (주행 안내)
+        LOC-->>REC: GPS → 녹화 (파일용)
+    end
 
-    Note over SM: 주행 종료
-
-    USER->>DEV: "GPX 녹화 중지"
-    DEV->>REC: stopRecording() → 파일 저장
+    COORD->>COORD: 주행 종료
+    COORD->>REC: stopRecording() → 파일 저장
+    REC->>REC: 녹화 OFF 자동 전환
+    Note over REC: real_출발_강남역_20260330_143022.gpx
 ```
 
-### 5.6 GPX 재생 시퀀스
+**가상 주행 녹화:**
+
+```mermaid
+sequenceDiagram
+    participant DEV as 개발자 메뉴
+    participant REC as GPXRecorder
+    participant COORD as AppCoordinator
+    participant SIMUL as SimulGPSProvider
+    participant LOC as LocationService
+    participant ENG as NavigationEngine
+
+    DEV->>REC: 녹화 ON (대기 상태)
+
+    COORD->>COORD: "가상 주행"
+    COORD->>LOC: startLocationOverride(SimulGPS 출력)
+    COORD->>REC: 녹화 ON 감지 → startRecording()
+    REC->>LOC: locationPublisher 구독 (override된 SimulGPS 데이터)
+
+    loop 매 1초
+        SIMUL-->>LOC: SimulGPS → override → locationPublisher
+        LOC-->>ENG: GPS → 엔진 (주행 안내)
+        LOC-->>REC: GPS → 녹화 (파일용)
+    end
+
+    COORD->>COORD: 주행 종료
+    COORD->>REC: stopRecording() → 파일 저장
+    COORD->>LOC: stopLocationOverride()
+    REC->>REC: 녹화 OFF 자동 전환
+    Note over REC: simul_출발_서울역_20260330_150500.gpx
+```
+
+**파일명 규칙:**
+
+```
+{모드}_{출발지}_{도착지}_{날짜시간}.gpx
+
+모드: real / simul
+출발지: Place.name ?? "출발"
+도착지: Place.name ?? "도착"
+이름 내 공백/특수문자 제거
+
+예: real_출발_강남역_20260330_143022.gpx
+    simul_출발_서울역_20260330_150500.gpx
+```
+
+**GPXRecord 모델:**
+
+```swift
+// SwiftData
+@Model class GPXRecord {
+    // 기존
+    var fileName: String
+    var filePath: String
+    var duration: TimeInterval
+    var distance: CLLocationDistance
+    var pointCount: Int
+    var fileSize: Int64
+    var recordedAt: Date
+
+    // 추가
+    var recordingMode: String      // "real" / "simul"
+    var originName: String?        // 출발지명
+    var destinationName: String?   // 도착지명
+}
+```
+
+### 5.6 GPX 재생 (File 모드)
 
 ```mermaid
 sequenceDiagram
@@ -916,8 +1037,10 @@ sequenceDiagram
     participant ENG as NavigationEngine
 
     USER->>DEV: Location Type → "File" → 파일 선택
+    Note over DEV: 선택된 파일 URL 저장
 
     USER->>COORD: 경로요약 → "안내 시작"
+    COORD->>COORD: Location Type == File 확인
     COORD->>FILE: FileGPSProvider(gpxFileURL) 생성
     FILE->>SIM: GPXSimulator.load(fileURL)
     COORD->>COORD: startNavigation(gpsProvider: fileGPSProvider)
@@ -925,7 +1048,38 @@ sequenceDiagram
     loop GPX 타임스탬프 기반
         SIM-->>FILE: CLLocation → GPSData 변환
         FILE-->>ENG: tick(GPSData)
+        Note over ENG: Real/Simul과 동일하게 동작
     end
+```
+
+**파일 리스트 표시:**
+
+```
+┌─────────────────────────────────────────┐
+│ 🔴 실제 │ 출발 → 강남역                  │
+│ 3.5km  5분  2026.03.30 14:30            │
+├─────────────────────────────────────────┤
+│ 🔵 가상 │ 출발 → 서울역                  │
+│ 12.5km  18분  2026.03.30 15:05          │
+└─────────────────────────────────────────┘
+```
+
+### 5.7 개발자 메뉴 UI
+
+```
+┌─────────────────────────────────────────────┐
+│ Location Type                               │
+│   ○ Real (실제 GPS)                         │
+│   ○ File (GPX 파일 재생)  → [파일 선택...]   │
+├─────────────────────────────────────────────┤
+│ GPX 녹화                         [OFF / ON] │
+│   OFF: 녹화 안 함                            │
+│   ON 대기: 다음 주행 시 자동 녹화             │
+│   녹화 중: 주행 중 (종료 시 자동 OFF)         │
+├─────────────────────────────────────────────┤
+│ GPX 파일 관리                                │
+│   [파일 목록] (3개)                          │
+└─────────────────────────────────────────────┘
 ```
 
 ---
@@ -1314,8 +1468,9 @@ Navigation/
 ├── GPS/
 │   ├── GPSProviding.swift
 │   ├── RealGPSProvider.swift
-│   ├── SimulGPSProvider.swift
-│   └── FileGPSProvider.swift
+│   ├── SimulGPSProvider.swift       ← LocationSimulator 사용
+│   ├── FileGPSProvider.swift        ← LocationSimulator 사용
+│   └── LocationSimulator.swift      ← 공통 재생 엔진 (기존 GPXSimulator 리네임)
 │
 ├── Voice/
 │   ├── VoiceTTSPlayer.swift

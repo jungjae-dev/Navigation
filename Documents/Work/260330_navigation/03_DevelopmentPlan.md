@@ -743,39 +743,129 @@ App/
 
 ---
 
-## Step 12: FileGPSProvider + stub 제거 + 최종 통합
+## Step 12: FileGPSProvider + GPX 녹화 개선 + stub 제거 + 최종 통합
 
 ### 구현 파일
 
 ```
 GPS/
-  FileGPSProvider.swift          ← GPXSimulator 래핑
+  LocationSimulator.swift            ← GPXSimulator 리네임, 공통 재생 엔진
+  FileGPSProvider.swift              ← LocationSimulator 사용, GPX 파일 → GPSData
+  SimulGPSProvider.swift             ← LocationSimulator 사용으로 리팩토링
 
 Feature/DevTools/
-  DevToolsViewController.swift   ← Location Type 선택 UI 수정
-  DevToolsViewModel.swift        ← File 모드 연동
+  DevToolsViewController.swift       ← Location Type (Real/File) 선택 UI
+  DevToolsViewModel.swift            ← File 모드 + 1회 자동 녹화 상태 관리
+
+Model/
+  GPXRecord.swift                    ← recordingMode, originName, destinationName 추가
+
+Service/DevTools/
+  GPXRecorder.swift                  ← 파일명 규칙 변경 ({모드}_{출발}_{도착}_{날짜}.gpx)
 ```
 
-### 최종 정리
+### 12-1. LocationSimulator 리네임 + SimulGPSProvider 리팩토링
 
 ```
-- AppCoordinator: 나머지 stub 제거, 모든 주행 플로우 새 코드 연결
-  → startNavigation(): 완전 구현
-  → startVirtualDrive(): SimulGPSProvider 연결 (경로요약 "가상 주행")
-  → startGPXPlayback(): FileGPSProvider 연결 (개발자 메뉴 File 모드)
+GPXSimulator → LocationSimulator 리네임
+  - CLLocation 배열을 타이밍에 맞게 재생하는 공통 엔진
+  - play/pause/stop/cycleSpeed
+
+SimulGPSProvider 리팩토링:
+  - 기존: 자체 타이머 + 폴리라인 보간
+  - 변경: 폴리라인 → CLLocation 배열 변환 → LocationSimulator에 위임
+
+FileGPSProvider 구현:
+  - GPX 파일 → LocationSimulator.load(gpxFileURL:) → 재생
+  - LocationSimulator.simulatedLocationPublisher → GPSData 변환
+
+검증:
+  ✅ 빌드 + 기존 테스트 통과 (GPXSimulatorTests 리네임)
+  ✅ 가상 주행이 LocationSimulator 기반으로 동일하게 동작
+  ✅ FileGPSProvider로 GPX 파일 재생 → 엔진 정상 동작
+```
+
+### 12-2. GPX 녹화 개선
+
+```
+1. 1회 자동 녹화 정책
+   - 개발자 메뉴에서 녹화 ON → 다음 주행 1회 자동 녹화 → 종료 시 자동 OFF
+   - AppCoordinator: 주행 시작 시 녹화 ON 감지 → startRecording()
+   - AppCoordinator: 주행 종료 시 stopRecording() + 녹화 OFF
+
+2. 가상 주행 녹화 지원
+   - startVirtualDrive 시 SimulGPS → LocationService.override
+   - GPXRecorder가 LocationService를 통해 가상 GPS도 녹화
+
+3. 파일명 규칙
+   - {모드}_{출발지}_{도착지}_{날짜시간}.gpx
+   - 예: real_출발_강남역_20260330_143022.gpx
+
+4. GPXRecord 확장
+   - recordingMode: real / simul
+   - originName, destinationName
+
+검증:
+  ✅ 녹화 ON → 실제 주행 → 종료 → 파일 저장 + 녹화 OFF
+  ✅ 녹화 ON → 가상 주행 → 종료 → 파일 저장 + 녹화 OFF
+  ✅ 파일명 규칙 확인 (real_출발_강남역_xxx.gpx)
+  ✅ GPXRecord에 recordingMode, originName, destinationName 저장
+```
+
+### 12-3. 개발자 메뉴 + AppCoordinator 연결
+
+```
+1. 개발자 메뉴 UI
+   - Location Type: Real / File 선택
+   - File 선택 시 GPX 파일 리스트 팝업
+   - GPX 녹화: ON/OFF 토글
+
+2. AppCoordinator
+   - startNavigation(): Location Type (Real/File) 분기
+   - startVirtualDrive(): LocationSimulator + LocationService.override + 녹화 지원
+   - startGPXPlayback stub 제거 (File 모드로 통합)
+   - 주행 시작/종료 시 GPX 녹화 자동 처리
+
+검증:
+  ✅ 개발자 메뉴 → Real 선택 → "안내 시작" → RealGPSProvider
+  ✅ 개발자 메뉴 → File 선택 → 파일 선택 → "안내 시작" → FileGPSProvider
+  ✅ "가상 주행" → SimulGPSProvider (Location Type 무관)
+```
+
+### 12-4. stub 제거 + 최종 정리
+
+```
+- AppCoordinator: startGPXPlayback stub 제거
 - 사용하지 않는 import/참조 정리
 - 빌드 경고 해결
+
+검증:
+  ✅ AppCoordinator에 startGPXPlayback stub 제거됨
+  ✅ presentNavigationFromSession stub 제거 또는 실제 구현
+  ✅ "[TODO]" 로그 모두 제거됨 (Step 8 이후 stub들)
+  ✅ 사용하지 않는 import 제거 (GPXSimulator → LocationSimulator 리네임 영향)
+  ✅ 빌드 경고 0건
+  ✅ 전체 단위 테스트 통과
 ```
 
 ### 최종 검증
 
 ```
 전체 앱 플로우:
-  ✅ 홈 → 검색 → POI → 경로요약 → "안내 시작" → 주행 → 도착 → 홈
+  ✅ 홈 → 검색 → POI → 경로요약 → "안내 시작" (Real) → 주행 → 도착 → 홈
   ✅ 홈 → 즐겨찾기 → 경로요약 → "가상 주행" → 주행 → 도착 → 홈
   ✅ 개발자 메뉴 → File 선택 → 경로요약 → "안내 시작" → GPX 재생 주행
-  ✅ 개발자 메뉴 → GPX 녹화 시작 → 실 주행 → 녹화 중지 → 파일 저장
   ✅ CarPlay 양방향 동기화
+
+GPX 녹화 검증:
+  ✅ 개발자 메뉴 → 녹화 ON → "안내 시작" (Real) → 주행 → 종료 → 파일 저장 + 녹화 OFF
+  ✅ 개발자 메뉴 → 녹화 ON → "가상 주행" → 주행 → 종료 → 파일 저장 + 녹화 OFF
+  ✅ 파일명: real_출발_강남역_xxx.gpx / simul_출발_서울역_xxx.gpx
+  ✅ 파일 리스트: 모드 라벨 + 출발→도착 + 거리/시간
+
+GPX 재생 검증:
+  ✅ 저장된 GPX 파일 → File 모드 → "안내 시작" → 엔진 정상 동작
+  ✅ 맵매칭, 스텝 전진, 음성 안내 정상
 
 시나리오별 최종 확인:
   ✅ 정상 주행 (출발~도착)

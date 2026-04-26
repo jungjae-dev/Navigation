@@ -56,6 +56,48 @@
 - **simul**: 가상 주행 (경로 위 시뮬레이션)
 - **file**: GPX 파일 재생
 - 3가지 타입 모두 동일한 GPSData를 엔진에 전달 → 엔진은 소스를 알 필요 없음
+- Location Type 선택: 개발자 메뉴에서 Real / File 전환
+- "가상 주행"은 경로 요약 화면에서 별도 버튼
+
+### 2.5 GPX 녹화 / 재생
+
+#### GPX 녹화 정책
+- **1회 자동 녹화**: 개발자 메뉴에서 녹화 ON → 다음 주행 1회를 자동 녹화 → 주행 종료 시 자동 OFF
+- **녹화 상태**: OFF → ON 대기 → 녹화 중 → OFF (자동 복귀)
+- **녹화 대상**: 실제 주행(Real GPS) + 가상 주행(Simul GPS) 모두 지원
+  - 실제 주행: LocationService.locationPublisher 구독
+  - 가상 주행: SimulGPS 출력을 LocationService.override에 피딩 → GPXRecorder가 동일하게 구독
+
+#### GPX 파일명 규칙
+```
+{모드}_{출발지}_{도착지}_{날짜시간}.gpx
+
+예:
+  real_출발_강남역_20260330_143022.gpx
+  simul_출발_서울역_20260330_150500.gpx
+
+모드: real / simul
+출발지: Place.name ?? "출발"
+도착지: Place.name ?? "도착"
+이름 내 공백/특수문자 제거
+```
+
+#### GPXRecord 모델 확장
+| 기존 필드 | 추가 필드 |
+|-----------|-----------|
+| fileName, filePath | recordingMode: real / simul |
+| duration, distance, pointCount | originName: String? (출발지명) |
+| fileSize, recordedAt | destinationName: String? (도착지명) |
+
+#### GPX 재생 (File 모드)
+- 개발자 메뉴에서 Location Type = File 선택 → GPX 파일 리스트 팝업 → 파일 선택
+- 이후 "안내 시작" 시 FileGPSProvider가 선택된 GPX 파일 재생
+- 엔진은 Real/Simul과 동일하게 동작
+
+#### GPX 파일 관리
+- 하나의 폴더: Documents/GPXRecordings/
+- 파일 리스트에서: 모드 라벨(실제/가상) + 출발지→도착지 + 거리/시간/날짜 표시
+- 스와이프: 삭제 / 공유
 
 ---
 
