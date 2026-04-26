@@ -41,7 +41,6 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive / GPX
 
     private var virtualDriveEngine: VirtualDriveEngine?
-    private var gpxSimulator: GPXSimulator?
     private var simulationCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -774,8 +773,6 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func stopGPXPlayback() {
         simulationCancellables.removeAll()
-        gpxSimulator?.stop()
-        gpxSimulator = nil
         LocationService.shared.stopLocationOverride()
         navigationMapViewController = nil
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)

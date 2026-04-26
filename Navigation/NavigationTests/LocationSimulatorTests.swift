@@ -3,7 +3,7 @@ import Combine
 import CoreLocation
 @testable import Navigation
 
-struct GPXSimulatorTests {
+struct LocationSimulatorTests {
 
     // MARK: - Helpers
 
@@ -25,7 +25,7 @@ struct GPXSimulatorTests {
     // MARK: - Tests
 
     @Test func loadLocations() {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         let locations = makeLocations()
         simulator.load(locations: locations)
 
@@ -34,7 +34,7 @@ struct GPXSimulatorTests {
     }
 
     @Test func playEmitsLocations() async {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         simulator.speedMultiplier = 100.0 // Fast playback
         simulator.load(locations: makeLocations())
 
@@ -61,7 +61,7 @@ struct GPXSimulatorTests {
     }
 
     @Test func stopResetsProgress() {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         simulator.load(locations: makeLocations())
 
         simulator.stop()
@@ -71,7 +71,7 @@ struct GPXSimulatorTests {
     }
 
     @Test func resetClearsLocations() {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         simulator.load(locations: makeLocations())
 
         simulator.reset()
@@ -80,13 +80,13 @@ struct GPXSimulatorTests {
     }
 
     @Test func playWithNoLocationsDoesNothing() {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         simulator.play()
         #expect(!simulator.isPlayingPublisher.value)
     }
 
     @Test func doublePlayIsNoOp() {
-        let simulator = GPXSimulator()
+        let simulator = LocationSimulator()
         simulator.load(locations: makeLocations())
         simulator.play()
 

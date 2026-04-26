@@ -1,20 +1,15 @@
 import CoreLocation
 import Combine
 
-/// 가상 주행 GPS Provider
-/// LocationSimulator를 사용하여 폴리라인 위를 자동 이동
-final class SimulGPSProvider: GPSProviding {
+/// GPX 파일 재생 GPS Provider
+/// LocationSimulator를 사용하여 GPX 파일의 좌표를 타임스탬프 간격으로 재생
+final class FileGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
 
     var gpsPublisher: AnyPublisher<GPSData, Never> {
         gpsSubject.eraseToAnyPublisher()
     }
-
-    // MARK: - Configuration
-
-    private static let defaultSpeedMPS: Double = 13.9   // ~50 km/h
-    private static let walkingSpeedMPS: Double = 1.4    // ~5 km/h
 
     // MARK: - Public Publishers (LocationSimulator 위임)
 
@@ -33,10 +28,14 @@ final class SimulGPSProvider: GPSProviding {
     private let gpsSubject = PassthroughSubject<GPSData, Never>()
     private let simulator = LocationSimulator()
     private var cancellables = Set<AnyCancellable>()
+    private let gpxFileURL: URL
 
     // MARK: - Init
 
-    init() {
+    /// GPX 파일 URL로 초기화
+    init(gpxFileURL: URL) {
+        self.gpxFileURL = gpxFileURL
+
         // LocationSimulator의 CLLocation → GPSData 변환
         simulator.simulatedLocationPublisher
             .sink { [weak self] location in
@@ -45,19 +44,14 @@ final class SimulGPSProvider: GPSProviding {
             .store(in: &cancellables)
     }
 
-    // MARK: - Load
-
-    /// 폴리라인 + 교통 모드로 가상 주행 데이터 생성
-    func load(polyline: [CLLocationCoordinate2D], transportMode: TransportMode = .automobile) {
-        let speed = transportMode == .walking
-            ? Self.walkingSpeedMPS
-            : Self.defaultSpeedMPS
-        simulator.load(polyline: polyline, speedMPS: speed)
-    }
-
     // MARK: - GPSProviding
 
     func start() {
+        // GPX 파일 로드 후 재생
+        guard simulator.load(gpxFileURL: gpxFileURL) else {
+            print("[FileGPSProvider] GPX 파일 로드 실패: \(gpxFileURL.lastPathComponent)")
+            return
+        }
         simulator.play()
     }
 
