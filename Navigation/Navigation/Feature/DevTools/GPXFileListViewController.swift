@@ -127,6 +127,7 @@ final class GPXFileListViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "삭제", style: .destructive) { [weak self] _ in
             self?.dataService.deleteGPXRecord(record)
+            DevToolsSettings.shared.validateSelection()
             self?.loadRecords()
         })
 

@@ -268,15 +268,16 @@ extension RoutePreviewDrawerViewController: DrawerFooterProviding {
         let padding = Theme.Drawer.Layout.contentHorizontalPadding
 
         NSLayoutConstraint.activate([
-            virtualDriveButton.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
-            virtualDriveButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
-            virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
-            virtualDriveButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
-
+            // start 버튼이 container 상하 고정 (더 큰 height 48 기준)
             startButton.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
             startButton.leadingAnchor.constraint(equalTo: virtualDriveButton.trailingAnchor, constant: Theme.Spacing.sm),
             startButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -padding),
             startButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
+
+            // virtualDrive 는 start 와 centerY 정렬 (자체 height 40 유지)
+            virtualDriveButton.centerYAnchor.constraint(equalTo: startButton.centerYAnchor),
+            virtualDriveButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
+            virtualDriveButton.widthAnchor.constraint(equalToConstant: 100),
         ])
 
         return container

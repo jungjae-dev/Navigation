@@ -17,21 +17,30 @@ final class DevToolsViewModel {
     let recordingDistance = CurrentValueSubject<Double, Never>(0)
     let gpxFileCount = CurrentValueSubject<Int, Never>(0)
     let debugOverlayEnabled = CurrentValueSubject<Bool, Never>(false)
+    let locationType = CurrentValueSubject<DevToolsSettings.LocationType, Never>(.real)
+    let selectedGPXFileName = CurrentValueSubject<String?, Never>(nil)
 
     // MARK: - Dependencies
 
     private let recorder: GPXRecorder
     private let dataService: DataService
+    private let settings: DevToolsSettings
     private let defaults = UserDefaults.standard
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
-    init(recorder: GPXRecorder = .shared, dataService: DataService = .shared) {
+    init(
+        recorder: GPXRecorder = .shared,
+        dataService: DataService = .shared,
+        settings: DevToolsSettings = .shared
+    ) {
         self.recorder = recorder
         self.dataService = dataService
+        self.settings = settings
         loadSettings()
         bindRecorder()
+        bindSettings()
     }
 
     // MARK: - Settings
@@ -71,6 +80,22 @@ final class DevToolsViewModel {
             .store(in: &cancellables)
     }
 
+    private func bindSettings() {
+        settings.locationType
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] type in
+                self?.locationType.send(type)
+            }
+            .store(in: &cancellables)
+
+        settings.selectedGPXFileName
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] name in
+                self?.selectedGPXFileName.send(name)
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Actions
 
     /// 1회 자동 녹화 토글 (idle ↔ armed)
@@ -92,6 +117,14 @@ final class DevToolsViewModel {
     func setDebugOverlayEnabled(_ enabled: Bool) {
         debugOverlayEnabled.send(enabled)
         defaults.set(enabled, forKey: Keys.debugOverlayEnabled)
+    }
+
+    func setLocationType(_ type: DevToolsSettings.LocationType) {
+        settings.setLocationType(type)
+    }
+
+    func setSelectedGPXFileName(_ name: String?) {
+        settings.setSelectedGPXFileName(name)
     }
 
     func refreshFileCount() {

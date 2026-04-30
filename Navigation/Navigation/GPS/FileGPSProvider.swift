@@ -22,6 +22,10 @@ final class FileGPSProvider: GPSProviding {
     var speedMultiplierPublisher: CurrentValueSubject<Double, Never> {
         simulator.speedMultiplierPublisher
     }
+    /// 시뮬레이션 위치 발행 (LocationService.override 등에 연결 가능)
+    var simulatedLocationPublisher: PassthroughSubject<CLLocation, Never> {
+        simulator.simulatedLocationPublisher
+    }
 
     // MARK: - Private
 
