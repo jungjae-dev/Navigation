@@ -73,19 +73,20 @@ final class DevToolsViewModel {
 
     // MARK: - Actions
 
+    /// 1회 자동 녹화 토글 (idle ↔ armed)
+    /// 주행 시작/종료 시 AppCoordinator가 자동으로 녹화를 시작/종료함
     func toggleRecording() {
-        switch recorder.statePublisher.value {
+        let state = recorder.statePublisher.value
+        print("[GPX-DEBUG] toggleRecording() — current=\(state)")
+        switch state {
         case .idle:
-            recorder.startRecording()
-        case .recording:
+            recorder.arm()                  // 다음 주행 시 자동 녹화
+        case .armed:
+            recorder.disarm()               // 자동 녹화 OFF
+        case .recording, .paused:
+            // 주행 중이면 사용자가 직접 정지할 수 있음 (옵션)
             stopAndSave()
-        case .paused:
-            recorder.resumeRecording()
         }
-    }
-
-    func pauseRecording() {
-        recorder.pauseRecording()
     }
 
     func setDebugOverlayEnabled(_ enabled: Bool) {
@@ -112,7 +113,10 @@ final class DevToolsViewModel {
             duration: result.duration,
             distance: result.distance,
             pointCount: result.pointCount,
-            fileSize: fileSize
+            fileSize: fileSize,
+            recordingMode: result.recordingMode.rawValue,
+            originName: result.originName,
+            destinationName: result.destinationName
         )
 
         refreshFileCount()

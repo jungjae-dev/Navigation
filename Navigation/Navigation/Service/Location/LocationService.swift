@@ -111,6 +111,7 @@ final class LocationService: NSObject {
 
     /// Start injecting virtual locations. Real GPS updates are suppressed.
     func startLocationOverride(from source: PassthroughSubject<CLLocation, Never>) {
+        print("[GPX-DEBUG] LocationService.startLocationOverride()")
         isOverrideActive = true
         overrideCancellable = source
             .sink { [weak self] location in
@@ -120,6 +121,7 @@ final class LocationService: NSObject {
 
     /// Stop injecting virtual locations. Resume real GPS.
     func stopLocationOverride() {
+        print("[GPX-DEBUG] LocationService.stopLocationOverride()")
         overrideCancellable?.cancel()
         overrideCancellable = nil
         isOverrideActive = false

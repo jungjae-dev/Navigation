@@ -69,7 +69,13 @@ final class DevToolsViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
         viewModel.refreshFileCount()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
     // MARK: - Setup
@@ -141,6 +147,16 @@ final class DevToolsViewController: UIViewController {
         viewModel.setDebugOverlayEnabled(sender.isOn)
     }
 
+    @objc private func armSwitchChanged(_ sender: UISwitch) {
+        let state = viewModel.recordingState.value
+        // idle ↔ armed 만 토글 (recording/paused 상태에서는 호출되지 않음 — 셀이 스위치 미표시)
+        if sender.isOn && state == .idle {
+            viewModel.toggleRecording()
+        } else if !sender.isOn && state == .armed {
+            viewModel.toggleRecording()
+        }
+    }
+
     // MARK: - Helpers
 
     private func formattedDuration(_ interval: TimeInterval) -> String {
@@ -205,29 +221,37 @@ extension DevToolsViewController: UITableViewDataSource {
             switch row {
             case .toggle:
                 let state = viewModel.recordingState.value
+                config.text = "1회 자동 녹화"
+                config.image = UIImage(systemName: "record.circle")
+                config.imageProperties.tintColor = Theme.Colors.destructive
+
                 switch state {
-                case .idle:
-                    config.text = "녹화 시작"
-                    config.image = UIImage(systemName: "record.circle")
-                    config.imageProperties.tintColor = Theme.Colors.destructive
-                case .recording:
+                case .idle, .armed:
+                    let toggle = UISwitch()
+                    toggle.isOn = (state == .armed)
+                    toggle.onTintColor = Theme.Colors.primary
+                    toggle.addTarget(self, action: #selector(armSwitchChanged), for: .valueChanged)
+                    cell.accessoryView = toggle
+                    cell.selectionStyle = .none
+                case .recording, .paused:
                     config.text = "녹화 중지"
                     config.image = UIImage(systemName: "stop.circle.fill")
-                    config.imageProperties.tintColor = Theme.Colors.destructive
-                case .paused:
-                    config.text = "녹화 재개"
-                    config.image = UIImage(systemName: "play.circle.fill")
-                    config.imageProperties.tintColor = .systemOrange
                 }
 
             case .status:
                 let state = viewModel.recordingState.value
-                if state == .idle {
+                switch state {
+                case .idle:
                     config.text = "대기 중"
-                    config.secondaryText = "GPS 위치를 녹화하여 GPX 파일로 저장합니다"
+                    config.secondaryText = "다음 주행 시 자동으로 녹화됩니다 (1회)"
                     config.image = UIImage(systemName: "info.circle")
                     config.imageProperties.tintColor = Theme.Colors.secondaryLabel
-                } else {
+                case .armed:
+                    config.text = "녹화 대기 중"
+                    config.secondaryText = "다음 주행 시작 시 자동 녹화"
+                    config.image = UIImage(systemName: "circle.dotted")
+                    config.imageProperties.tintColor = .systemOrange
+                case .recording, .paused:
                     let duration = formattedDuration(viewModel.recordingDuration.value)
                     let points = viewModel.recordingPointCount.value
                     let distance = formattedDistance(viewModel.recordingDistance.value)
@@ -296,8 +320,12 @@ extension DevToolsViewController: UITableViewDelegate {
         switch sec {
         case .recording:
             guard let row = RecordingRow(rawValue: indexPath.row) else { return }
+            // idle/armed: 스위치로만 조작. recording/paused에서만 셀 탭으로 정지
             if row == .toggle {
-                viewModel.toggleRecording()
+                let state = viewModel.recordingState.value
+                if state == .recording || state == .paused {
+                    viewModel.toggleRecording()
+                }
             }
 
         case .playback:

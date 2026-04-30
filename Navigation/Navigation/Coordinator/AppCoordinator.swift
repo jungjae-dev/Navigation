@@ -710,9 +710,18 @@ final class AppCoordinator: NSObject, Coordinator {
         let resolvedDestination = destination
             ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
-        // GPS Provider 생성 (SimulGPS로 테스트, 추후 RealGPS로 교체)
+        // GPS Provider 생성 (SimulGPS로 테스트, 12-3에서 Real/File 분기 추가 예정)
         let simulProvider = SimulGPSProvider()
         simulProvider.load(polyline: route.polylineCoordinates, transportMode: transportMode)
+
+        // GPX 녹화 자동 시작 (armed 상태면)
+        // 가상 주행이므로 mode=.simul, SimulGPS 출력을 LocationService.override에 연결
+        startGPXRecordingIfArmed(
+            mode: .simul,
+            originName: nil,
+            destinationName: resolvedDestination.name,
+            simulSourceProvider: simulProvider
+        )
 
         // 엔진 시작
         sessionManager.startNavigation(
@@ -742,10 +751,76 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func dismissNavigation() {
         VoiceTTSPlayer.shared.stop()
+
+        // GPX 녹화 자동 종료 (recording 상태면)
+        finishGPXRecordingIfRecording()
+
         sessionManager.stopNavigation()
         navigationMapViewController = nil
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
+    }
+
+    // MARK: - GPX Recording (1회 자동 녹화)
+
+    /// armed 상태면 자동으로 녹화 시작
+    /// - simulSourceProvider: 가상 주행 시 SimulGPS 출력을 LocationService에 override
+    private func startGPXRecordingIfArmed(
+        mode: GPXRecorder.RecordingMode,
+        originName: String?,
+        destinationName: String?,
+        simulSourceProvider: SimulGPSProvider? = nil
+    ) {
+        let recorder = GPXRecorder.shared
+        print("[GPX-DEBUG] startGPXRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
+        guard recorder.isArmed else { return }
+
+        // 가상 주행이면 LocationService.override 활성화 (GPXRecorder가 가상 GPS도 받게 함)
+        if mode == .simul, let provider = simulSourceProvider {
+            print("[GPX-DEBUG] startLocationOverride for simul")
+            LocationService.shared.startLocationOverride(from: provider.simulatedLocationPublisher)
+        }
+
+        recorder.startRecording(
+            mode: mode,
+            originName: originName,
+            destinationName: destinationName
+        )
+    }
+
+    /// 녹화 중이면 종료 + 파일 저장 + DataService 기록
+    private func finishGPXRecordingIfRecording() {
+        let recorder = GPXRecorder.shared
+        print("[GPX-DEBUG] finishGPXRecordingIfRecording() — state=\(recorder.statePublisher.value)")
+        guard recorder.statePublisher.value == .recording else { return }
+
+        let result = recorder.stopRecording()
+
+        // 가상 주행 override 해제
+        if LocationService.shared.isOverrideActive {
+            print("[GPX-DEBUG] stopLocationOverride")
+            LocationService.shared.stopLocationOverride()
+        }
+
+        // DataService 저장
+        if let result {
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: result.fileURL.path)[.size] as? Int64) ?? 0
+            let relativePath = "GPXRecordings/\(result.fileURL.lastPathComponent)"
+            DataService.shared.saveGPXRecord(
+                fileName: result.fileURL.lastPathComponent,
+                filePath: relativePath,
+                duration: result.duration,
+                distance: result.distance,
+                pointCount: result.pointCount,
+                fileSize: fileSize,
+                recordingMode: result.recordingMode.rawValue,
+                originName: result.originName,
+                destinationName: result.destinationName
+            )
+            print("[GPX-DEBUG] DataService.saveGPXRecord OK — \(result.fileURL.lastPathComponent) points=\(result.pointCount) dist=\(Int(result.distance))m")
+        } else {
+            print("[GPX-DEBUG] DataService.saveGPXRecord skipped — result=nil")
+        }
     }
 
     // MARK: - Virtual Drive Flow

@@ -13,13 +13,23 @@ final class GPXRecord {
     var recordedAt: Date
     var fileSize: Int64
 
+    /// 녹화 모드: "real" (실제 GPS) / "simul" (가상 주행)
+    var recordingMode: String
+    /// 출발지명
+    var originName: String?
+    /// 도착지명
+    var destinationName: String?
+
     init(
         fileName: String,
         filePath: String,
         duration: TimeInterval,
         distance: Double,
         pointCount: Int,
-        fileSize: Int64 = 0
+        fileSize: Int64 = 0,
+        recordingMode: String = "real",
+        originName: String? = nil,
+        destinationName: String? = nil
     ) {
         self.id = UUID()
         self.fileName = fileName
@@ -29,6 +39,9 @@ final class GPXRecord {
         self.pointCount = pointCount
         self.recordedAt = Date()
         self.fileSize = fileSize
+        self.recordingMode = recordingMode
+        self.originName = originName
+        self.destinationName = destinationName
     }
 
     /// Full file URL resolved from Documents directory
