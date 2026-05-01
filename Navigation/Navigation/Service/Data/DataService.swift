@@ -190,7 +190,10 @@ final class DataService {
         duration: TimeInterval,
         distance: Double,
         pointCount: Int,
-        fileSize: Int64
+        fileSize: Int64,
+        recordingMode: String = "real",
+        originName: String? = nil,
+        destinationName: String? = nil
     ) {
         guard let context = modelContext else { return }
 
@@ -200,7 +203,10 @@ final class DataService {
             duration: duration,
             distance: distance,
             pointCount: pointCount,
-            fileSize: fileSize
+            fileSize: fileSize,
+            recordingMode: recordingMode,
+            originName: originName,
+            destinationName: destinationName
         )
 
         context.insert(record)

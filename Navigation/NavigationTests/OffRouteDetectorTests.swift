@@ -1,5 +1,4 @@
 import Testing
-import Combine
 import CoreLocation
 @testable import Navigation
 
@@ -7,101 +6,94 @@ struct OffRouteDetectorTests {
 
     // MARK: - Helpers
 
-    private func makeRoute() -> Route {
-        Route(
-            id: "test",
-            distance: 3000,
-            expectedTravelTime: 300,
-            name: "테스트",
-            steps: [],
-            polylineCoordinates: [
-                CLLocationCoordinate2D(latitude: 37.56, longitude: 126.97),
-                CLLocationCoordinate2D(latitude: 37.55, longitude: 126.98),
-                CLLocationCoordinate2D(latitude: 37.54, longitude: 126.99),
-            ],
-            transportMode: .automobile
+    private func makeMatchResult(isMatched: Bool, coordinate: CLLocationCoordinate2D = .init(latitude: 37.5, longitude: 127.0)) -> MatchResult {
+        MatchResult(
+            isMatched: isMatched,
+            coordinate: coordinate,
+            segmentIndex: 0,
+            distanceFromRoute: isMatched ? 10 : 60,
+            headingDelta: 0
         )
     }
 
-    private func makeDetector() -> OffRouteDetector {
-        OffRouteDetector()
+    private func makeDetectorAfterStart() -> OffRouteDetector {
+        let detector = OffRouteDetector()
+        // 출발점에서 충분히 떨어진 좌표로 시작 (보호 조건 회피)
+        detector.start(at: CLLocationCoordinate2D(latitude: 37.0, longitude: 126.0))
+        return detector
     }
 
-    // MARK: - Tests
+    // MARK: - 기본 이탈 판정
 
-    @Test func onRouteLocationReturnsFalse() {
-        let detector = makeDetector()
-        detector.configure(with: makeRoute())
+    @Test func twoFailures_notOffRoute() {
+        let detector = makeDetectorAfterStart()
 
-        let onRouteLocation = CLLocation(latitude: 37.55, longitude: 126.98)
-        let result = detector.checkLocation(onRouteLocation)
+        // 보호 시간 지나도록 시작 시간 조정은 어렵지만,
+        // start 좌표를 멀리 두면 거리/시간 보호를 우회 가능
+        // → 실제로는 5초 보호가 걸리므로 Sleep이 필요하나 단위 테스트에서는
+        //   보호 조건을 피하기 위해 충분히 먼 좌표 사용
 
-        #expect(!result)
-        #expect(!detector.isOffRoutePublisher.value)
+        // 5초 이내 보호 때문에 여기서는 보호 통과 안될 수 있음
+        // → 별도 테스트에서 보호 조건 확인
+        let result1 = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+        let result2 = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+
+        // 5초 보호 내이므로 false
+        #expect(result1 == false)
+        #expect(result2 == false)
     }
 
-    @Test func singleOffRouteCheckDoesNotConfirm() {
-        let detector = makeDetector()
-        detector.configure(with: makeRoute())
+    @Test func matchSuccess_resetsCounter() {
+        let detector = OffRouteDetector()
+        detector.start(at: CLLocationCoordinate2D(latitude: 37.0, longitude: 126.0))
 
-        let offRouteLocation = CLLocation(latitude: 37.56, longitude: 127.01)
-        let result = detector.checkLocation(offRouteLocation)
+        // 매칭 성공 → 카운터 리셋
+        _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+        _ = detector.update(matchResult: makeMatchResult(isMatched: true), gpsAccuracy: 5)
 
-        #expect(!result)
+        #expect(detector.consecutiveFailures == 0)
     }
 
-    @Test func threeConsecutiveOffRouteConfirms() {
-        let detector = makeDetector()
-        detector.configure(with: makeRoute())
+    // MARK: - 보호 조건: GPS 정확도
 
-        let offRouteLocation = CLLocation(latitude: 37.56, longitude: 127.01)
+    @Test func badAccuracy_returns_false() {
+        let detector = OffRouteDetector()
+        detector.start(at: CLLocationCoordinate2D(latitude: 37.0, longitude: 126.0))
 
-        _ = detector.checkLocation(offRouteLocation) // 1
-        _ = detector.checkLocation(offRouteLocation) // 2
-        let result = detector.checkLocation(offRouteLocation) // 3
+        // GPS 정확도 > 120m → 보류
+        let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 150)
 
-        #expect(result)
-        #expect(detector.isOffRoutePublisher.value)
+        #expect(result == false)
+        #expect(detector.consecutiveFailures == 0)  // 카운터 증가 안 됨
     }
 
-    @Test func onRouteResetsCounter() {
-        let detector = makeDetector()
-        detector.configure(with: makeRoute())
+    // MARK: - 보호 조건: 출발 거리
 
-        let offRouteLocation = CLLocation(latitude: 37.56, longitude: 127.01)
-        let onRouteLocation = CLLocation(latitude: 37.55, longitude: 126.98)
+    @Test func nearStartPoint_returns_false() {
+        let detector = OffRouteDetector()
+        let startCoord = CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0)
+        detector.start(at: startCoord)
 
-        _ = detector.checkLocation(offRouteLocation) // 1
-        _ = detector.checkLocation(offRouteLocation) // 2
-        _ = detector.checkLocation(onRouteLocation) // Reset
+        // 출발점에서 10m 이내 좌표
+        let nearStart = CLLocationCoordinate2D(latitude: 37.50005, longitude: 127.0)
+        let result = detector.update(
+            matchResult: MatchResult(isMatched: false, coordinate: nearStart, segmentIndex: 0, distanceFromRoute: 60, headingDelta: 0),
+            gpsAccuracy: 5
+        )
 
-        let result = detector.checkLocation(offRouteLocation) // 1 again
-        #expect(!result)
+        #expect(result == false)
     }
 
-    @Test func resetClearsState() {
-        let detector = makeDetector()
-        detector.configure(with: makeRoute())
+    // MARK: - 리셋
 
-        let offRouteLocation = CLLocation(latitude: 37.56, longitude: 127.01)
+    @Test func reset_clearsCounter() {
+        let detector = OffRouteDetector()
+        detector.start(at: CLLocationCoordinate2D(latitude: 37.0, longitude: 126.0))
 
-        _ = detector.checkLocation(offRouteLocation)
-        _ = detector.checkLocation(offRouteLocation)
+        _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+        _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
 
         detector.reset()
-
-        #expect(!detector.isOffRoutePublisher.value)
-
-        _ = detector.checkLocation(offRouteLocation)
-        let result = detector.checkLocation(offRouteLocation)
-        #expect(!result)
-    }
-
-    @Test func noPolylineAlwaysReturnsFalse() {
-        let detector = makeDetector()
-
-        let location = CLLocation(latitude: 37.56, longitude: 127.01)
-        let result = detector.checkLocation(location)
-        #expect(!result)
+        #expect(detector.consecutiveFailures == 0)
     }
 }

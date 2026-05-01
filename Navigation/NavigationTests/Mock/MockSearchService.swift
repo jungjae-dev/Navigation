@@ -13,6 +13,7 @@ final class MockSearchService: SearchProviding {
     var shouldThrow: LBSError?
 
     var currentRegion: MKCoordinateRegion?
+    var supportedCategories: [SearchCategory] { [] }
 
     func updateRegion(_ region: MKCoordinateRegion) { currentRegion = region }
 
@@ -23,7 +24,7 @@ final class MockSearchService: SearchProviding {
         return mockSearchResults
     }
 
-    func search(query: String, region: MKCoordinateRegion?) async throws -> [Place] {
+    func search(query: String, region: MKCoordinateRegion?, regionMode: RegionSearchMode) async throws -> [Place] {
         if let error = shouldThrow { throw error }
         return mockSearchResults
     }

@@ -7,9 +7,8 @@ import CoreLocation
 struct NavigationSession {
     let route: Route
     let destination: Place
-    let guidanceEngine: GuidanceEngine
-    let voiceService: VoiceGuidanceService
-    let offRouteDetector: OffRouteDetector
+    let engine: NavigationEngine
+    let gpsProvider: GPSProviding
 }
 
 // MARK: - Navigation Command
@@ -32,73 +31,110 @@ final class NavigationSessionManager {
 
     // MARK: - Publishers
 
-    let activeSessionPublisher = CurrentValueSubject<NavigationSession?, Never>(nil)
+    let guidePublisher = CurrentValueSubject<NavigationGuide?, Never>(nil)
     let navigationCommandPublisher = PassthroughSubject<NavigationCommand, Never>()
+
+    // MARK: - Session
+
+    private(set) var activeSession: NavigationSession?
+
+    var isNavigating: Bool {
+        activeSession != nil
+    }
 
     // MARK: - Dependencies
 
     private let locationService = LocationService.shared
-    private let routeService: RouteProviding = LBSServiceProvider.shared.route
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
     private init() {}
 
-    // MARK: - Public
-
-    var isNavigating: Bool {
-        activeSessionPublisher.value != nil
-    }
+    // MARK: - Start Navigation
 
     func startNavigation(
         route: Route,
         destination: Place,
+        transportMode: TransportMode,
+        gpsProvider: GPSProviding,
         source: NavigationSource
     ) {
-        // Stop existing session if any
+        // 기존 세션 정리
         if isNavigating {
             stopNavigation()
         }
 
-        // Create shared services
-        let voiceService = VoiceGuidanceService()
-        let offRouteDetector = OffRouteDetector()
-
-        let guidanceEngine = GuidanceEngine(
-            locationService: locationService,
-            routeService: routeService,
-            voiceService: voiceService,
-            offRouteDetector: offRouteDetector
+        // 엔진 생성
+        let engine = NavigationEngine(
+            route: route,
+            transportMode: transportMode,
+            routeService: LBSServiceProvider.shared.route
         )
 
+        // GPS → 엔진 연결
+        gpsProvider.gpsPublisher
+            .sink { [weak engine] gps in
+                engine?.tick(gps: gps)
+            }
+            .store(in: &cancellables)
+
+        // 엔진 출력 → 외부 전달
+        engine.guidePublisher
+            .sink { [weak self] guide in
+                self?.guidePublisher.send(guide)
+            }
+            .store(in: &cancellables)
+
+        // 세션 저장
         let session = NavigationSession(
             route: route,
             destination: destination,
-            guidanceEngine: guidanceEngine,
-            voiceService: voiceService,
-            offRouteDetector: offRouteDetector
+            engine: engine,
+            gpsProvider: gpsProvider
         )
+        activeSession = session
 
-        // Configure location for navigation
-        locationService.configureForNavigation()
+        // 위치 서비스 네비게이션 모드
+        if transportMode == .walking {
+            locationService.configureForWalking()
+        } else {
+            locationService.configureForNavigation()
+        }
 
-        // Start guidance
-        guidanceEngine.startNavigation(with: route)
+        // GPS 시작
+        gpsProvider.start()
 
-        // Publish
-        activeSessionPublisher.send(session)
+        // 출발 좌표 설정 (OffRouteDetector 보호 조건용)
+        if let currentLocation = locationService.bestAvailableLocation {
+            engine.setStartCoordinate(currentLocation.coordinate)
+        }
+
+        // 명령 발행
         navigationCommandPublisher.send(.started(source: source))
     }
 
-    func stopNavigation() {
-        guard let session = activeSessionPublisher.value else { return }
+    // MARK: - Stop Navigation
 
-        session.guidanceEngine.stopNavigation()
-        session.voiceService.stop()
-        session.offRouteDetector.reset()
+    func stopNavigation() {
+        guard let session = activeSession else { return }
+
+        session.engine.stop()
+        session.gpsProvider.stop()
+
+        cancellables.removeAll()
         locationService.configureForStandard()
 
-        activeSessionPublisher.send(nil)
+        activeSession = nil
+        guidePublisher.send(nil)
         navigationCommandPublisher.send(.stopped)
+    }
+
+    // MARK: - Reroute
+
+    func requestReroute() {
+        guard let session = activeSession,
+              let location = locationService.bestAvailableLocation else { return }
+        session.engine.requestReroute(from: location.coordinate)
     }
 }

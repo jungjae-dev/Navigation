@@ -215,10 +215,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         sessionManager.startNavigation(
             route: route,
             destination: destination,
+            transportMode: route.transportMode,
+            gpsProvider: RealGPSProvider(),
             source: .carPlay
         )
 
-        guard let session = sessionManager.activeSessionPublisher.value,
+        guard let session = sessionManager.activeSession,
               let mapTemplate else { return }
 
         // Create CPTrip for the navigation session
@@ -234,12 +236,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         navigationHandler?.startNavigation(
             trip: trip,
             mapTemplate: mapTemplate,
-            guidanceEngine: session.guidanceEngine
+            guidePublisher: sessionManager.guidePublisher
         )
     }
 
     private func handlePhoneNavigationStarted() {
-        guard let session = sessionManager.activeSessionPublisher.value,
+        guard let session = sessionManager.activeSession,
               let mapTemplate else { return }
 
         // Pop any search templates
@@ -260,7 +262,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         navigationHandler?.startNavigation(
             trip: trip,
             mapTemplate: mapTemplate,
-            guidanceEngine: session.guidanceEngine
+            guidePublisher: sessionManager.guidePublisher
         )
     }
 

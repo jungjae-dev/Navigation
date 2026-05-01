@@ -6,19 +6,20 @@ final class DevToolsViewController: UIViewController {
     // MARK: - Section & Row
 
     private enum Section: Int, CaseIterable {
-        case recording = 0
-        case playback = 1
+        case gps = 0
+        case recording = 1
         case files = 2
         case debug = 3
+    }
+
+    private enum GPSRow: Int, CaseIterable {
+        case locationType = 0
+        case selectedFile = 1
     }
 
     private enum RecordingRow: Int, CaseIterable {
         case toggle = 0
         case status = 1
-    }
-
-    private enum PlaybackRow: Int, CaseIterable {
-        case selectFile = 0
     }
 
     private enum FilesRow: Int, CaseIterable {
@@ -45,7 +46,7 @@ final class DevToolsViewController: UIViewController {
 
     var onDismiss: (() -> Void)?
     var onShowFileList: (() -> Void)?
-    var onSelectFileForPlayback: (() -> Void)?
+    var onSelectGPXFile: (() -> Void)?
 
     // MARK: - Init
 
@@ -69,7 +70,14 @@ final class DevToolsViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+        DevToolsSettings.shared.validateSelection()
         viewModel.refreshFileCount()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
     // MARK: - Setup
@@ -129,6 +137,16 @@ final class DevToolsViewController: UIViewController {
                 self?.tableView.reloadSections(IndexSet(integer: Section.files.rawValue), with: .none)
             }
             .store(in: &cancellables)
+
+        Publishers.CombineLatest(
+            viewModel.locationType,
+            viewModel.selectedGPXFileName
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _, _ in
+            self?.tableView.reloadSections(IndexSet(integer: Section.gps.rawValue), with: .none)
+        }
+        .store(in: &cancellables)
     }
 
     // MARK: - Actions
@@ -139,6 +157,32 @@ final class DevToolsViewController: UIViewController {
 
     @objc private func debugOverlaySwitchChanged(_ sender: UISwitch) {
         viewModel.setDebugOverlayEnabled(sender.isOn)
+    }
+
+    @objc private func armSwitchChanged(_ sender: UISwitch) {
+        let state = viewModel.recordingState.value
+        // idle ↔ armed 만 토글 (recording/paused 상태에서는 호출되지 않음 — 셀이 스위치 미표시)
+        if sender.isOn && state == .idle {
+            viewModel.toggleRecording()
+        } else if !sender.isOn && state == .armed {
+            viewModel.toggleRecording()
+        }
+    }
+
+    @objc private func locationTypeSegmentChanged(_ sender: UISegmentedControl) {
+        if sender.selectedSegmentIndex == 0 {
+            viewModel.setLocationType(.real)
+            return
+        }
+        // File 선택 — 유효한 파일이 이미 있으면 그대로 적용
+        if DevToolsSettings.shared.selectedGPXFileURL != nil {
+            viewModel.setLocationType(.file)
+            return
+        }
+        // 파일 없음 — 세그먼트는 Real로 즉시 되돌리고 picker 진입
+        // 사용자가 picker에서 파일을 선택하면 그때 .file로 전환됨 (AppCoordinator.onSelectFile)
+        sender.selectedSegmentIndex = 0
+        onSelectGPXFile?()
     }
 
     // MARK: - Helpers
@@ -168,8 +212,9 @@ extension DevToolsViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let sec = Section(rawValue: section) else { return 0 }
         switch sec {
+        case .gps:
+            return GPSRow.allCases.count
         case .recording: return RecordingRow.allCases.count
-        case .playback: return PlaybackRow.allCases.count
         case .files: return FilesRow.allCases.count
         case .debug: return DebugRow.allCases.count
         }
@@ -178,8 +223,8 @@ extension DevToolsViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard let sec = Section(rawValue: section) else { return nil }
         switch sec {
+        case .gps: return "GPS 소스"
         case .recording: return "GPX 녹화"
-        case .playback: return "GPX 재생"
         case .files: return "파일 관리"
         case .debug: return "디버그"
         }
@@ -200,34 +245,69 @@ extension DevToolsViewController: UITableViewDataSource {
         guard let sec = Section(rawValue: indexPath.section) else { return cell }
 
         switch sec {
+        case .gps:
+            guard let row = GPSRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .locationType:
+                config.text = "Location Type"
+                config.image = UIImage(systemName: "location.circle")
+                config.imageProperties.tintColor = Theme.Colors.primary
+
+                let segmented = UISegmentedControl(items: ["Real", "File"])
+                segmented.selectedSegmentIndex = viewModel.locationType.value == .real ? 0 : 1
+                segmented.addTarget(self, action: #selector(locationTypeSegmentChanged), for: .valueChanged)
+                cell.accessoryView = segmented
+                cell.selectionStyle = .none
+
+            case .selectedFile:
+                config.text = "선택된 파일"
+                config.image = UIImage(systemName: "doc.text")
+                let isFileMode = viewModel.locationType.value == .file
+                config.imageProperties.tintColor = isFileMode ? .systemOrange : Theme.Colors.secondaryLabel
+                config.secondaryText = isFileMode
+                    ? (viewModel.selectedGPXFileName.value ?? "(파일 선택 필요)")
+                    : "(File 모드에서만 사용)"
+                config.textProperties.color = isFileMode ? Theme.Table.cellColor : Theme.Colors.secondaryLabel
+                cell.accessoryType = isFileMode ? .disclosureIndicator : .none
+                cell.selectionStyle = isFileMode ? .default : .none
+            }
+
         case .recording:
             guard let row = RecordingRow(rawValue: indexPath.row) else { return cell }
             switch row {
             case .toggle:
                 let state = viewModel.recordingState.value
+                config.text = "1회 자동 녹화"
+                config.image = UIImage(systemName: "record.circle")
+                config.imageProperties.tintColor = Theme.Colors.destructive
+
                 switch state {
-                case .idle:
-                    config.text = "녹화 시작"
-                    config.image = UIImage(systemName: "record.circle")
-                    config.imageProperties.tintColor = Theme.Colors.destructive
-                case .recording:
+                case .idle, .armed:
+                    let toggle = UISwitch()
+                    toggle.isOn = (state == .armed)
+                    toggle.onTintColor = Theme.Colors.primary
+                    toggle.addTarget(self, action: #selector(armSwitchChanged), for: .valueChanged)
+                    cell.accessoryView = toggle
+                    cell.selectionStyle = .none
+                case .recording, .paused:
                     config.text = "녹화 중지"
                     config.image = UIImage(systemName: "stop.circle.fill")
-                    config.imageProperties.tintColor = Theme.Colors.destructive
-                case .paused:
-                    config.text = "녹화 재개"
-                    config.image = UIImage(systemName: "play.circle.fill")
-                    config.imageProperties.tintColor = .systemOrange
                 }
 
             case .status:
                 let state = viewModel.recordingState.value
-                if state == .idle {
+                switch state {
+                case .idle:
                     config.text = "대기 중"
-                    config.secondaryText = "GPS 위치를 녹화하여 GPX 파일로 저장합니다"
+                    config.secondaryText = "다음 주행 시 자동으로 녹화됩니다 (1회)"
                     config.image = UIImage(systemName: "info.circle")
                     config.imageProperties.tintColor = Theme.Colors.secondaryLabel
-                } else {
+                case .armed:
+                    config.text = "녹화 대기 중"
+                    config.secondaryText = "다음 주행 시작 시 자동 녹화"
+                    config.image = UIImage(systemName: "circle.dotted")
+                    config.imageProperties.tintColor = .systemOrange
+                case .recording, .paused:
                     let duration = formattedDuration(viewModel.recordingDuration.value)
                     let points = viewModel.recordingPointCount.value
                     let distance = formattedDistance(viewModel.recordingDistance.value)
@@ -237,17 +317,6 @@ extension DevToolsViewController: UITableViewDataSource {
                     config.imageProperties.tintColor = Theme.Colors.success
                 }
                 cell.selectionStyle = .none
-            }
-
-        case .playback:
-            guard let row = PlaybackRow(rawValue: indexPath.row) else { return cell }
-            switch row {
-            case .selectFile:
-                config.text = "GPX 파일 재생"
-                config.secondaryText = "녹화된 파일을 선택하여 재생합니다"
-                config.image = UIImage(systemName: "play.circle")
-                config.imageProperties.tintColor = Theme.Colors.primary
-                cell.accessoryType = .disclosureIndicator
             }
 
         case .files:
@@ -294,16 +363,20 @@ extension DevToolsViewController: UITableViewDelegate {
         guard let sec = Section(rawValue: indexPath.section) else { return }
 
         switch sec {
-        case .recording:
-            guard let row = RecordingRow(rawValue: indexPath.row) else { return }
-            if row == .toggle {
-                viewModel.toggleRecording()
+        case .gps:
+            guard let row = GPSRow(rawValue: indexPath.row) else { return }
+            if row == .selectedFile, viewModel.locationType.value == .file {
+                onSelectGPXFile?()
             }
 
-        case .playback:
-            guard let row = PlaybackRow(rawValue: indexPath.row) else { return }
-            if row == .selectFile {
-                onSelectFileForPlayback?()
+        case .recording:
+            guard let row = RecordingRow(rawValue: indexPath.row) else { return }
+            // idle/armed: 스위치로만 조작. recording/paused에서만 셀 탭으로 정지
+            if row == .toggle {
+                let state = viewModel.recordingState.value
+                if state == .recording || state == .paused {
+                    viewModel.toggleRecording()
+                }
             }
 
         case .files:

@@ -32,12 +32,7 @@ final class AppCoordinator: NSObject, Coordinator {
         homeViewController.drawerManager
     }
 
-    // MARK: - iPhone-only Navigation Services
-
-    private var navigationViewController: NavigationViewController?
-    private var mapInterpolator: MapInterpolator?
-    private var mapCamera: MapCamera?
-    private var turnPointPopupService: TurnPointPopupService?
+    // MARK: - iPhone-only Navigation Services (stub — 새 엔진 구현 시 교체 예정)
 
     // MARK: - Navigation Map (ephemeral, created per session)
 
@@ -46,7 +41,6 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Virtual Drive / GPX
 
     private var virtualDriveEngine: VirtualDriveEngine?
-    private var gpxSimulator: GPXSimulator?
     private var simulationCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -56,6 +50,9 @@ final class AppCoordinator: NSObject, Coordinator {
         self.locationService = .shared
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
+
+        // "File 모드인데 파일 없음" 모순 상태 정리 (앱 재시작 시점 stale UserDefaults 대응)
+        DevToolsSettings.shared.validateSelection()
     }
 
     // MARK: - Start
@@ -319,69 +316,23 @@ final class AppCoordinator: NSObject, Coordinator {
                     }
                 case .stopped:
                     // Navigation stopped (from either side)
-                    if self?.navigationViewController != nil {
-                        self?.cleanUpNavigationUI()
-                    }
+                    self?.cleanUpNavigationUI()
                 }
             }
             .store(in: &cancellables)
     }
 
     private func handleCarPlayNavigationStarted() {
-        guard let session = sessionManager.activeSessionPublisher.value else { return }
+        guard sessionManager.activeSession != nil else { return }
 
-        // If already showing navigation, skip
-        guard navigationViewController == nil else { return }
-
-        // Dismiss all drawers (home, search, POI, route preview)
-        dismissAllDrawers { [weak self] in
-            self?.presentNavigationFromSession(session)
-        }
+        // TODO: 주행 중 여부 체크는 Step 8에서 NavigationVC 연결 시 교체
+        // 현재는 CarPlay에서 시작해도 iPhone에 주행 화면을 표시하지 않음 (stub)
+        print("[TODO] handleCarPlayNavigationStarted - Step 8에서 구현 예정")
     }
 
     private func presentNavigationFromSession(_ session: NavigationSession) {
-        let camera = MapCamera()
-        let interpolator = MapInterpolator(mapCamera: camera)
-        let popup = TurnPointPopupService(
-            guidanceEngine: session.guidanceEngine,
-            locationService: locationService
-        )
-
-        self.mapCamera = camera
-        self.mapInterpolator = interpolator
-        self.turnPointPopupService = popup
-
-        // Create a fresh map for navigation (home map stays untouched)
-        let navMapVC = createNavigationMapVC()
-        self.navigationMapViewController = navMapVC
-        navMapVC.configureForNavigation()
-        navMapVC.showSingleRoute(session.route)
-
-        // Create NavigationViewModel with shared GuidanceEngine
-        let navViewModel = NavigationViewModel(
-            guidanceEngine: session.guidanceEngine,
-            mapInterpolator: interpolator,
-            turnPointPopupService: popup,
-            locationService: locationService,
-            mapCamera: camera
-        )
-
-        let navVC = NavigationViewController(
-            mode: .realNavigation,
-            mapViewController: navMapVC,
-            viewModel: navViewModel,
-            turnPointPopupService: popup
-        )
-        self.navigationViewController = navVC
-
-        navVC.onDismiss = { [weak self] in
-            self?.dismissNavigation()
-        }
-
-        interpolator.start(mapViewController: navMapVC)
-        navViewModel.startNavigation(with: session.route)
-
-        navigationController.pushViewController(navVC, animated: true)
+        // TODO: 새 NavigationEngine + NavigationViewController로 교체 예정
+        print("[TODO] presentNavigationFromSession - 새 엔진으로 교체 예정")
     }
 
     // MARK: - Settings Flow
@@ -415,8 +366,8 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showGPXFileList()
         }
 
-        devToolsVC.onSelectFileForPlayback = { [weak self] in
-            self?.showGPXFileListForPlayback()
+        devToolsVC.onSelectGPXFile = { [weak self] in
+            self?.showGPXFileList()
         }
 
         navigationController.pushViewController(devToolsVC, animated: true)
@@ -429,15 +380,14 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.navigationController.popViewController(animated: true)
         }
 
+        // 파일 탭 시 File 모드로 자동 전환 + 선택 저장 + 뒤로
         fileListVC.onSelectFile = { [weak self] record in
-            self?.startGPXPlayback(record: record)
+            DevToolsSettings.shared.setLocationType(.file)
+            DevToolsSettings.shared.setSelectedGPXFileName(record.fileName)
+            self?.navigationController.popViewController(animated: true)
         }
 
         navigationController.pushViewController(fileListVC, animated: true)
-    }
-
-    private func showGPXFileListForPlayback() {
-        showGPXFileList()
     }
 
     // MARK: - Favorite / History Quick Navigate
@@ -757,208 +707,184 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Navigation Flow
 
-    private func startNavigation(with route: Route, destination: Place? = nil, transportMode: TransportMode = .automobile) {
-        // 1. Resolve destination
+    private func startNavigation(
+        with route: Route,
+        destination: Place? = nil,
+        transportMode: TransportMode = .automobile,
+        forceSimul: Bool = false
+    ) {
         let lastCoord = route.polylineCoordinates.last ?? CLLocationCoordinate2D()
         let resolvedDestination = destination
             ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
-        // 2. Start shared navigation session via SessionManager
+        // GPS Provider 결정
+        let (provider, recordingMode, simulSource) = makeGPSProvider(
+            route: route,
+            transportMode: transportMode,
+            forceSimul: forceSimul
+        )
+
+        // GPX 녹화 자동 시작 (armed 상태면)
+        // simul/file 모드는 LocationService.override로 좌표 주입
+        startGPXRecordingIfArmed(
+            mode: recordingMode,
+            originName: nil,
+            destinationName: resolvedDestination.name,
+            simulSource: simulSource
+        )
+
+        // 엔진 시작
         sessionManager.startNavigation(
             route: route,
             destination: resolvedDestination,
+            transportMode: transportMode,
+            gpsProvider: provider,
             source: .phone
         )
 
-        guard let session = sessionManager.activeSessionPublisher.value else { return }
-
-        // 3. Dismiss all drawers first
+        // 주행 화면 생성 + 엔진 바인딩
         dismissAllDrawers { [weak self] in
             guard let self else { return }
 
-            // 4. Create iPhone-only services
-            let camera = MapCamera()
-            camera.transportMode = transportMode
-            let interpolator = MapInterpolator(mapCamera: camera)
-            let popup = TurnPointPopupService(
-                guidanceEngine: session.guidanceEngine,
-                locationService: self.locationService
-            )
-
-            self.mapCamera = camera
-            self.mapInterpolator = interpolator
-            self.turnPointPopupService = popup
-
-            // 5. Create a fresh map for navigation (home map stays untouched)
-            let navMapVC = self.createNavigationMapVC()
-            self.navigationMapViewController = navMapVC
-            navMapVC.configureForNavigation()
-            navMapVC.showSingleRoute(route)
-
-            // 6. Create NavigationViewModel with shared GuidanceEngine
-            let navViewModel = NavigationViewModel(
-                guidanceEngine: session.guidanceEngine,
-                mapInterpolator: interpolator,
-                turnPointPopupService: popup,
-                locationService: self.locationService,
-                mapCamera: camera
-            )
-
-            // 7. Create NavigationViewController
-            let navVC = NavigationViewController(
-                mode: .realNavigation,
-                mapViewController: navMapVC,
-                viewModel: navViewModel,
-                turnPointPopupService: popup
-            )
-            self.navigationViewController = navVC
-
+            let navVC = NavigationViewController(route: route, transportMode: transportMode, destinationName: resolvedDestination.name)
+            navVC.bind(to: self.sessionManager.guidePublisher)
             navVC.onDismiss = { [weak self] in
                 self?.dismissNavigation()
             }
+            navVC.onReroute = { [weak self] in
+                self?.sessionManager.requestReroute()
+            }
 
-            // 8. Start iPhone-only services
-            interpolator.start(mapViewController: navMapVC)
-            navViewModel.startNavigation(with: route, transportMode: transportMode)
-
-            // 9. Push NavigationVC
             self.navigationController.pushViewController(navVC, animated: true)
         }
     }
 
-    private func dismissNavigation() {
-        // Clean up iPhone-only UI first (before stop triggers observer)
-        cleanUpNavigationUI()
+    /// Location Type 설정과 forceSimul 플래그로 GPS Provider 선택
+    /// - Returns: (provider, 녹화 모드, override용 시뮬 소스)
+    private func makeGPSProvider(
+        route: Route,
+        transportMode: TransportMode,
+        forceSimul: Bool
+    ) -> (GPSProviding, GPXRecorder.RecordingMode, PassthroughSubject<CLLocation, Never>?) {
+        if forceSimul {
+            print("[NAV] GPS=Simul (가상 주행)")
+            let simul = SimulGPSProvider()
+            simul.load(polyline: route.polylineCoordinates, transportMode: transportMode)
+            return (simul, .simul, simul.simulatedLocationPublisher)
+        }
 
-        // Stop shared navigation session (notifies CarPlay too)
+        switch DevToolsSettings.shared.locationType.value {
+        case .real:
+            print("[NAV] GPS=Real")
+            return (RealGPSProvider(), .real, nil)
+        case .file:
+            // 불변조건: validateSelection이 .file 모드일 땐 selectedGPXFileURL != nil 보장
+            // 만약 도달하면 상태가 어긋난 것 — 안전하게 Real로 처리
+            guard let url = DevToolsSettings.shared.selectedGPXFileURL else {
+                print("[NAV] GPS=File 모드인데 파일 없음 (불변조건 위반) → Real로 처리")
+                DevToolsSettings.shared.validateSelection()
+                return (RealGPSProvider(), .real, nil)
+            }
+            print("[NAV] GPS=File (\(url.lastPathComponent))")
+            let file = FileGPSProvider(gpxFileURL: url)
+            return (file, .simul, file.simulatedLocationPublisher)
+        }
+    }
+
+    private func dismissNavigation() {
+        VoiceTTSPlayer.shared.stop()
+
+        // GPX 녹화 자동 종료 (recording 상태면)
+        finishGPXRecordingIfRecording()
+
         sessionManager.stopNavigation()
+        navigationMapViewController = nil
+        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
+        navigationController.popToViewController(homeViewController, animated: true)
+    }
+
+    // MARK: - GPX Recording (1회 자동 녹화)
+
+    /// armed 상태면 자동으로 녹화 시작
+    /// - simulSource: 가상 좌표 소스 (Simul/File). nil이면 Real GPS 모드 — override 불필요
+    private func startGPXRecordingIfArmed(
+        mode: GPXRecorder.RecordingMode,
+        originName: String?,
+        destinationName: String?,
+        simulSource: PassthroughSubject<CLLocation, Never>? = nil
+    ) {
+        // simul/file 모드는 무조건 override (녹화 여부와 무관 — MapView/RealGPS도 가상 좌표 받아야 함)
+        if let simulSource {
+            print("[GPX-DEBUG] startLocationOverride for \(mode.rawValue)")
+            LocationService.shared.startLocationOverride(from: simulSource)
+        }
+
+        let recorder = GPXRecorder.shared
+        print("[GPX-DEBUG] startGPXRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
+        guard recorder.isArmed else { return }
+
+        recorder.startRecording(
+            mode: mode,
+            originName: originName,
+            destinationName: destinationName
+        )
+    }
+
+    /// 녹화 중이면 종료 + 파일 저장 + DataService 기록
+    private func finishGPXRecordingIfRecording() {
+        let recorder = GPXRecorder.shared
+        print("[GPX-DEBUG] finishGPXRecordingIfRecording() — state=\(recorder.statePublisher.value)")
+        guard recorder.statePublisher.value == .recording else { return }
+
+        let result = recorder.stopRecording()
+
+        // 가상 주행 override 해제
+        if LocationService.shared.isOverrideActive {
+            print("[GPX-DEBUG] stopLocationOverride")
+            LocationService.shared.stopLocationOverride()
+        }
+
+        // DataService 저장
+        if let result {
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: result.fileURL.path)[.size] as? Int64) ?? 0
+            let relativePath = "GPXRecordings/\(result.fileURL.lastPathComponent)"
+            DataService.shared.saveGPXRecord(
+                fileName: result.fileURL.lastPathComponent,
+                filePath: relativePath,
+                duration: result.duration,
+                distance: result.distance,
+                pointCount: result.pointCount,
+                fileSize: fileSize,
+                recordingMode: result.recordingMode.rawValue,
+                originName: result.originName,
+                destinationName: result.destinationName
+            )
+            print("[GPX-DEBUG] DataService.saveGPXRecord OK — \(result.fileURL.lastPathComponent) points=\(result.pointCount) dist=\(Int(result.distance))m")
+        } else {
+            print("[GPX-DEBUG] DataService.saveGPXRecord skipped — result=nil")
+        }
     }
 
     // MARK: - Virtual Drive Flow
 
     private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
-        dismissAllDrawers { [weak self] in
-            guard let self else { return }
-
-            let engine = VirtualDriveEngine()
-            engine.load(route: route)
-            self.virtualDriveEngine = engine
-
-            let navMapVC = self.createNavigationMapVC()
-            self.navigationMapViewController = navMapVC
-
-            let camera = MapCamera()
-            camera.transportMode = transportMode
-            let interpolator = MapInterpolator(mapCamera: camera)
-            self.mapCamera = camera
-            self.mapInterpolator = interpolator
-
-            navMapVC.configureForNavigation()
-            navMapVC.showSingleRoute(route)
-            interpolator.start(mapViewController: navMapVC)
-
-            // Feed simulated locations into interpolator
-            self.simulationCancellables.removeAll()
-            engine.simulatedLocationPublisher
-                .compactMap { $0 }
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] location in
-                    let heading = self?.virtualDriveEngine?.simulatedHeadingPublisher.value ?? 0
-                    self?.mapInterpolator?.updateTarget(location: location, heading: heading)
-                }
-                .store(in: &self.simulationCancellables)
-
-            let navVC = NavigationViewController(
-                mode: .virtualDrive(engine: engine),
-                mapViewController: navMapVC
-            )
-            self.navigationViewController = navVC
-            navVC.onDismiss = { [weak self] in self?.stopVirtualDrive() }
-
-            self.navigationController.pushViewController(navVC, animated: true)
-            engine.play()
-        }
+        // 가상 주행은 Location Type 설정 무시 — 항상 SimulGPS
+        startNavigation(with: route, transportMode: transportMode, forceSimul: true)
     }
 
     private func stopVirtualDrive() {
         simulationCancellables.removeAll()
         virtualDriveEngine?.stop()
         virtualDriveEngine = nil
-        navigationViewController = nil
-
-        mapInterpolator?.stop()
-        mapInterpolator = nil
-        mapCamera = nil
         navigationMapViewController = nil
-
-        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
-        navigationController.popToViewController(homeViewController, animated: true)
-    }
-
-    // MARK: - GPX Playback Flow
-
-    private func startGPXPlayback(record: GPXRecord) {
-        let simulator = GPXSimulator()
-        guard simulator.load(gpxFileURL: record.fileURL) else { return }
-        self.gpxSimulator = simulator
-
-        LocationService.shared.startLocationOverride(from: simulator.simulatedLocationPublisher)
-
-        let navMapVC = createNavigationMapVC()
-        self.navigationMapViewController = navMapVC
-
-        // Show GPX track as polyline overlay
-        let parser = GPXParser()
-        let locations = parser.parse(fileURL: record.fileURL)
-        if locations.count >= 2 {
-            let coordinates = locations.map { $0.coordinate }
-            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-            navMapVC.addOverlay(polyline)
-        }
-
-        let navVC = NavigationViewController(
-            mode: .gpxPlayback(simulator: simulator),
-            mapViewController: navMapVC
-        )
-        self.navigationViewController = navVC
-        navVC.onDismiss = { [weak self] in self?.stopGPXPlayback() }
-
-        navigationController.pushViewController(navVC, animated: true)
-        simulator.play()
-    }
-
-    private func stopGPXPlayback() {
-        simulationCancellables.removeAll()
-        gpxSimulator?.stop()
-        gpxSimulator = nil
-        navigationViewController = nil
-
-        LocationService.shared.stopLocationOverride()
-        navigationMapViewController = nil
-
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
     }
 
     private func cleanUpNavigationUI() {
-        // 1. Stop iPhone-only services
-        mapInterpolator?.stop()
-        turnPointPopupService?.reset()
-
-        // 2. Discard navigation map (home map was never touched)
         navigationMapViewController = nil
-
-        // 3. Recenter home map to current location
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
-
-        // 4. Pop to HomeVC (delegate auto-presents home drawer)
         navigationController.popToViewController(homeViewController, animated: true)
-
-        // 5. Clear iPhone-only references
-        navigationViewController = nil
-        mapInterpolator = nil
-        mapCamera = nil
-        turnPointPopupService = nil
     }
 }
 

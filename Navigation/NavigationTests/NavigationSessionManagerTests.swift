@@ -19,24 +19,32 @@ struct NavigationSessionManagerTests {
         TestFixtures.samplePlace
     }
 
+    private func makeGPSProvider() -> SimulGPSProvider {
+        let provider = SimulGPSProvider()
+        provider.load(polyline: makeRoute().polylineCoordinates)
+        return provider
+    }
+
     // MARK: - Tests
 
     @Test func initialStateIsNotNavigating() {
         sessionManager.stopNavigation()
 
         #expect(!sessionManager.isNavigating)
-        #expect(sessionManager.activeSessionPublisher.value == nil)
+        #expect(sessionManager.activeSession == nil)
     }
 
     @Test func startNavigationCreatesSession() {
         sessionManager.startNavigation(
             route: makeRoute(),
             destination: makeDestination(),
+            transportMode: .automobile,
+            gpsProvider: makeGPSProvider(),
             source: .phone
         )
 
         #expect(sessionManager.isNavigating)
-        #expect(sessionManager.activeSessionPublisher.value != nil)
+        #expect(sessionManager.activeSession != nil)
 
         sessionManager.stopNavigation()
     }
@@ -45,13 +53,15 @@ struct NavigationSessionManagerTests {
         sessionManager.startNavigation(
             route: makeRoute(),
             destination: makeDestination(),
+            transportMode: .automobile,
+            gpsProvider: makeGPSProvider(),
             source: .phone
         )
 
         sessionManager.stopNavigation()
 
         #expect(!sessionManager.isNavigating)
-        #expect(sessionManager.activeSessionPublisher.value == nil)
+        #expect(sessionManager.activeSession == nil)
     }
 
     @Test func commandPublisherEmitsStarted() {
@@ -67,6 +77,8 @@ struct NavigationSessionManagerTests {
         sessionManager.startNavigation(
             route: makeRoute(),
             destination: makeDestination(),
+            transportMode: .automobile,
+            gpsProvider: makeGPSProvider(),
             source: .carPlay
         )
 
@@ -87,6 +99,8 @@ struct NavigationSessionManagerTests {
         sessionManager.startNavigation(
             route: makeRoute(),
             destination: makeDestination(),
+            transportMode: .automobile,
+            gpsProvider: makeGPSProvider(),
             source: .phone
         )
 
@@ -105,28 +119,6 @@ struct NavigationSessionManagerTests {
         }
 
         cancellables.removeAll()
-    }
-
-    @Test func startingWhileNavigatingStopsPrevious() {
-        sessionManager.startNavigation(
-            route: makeRoute(),
-            destination: makeDestination(),
-            source: .phone
-        )
-
-        let firstSession = sessionManager.activeSessionPublisher.value
-
-        sessionManager.startNavigation(
-            route: makeRoute(),
-            destination: makeDestination(),
-            source: .carPlay
-        )
-
-        let secondSession = sessionManager.activeSessionPublisher.value
-
-        #expect(firstSession?.guidanceEngine !== secondSession?.guidanceEngine)
-
-        sessionManager.stopNavigation()
     }
 
     @Test func stopWhenNotNavigatingIsNoOp() {

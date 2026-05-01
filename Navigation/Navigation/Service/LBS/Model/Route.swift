@@ -8,6 +8,7 @@ struct Route: Sendable {
     let steps: [RouteStep]
     let polylineCoordinates: [CLLocationCoordinate2D]
     let transportMode: TransportMode
+    let provider: RouteProvider
 }
 
 // MARK: - Formatting

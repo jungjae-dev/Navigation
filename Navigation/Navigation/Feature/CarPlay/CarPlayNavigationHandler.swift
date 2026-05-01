@@ -3,6 +3,7 @@ import CarPlay
 import CoreLocation
 import Combine
 
+/// CarPlay 주행 안내 — NavigationGuide를 구독하여 CPManeuver/CPRouteInformation 갱신
 final class CarPlayNavigationHandler {
 
     // MARK: - Properties
@@ -11,24 +12,30 @@ final class CarPlayNavigationHandler {
     private var cancellables = Set<AnyCancellable>()
     private var addedManeuvers: [CPManeuver] = []
 
-    // MARK: - Public
+    // MARK: - Start
 
     func startNavigation(
         trip: CPTrip,
         mapTemplate: CPMapTemplate,
-        guidanceEngine: GuidanceEngine
+        guidePublisher: CurrentValueSubject<NavigationGuide?, Never>
     ) {
-        // Stop any existing session
         stopNavigation()
 
-        // Start CPNavigationSession
         let session = mapTemplate.startNavigationSession(for: trip)
         session.pauseTrip(for: .loading, description: "경로 준비 중", turnCardColor: nil)
         self.navigationSession = session
 
-        // Subscribe to guidance updates
-        bindGuidanceEngine(guidanceEngine, session: session)
+        // guidePublisher 구독
+        guidePublisher
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] guide in
+                self?.handleGuide(guide, session: session)
+            }
+            .store(in: &cancellables)
     }
+
+    // MARK: - Stop
 
     func stopNavigation() {
         cancellables.removeAll()
@@ -37,87 +44,38 @@ final class CarPlayNavigationHandler {
         addedManeuvers = []
     }
 
-    // MARK: - Guidance Binding
+    // MARK: - Handle Guide
 
-    private func bindGuidanceEngine(_ engine: GuidanceEngine, session: CPNavigationSession) {
-        // Navigation State
-        engine.navigationStatePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] state in
-                self?.handleNavigationState(state, session: session)
-            }
-            .store(in: &cancellables)
+    private func handleGuide(_ guide: NavigationGuide, session: CPNavigationSession) {
+        // 상태 처리
+        handleState(guide.state, session: session)
 
-        // Route Progress → CPRouteInformation
-        engine.routeProgressPublisher
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] progress in
-                self?.updateRouteInformation(from: progress, session: session)
-            }
-            .store(in: &cancellables)
-    }
+        guard guide.state == .navigating else { return }
 
-    // MARK: - Navigation State
-
-    private func handleNavigationState(_ state: NavigationState, session: CPNavigationSession) {
-        switch state {
-        case .navigating:
-            break // Normal operation
-
-        case .rerouting:
-            session.pauseTrip(
-                for: .rerouting,
-                description: "경로 재탐색 중",
-                turnCardColor: nil
-            )
-
-        case .arrived:
-            session.finishTrip()
-            stopNavigation()
-
-        case .stopped:
-            session.cancelTrip()
-            stopNavigation()
-
-        case .preparing:
-            break
-
-        case .parkingApproach:
-            break // Continue normal navigation on CarPlay
-        }
-    }
-
-    // MARK: - Route Information Updates
-
-    private func updateRouteInformation(from progress: RouteProgress, session: CPNavigationSession) {
-        // Build current maneuver
+        // Maneuver 생성
         var currentManeuvers: [CPManeuver] = []
         var upcomingManeuvers: [CPManeuver] = []
 
-        if let nextStep = progress.nextStep {
-            let maneuver = buildManeuver(from: nextStep, distance: progress.distanceToNextManeuver)
-            currentManeuvers.append(maneuver)
-            upcomingManeuvers.append(maneuver)
-        } else {
-            // Final step — destination
-            let maneuver = CPManeuver()
-            maneuver.instructionVariants = ["목적지에 도착합니다"]
-            maneuver.symbolImage = UIImage(systemName: "flag.fill")
-
-            let estimates = CPTravelEstimates(
-                distanceRemaining: Measurement(
-                    value: progress.distanceToNextManeuver,
-                    unit: .meters
-                ),
-                timeRemaining: progress.timeRemaining
+        if let maneuver = guide.currentManeuver {
+            let cpManeuver = buildManeuver(
+                instruction: maneuver.instruction,
+                turnType: maneuver.turnType,
+                distance: maneuver.distance
             )
-            maneuver.initialTravelEstimates = estimates
-            currentManeuvers.append(maneuver)
-            upcomingManeuvers.append(maneuver)
+            currentManeuvers.append(cpManeuver)
+            upcomingManeuvers.append(cpManeuver)
         }
 
-        // Add maneuvers to session (required before setting upcomingManeuvers)
+        if let next = guide.nextManeuver {
+            let cpManeuver = buildManeuver(
+                instruction: next.instruction,
+                turnType: next.turnType,
+                distance: next.distance
+            )
+            upcomingManeuvers.append(cpManeuver)
+        }
+
+        // 새 maneuver 등록
         let newManeuvers = upcomingManeuvers.filter { maneuver in
             !addedManeuvers.contains(where: {
                 $0.instructionVariants == maneuver.instructionVariants
@@ -128,28 +86,22 @@ final class CarPlayNavigationHandler {
             addedManeuvers.append(contentsOf: newManeuvers)
         }
 
-        // Update upcoming maneuvers on session
         session.upcomingManeuvers = upcomingManeuvers
 
         // Trip-level travel estimates
         let tripEstimates = CPTravelEstimates(
-            distanceRemaining: Measurement(
-                value: progress.distanceRemaining,
-                unit: .meters
-            ),
-            timeRemaining: progress.timeRemaining
+            distanceRemaining: Measurement(value: guide.remainingDistance, unit: .meters),
+            timeRemaining: guide.remainingTime
         )
 
         // Maneuver-level travel estimates
+        let maneuverDistance = guide.currentManeuver?.distance ?? 0
         let maneuverEstimates = CPTravelEstimates(
-            distanceRemaining: Measurement(
-                value: progress.distanceToNextManeuver,
-                unit: .meters
-            ),
-            timeRemaining: progress.distanceToNextManeuver / 13.9 // ~50 km/h estimate
+            distanceRemaining: Measurement(value: maneuverDistance, unit: .meters),
+            timeRemaining: maneuverDistance / max(guide.speed, 5.0)
         )
 
-        // Create and send route information
+        // Route information 전송
         let routeInfo = CPRouteInformation(
             maneuvers: upcomingManeuvers,
             laneGuidances: [],
@@ -162,20 +114,37 @@ final class CarPlayNavigationHandler {
         session.resumeTrip(updatedRouteInformation: routeInfo)
     }
 
-    // MARK: - Maneuver Builder
+    // MARK: - State
 
-    private func buildManeuver(from step: RouteStep, distance: CLLocationDistance) -> CPManeuver {
+    private func handleState(_ state: NavigationState, session: CPNavigationSession) {
+        switch state {
+        case .rerouting:
+            session.pauseTrip(for: .rerouting, description: "경로 재탐색 중", turnCardColor: nil)
+        case .arrived:
+            session.finishTrip()
+            stopNavigation()
+        case .stopped:
+            session.cancelTrip()
+            stopNavigation()
+        case .navigating, .preparing:
+            break
+        }
+    }
+
+    // MARK: - Build Maneuver
+
+    private func buildManeuver(
+        instruction: String,
+        turnType: TurnType,
+        distance: CLLocationDistance
+    ) -> CPManeuver {
         let maneuver = CPManeuver()
-
-        let instruction = GuidanceTextBuilder.buildInstructionFromStep(step)
         maneuver.instructionVariants = [instruction]
-
-        let iconName = GuidanceTextBuilder.iconNameForInstruction(instruction)
-        maneuver.symbolImage = UIImage(systemName: iconName)
+        maneuver.symbolImage = UIImage(systemName: turnType.iconName)
 
         let estimates = CPTravelEstimates(
             distanceRemaining: Measurement(value: distance, unit: .meters),
-            timeRemaining: distance / 13.9 // ~50 km/h default speed estimate
+            timeRemaining: distance / 13.9  // ~50km/h 기본 추정
         )
         maneuver.initialTravelEstimates = estimates
 
