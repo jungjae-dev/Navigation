@@ -50,6 +50,9 @@ final class AppCoordinator: NSObject, Coordinator {
         self.locationService = .shared
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
+
+        // "File 모드인데 파일 없음" 모순 상태 정리 (앱 재시작 시점 stale UserDefaults 대응)
+        DevToolsSettings.shared.validateSelection()
     }
 
     // MARK: - Start
@@ -775,11 +778,12 @@ final class AppCoordinator: NSObject, Coordinator {
             print("[NAV] GPS=Real")
             return (RealGPSProvider(), .real, nil)
         case .file:
+            // 불변조건: validateSelection이 .file 모드일 땐 selectedGPXFileURL != nil 보장
+            // 만약 도달하면 상태가 어긋난 것 — 안전하게 Real로 처리
             guard let url = DevToolsSettings.shared.selectedGPXFileURL else {
-                print("[NAV] GPS=File 선택됨이지만 파일 없음 → Simul로 fallback")
-                let simul = SimulGPSProvider()
-                simul.load(polyline: route.polylineCoordinates, transportMode: transportMode)
-                return (simul, .simul, simul.simulatedLocationPublisher)
+                print("[NAV] GPS=File 모드인데 파일 없음 (불변조건 위반) → Real로 처리")
+                DevToolsSettings.shared.validateSelection()
+                return (RealGPSProvider(), .real, nil)
             }
             print("[NAV] GPS=File (\(url.lastPathComponent))")
             let file = FileGPSProvider(gpxFileURL: url)

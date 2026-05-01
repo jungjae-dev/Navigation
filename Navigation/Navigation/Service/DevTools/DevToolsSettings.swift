@@ -62,14 +62,29 @@ final class DevToolsSettings {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// 선택된 파일이 디스크에 없으면 nil로 리셋
-    /// - 호출 시점: 파일 삭제 후 / DevTools 진입 시
+    /// "File 모드인데 파일 없음" 모순 상태 정리
+    /// - 파일이 없거나(선택 안 함, 또는 디스크에서 삭제됨) → 파일명 nil로 리셋 + locationType이 .file이면 .real로 복원
+    /// - 호출 시점: 앱 시작 / 파일 삭제 후 / DevTools 진입 시
+    /// - 불변조건: locationType == .file 이면 항상 selectedGPXFileURL != nil
     func validateSelection() {
-        guard let fileName = selectedGPXFileName.value else { return }
+        let fileName = selectedGPXFileName.value
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = docs.appendingPathComponent("GPXRecordings").appendingPathComponent(fileName)
-        if !FileManager.default.fileExists(atPath: url.path) {
-            setSelectedGPXFileName(nil)
+
+        let fileExists: Bool
+        if let fileName {
+            let url = docs.appendingPathComponent("GPXRecordings").appendingPathComponent(fileName)
+            fileExists = FileManager.default.fileExists(atPath: url.path)
+        } else {
+            fileExists = false
+        }
+
+        if !fileExists {
+            if fileName != nil {
+                setSelectedGPXFileName(nil)
+            }
+            if locationType.value == .file {
+                setLocationType(.real)
+            }
         }
     }
 }

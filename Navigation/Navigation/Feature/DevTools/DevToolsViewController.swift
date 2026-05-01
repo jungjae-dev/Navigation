@@ -170,8 +170,19 @@ final class DevToolsViewController: UIViewController {
     }
 
     @objc private func locationTypeSegmentChanged(_ sender: UISegmentedControl) {
-        let type: DevToolsSettings.LocationType = sender.selectedSegmentIndex == 0 ? .real : .file
-        viewModel.setLocationType(type)
+        if sender.selectedSegmentIndex == 0 {
+            viewModel.setLocationType(.real)
+            return
+        }
+        // File 선택 — 유효한 파일이 이미 있으면 그대로 적용
+        if DevToolsSettings.shared.selectedGPXFileURL != nil {
+            viewModel.setLocationType(.file)
+            return
+        }
+        // 파일 없음 — 세그먼트는 Real로 즉시 되돌리고 picker 진입
+        // 사용자가 picker에서 파일을 선택하면 그때 .file로 전환됨 (AppCoordinator.onSelectFile)
+        sender.selectedSegmentIndex = 0
+        onSelectGPXFile?()
     }
 
     // MARK: - Helpers
