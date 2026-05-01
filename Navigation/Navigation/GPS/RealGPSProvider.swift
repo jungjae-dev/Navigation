@@ -8,12 +8,17 @@ final class RealGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
 
+    var locationPublisher: AnyPublisher<CLLocation, Never> {
+        locationSubject.eraseToAnyPublisher()
+    }
+
     var gpsPublisher: AnyPublisher<GPSData, Never> {
         gpsSubject.eraseToAnyPublisher()
     }
 
     // MARK: - Private
 
+    private let locationSubject = PassthroughSubject<CLLocation, Never>()
     private let gpsSubject = PassthroughSubject<GPSData, Never>()
     private let locationService: LocationService
     private var cancellables = Set<AnyCancellable>()
@@ -34,9 +39,11 @@ final class RealGPSProvider: GPSProviding {
     // MARK: - GPSProviding
 
     func start() {
-        // LocationService 구독
-        locationService.locationPublisher
+        // LocationService의 raw GPS를 구독 (순환 방지: locationPublisher는 activeProvider 출력으로 사용됨)
+        // 정확도 필터링은 RealGPSProvider 책임
+        locationService.rawLocationPublisher
             .compactMap { $0 }
+            .filter { $0.horizontalAccuracy >= 0 && $0.horizontalAccuracy <= 100 }
             .sink { [weak self] location in
                 self?.handleLocationUpdate(location)
             }
@@ -77,6 +84,7 @@ final class RealGPSProvider: GPSProviding {
             isValid: true
         )
 
+        locationSubject.send(location)
         gpsSubject.send(gpsData)
 
         // GPS 수신했으므로 타이머 리셋

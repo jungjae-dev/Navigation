@@ -7,6 +7,10 @@ final class SimulGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
 
+    var locationPublisher: AnyPublisher<CLLocation, Never> {
+        simulator.simulatedLocationPublisher.eraseToAnyPublisher()
+    }
+
     var gpsPublisher: AnyPublisher<GPSData, Never> {
         gpsSubject.eraseToAnyPublisher()
     }

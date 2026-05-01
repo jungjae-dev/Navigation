@@ -30,19 +30,29 @@ final class LocationService: NSObject {
 
     // MARK: - Publishers
 
+    /// 활성 Provider의 위치 출력 (Real/File에 따라 자동 전환)
+    /// - activeProvider 미설정 시: CLLocationManager 직접 출력 (backward compat)
     let locationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
-    /// 정확도 필터를 거치지 않은 raw 위치 (초기 지도 이동용)
+    /// 정확도 필터를 거치지 않은 raw 위치 (RealGPSProvider 입력 + 초기 지도 이동용)
     let rawLocationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
+    /// 활성 Provider의 GPSData 출력 (engine 입력 — activeProvider 설정 후 흐름)
+    let gpsPublisher = PassthroughSubject<GPSData, Never>()
     let headingPublisher = CurrentValueSubject<CLHeading?, Never>(nil)
     let authStatusPublisher = CurrentValueSubject<LocationAuthStatus, Never>(.notDetermined)
     let locationErrorPublisher = PassthroughSubject<Error, Never>()
+
+    // MARK: - Active Provider
+
+    private(set) var activeProvider: GPSProviding?
+    private var providerLocationCancellable: AnyCancellable?
+    private var providerGPSCancellable: AnyCancellable?
 
     // MARK: - Private
 
     private let locationManager = CLLocationManager()
     private var isUpdating = false
 
-    // MARK: - Location Override (for GPX playback)
+    // MARK: - Location Override (legacy — Phase C에서 제거 예정)
 
     private(set) var isOverrideActive = false
     private var overrideCancellable: AnyCancellable?
@@ -107,7 +117,36 @@ final class LocationService: NSObject {
         locationManager.pausesLocationUpdatesAutomatically = true
     }
 
-    // MARK: - Location Override
+    // MARK: - Active Provider Management
+
+    /// 활성 Provider 설정 — 이전 Provider는 stop 후 교체
+    /// - Real/File 전환에 사용. 가상주행은 별도 흐름 (Phase B의 VirtualDriveDriver).
+    func setProvider(_ provider: GPSProviding) {
+        clearProvider()
+
+        activeProvider = provider
+        providerLocationCancellable = provider.locationPublisher
+            .sink { [weak self] location in
+                self?.locationPublisher.send(location)
+            }
+        providerGPSCancellable = provider.gpsPublisher
+            .sink { [weak self] gps in
+                self?.gpsPublisher.send(gps)
+            }
+        provider.start()
+    }
+
+    /// 활성 Provider 해제
+    func clearProvider() {
+        activeProvider?.stop()
+        providerLocationCancellable?.cancel()
+        providerGPSCancellable?.cancel()
+        providerLocationCancellable = nil
+        providerGPSCancellable = nil
+        activeProvider = nil
+    }
+
+    // MARK: - Location Override (legacy — Phase C에서 제거 예정)
 
     /// Start injecting virtual locations. Real GPS updates are suppressed.
     func startLocationOverride(from source: PassthroughSubject<CLLocation, Never>) {
@@ -146,8 +185,10 @@ extension LocationService: CLLocationManagerDelegate {
         }
 
         MainActor.assumeIsolated {
-            // Suppress real GPS during override (GPX playback)
+            // Suppress real GPS during override (legacy — GPX playback)
             guard !isOverrideActive else { return }
+            // Suppress when activeProvider is set (provider drives locationPublisher)
+            guard activeProvider == nil else { return }
             locationPublisher.send(location)
         }
     }
