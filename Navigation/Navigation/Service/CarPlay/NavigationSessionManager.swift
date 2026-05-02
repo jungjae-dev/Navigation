@@ -8,7 +8,9 @@ struct NavigationSession {
     let route: Route
     let destination: Place
     let engine: NavigationEngine
-    let gpsProvider: GPSProviding
+    // GPS provider lifecycle은 외부(AppCoordinator)에서 관리:
+    // - Real/File: LocationService.setProvider/clearProvider
+    // - 가상주행: VirtualDriveDriver.start/stop
 }
 
 // MARK: - Navigation Command
@@ -57,7 +59,7 @@ final class NavigationSessionManager {
         route: Route,
         destination: Place,
         transportMode: TransportMode,
-        gpsProvider: GPSProviding,
+        gpsPublisher: AnyPublisher<GPSData, Never>,
         source: NavigationSource
     ) {
         // 기존 세션 정리
@@ -72,8 +74,8 @@ final class NavigationSessionManager {
             routeService: LBSServiceProvider.shared.route
         )
 
-        // GPS → 엔진 연결
-        gpsProvider.gpsPublisher
+        // GPS → 엔진 연결 (publisher 구독만, lifecycle은 외부 관리)
+        gpsPublisher
             .sink { [weak engine] gps in
                 engine?.tick(gps: gps)
             }
@@ -90,8 +92,7 @@ final class NavigationSessionManager {
         let session = NavigationSession(
             route: route,
             destination: destination,
-            engine: engine,
-            gpsProvider: gpsProvider
+            engine: engine
         )
         activeSession = session
 
@@ -101,9 +102,6 @@ final class NavigationSessionManager {
         } else {
             locationService.configureForNavigation()
         }
-
-        // GPS 시작
-        gpsProvider.start()
 
         // 출발 좌표 설정 (OffRouteDetector 보호 조건용)
         if let currentLocation = locationService.bestAvailableLocation {
@@ -120,7 +118,6 @@ final class NavigationSessionManager {
         guard let session = activeSession else { return }
 
         session.engine.stop()
-        session.gpsProvider.stop()
 
         cancellables.removeAll()
         locationService.configureForStandard()

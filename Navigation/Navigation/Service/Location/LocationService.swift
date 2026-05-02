@@ -52,11 +52,6 @@ final class LocationService: NSObject {
     private let locationManager = CLLocationManager()
     private var isUpdating = false
 
-    // MARK: - Location Override (legacy — Phase C에서 제거 예정)
-
-    private(set) var isOverrideActive = false
-    private var overrideCancellable: AnyCancellable?
-
     // MARK: - Init
 
     private override init() {
@@ -146,25 +141,6 @@ final class LocationService: NSObject {
         activeProvider = nil
     }
 
-    // MARK: - Location Override (legacy — Phase C에서 제거 예정)
-
-    /// Start injecting virtual locations. Real GPS updates are suppressed.
-    func startLocationOverride(from source: PassthroughSubject<CLLocation, Never>) {
-        print("[GPX-DEBUG] LocationService.startLocationOverride()")
-        isOverrideActive = true
-        overrideCancellable = source
-            .sink { [weak self] location in
-                self?.locationPublisher.send(location)
-            }
-    }
-
-    /// Stop injecting virtual locations. Resume real GPS.
-    func stopLocationOverride() {
-        print("[GPX-DEBUG] LocationService.stopLocationOverride()")
-        overrideCancellable?.cancel()
-        overrideCancellable = nil
-        isOverrideActive = false
-    }
 }
 
 // MARK: - CLLocationManagerDelegate
@@ -185,9 +161,7 @@ extension LocationService: CLLocationManagerDelegate {
         }
 
         MainActor.assumeIsolated {
-            // Suppress real GPS during override (legacy — GPX playback)
-            guard !isOverrideActive else { return }
-            // Suppress when activeProvider is set (provider drives locationPublisher)
+            // activeProvider가 설정된 경우 provider가 locationPublisher를 구동
             guard activeProvider == nil else { return }
             locationPublisher.send(location)
         }

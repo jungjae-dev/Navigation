@@ -40,7 +40,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Virtual Drive / GPX
 
-    private var virtualDriveEngine: VirtualDriveEngine?
+    /// 가상 주행 진행 중인 driver (안내 lifecycle에 종속)
+    private var activeVirtualDriveDriver: VirtualDriveDriver?
     private var simulationCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -51,8 +52,42 @@ final class AppCoordinator: NSObject, Coordinator {
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
 
+        super.init()
+
         // "File 모드인데 파일 없음" 모순 상태 정리 (앱 재시작 시점 stale UserDefaults 대응)
         DevToolsSettings.shared.validateSelection()
+
+        // DevToolsSettings 구독: locationType 또는 selectedGPXFileName 변경 시 즉시 반영
+        Publishers.CombineLatest(
+            DevToolsSettings.shared.locationType,
+            DevToolsSettings.shared.selectedGPXFileName
+        )
+        .removeDuplicates(by: { lhs, rhs in lhs.0 == rhs.0 && lhs.1 == rhs.1 })
+        .sink { [weak self] type, _ in
+            self?.applyLocationType(type)
+        }
+        .store(in: &cancellables)
+    }
+
+    /// DevToolsSettings 변화 시 LocationService.activeProvider 갱신
+    /// - Real: RealGPSProvider 활성화
+    /// - File (유효 파일): FileGPSProvider 활성화 — 즉시 좌표 흐름 시작
+    private func applyLocationType(_ type: DevToolsSettings.LocationType) {
+        switch type {
+        case .real:
+            print("[NAV] applyLocationType=Real")
+            LocationService.shared.setProvider(RealGPSProvider(locationService: locationService))
+        case .file:
+            guard let url = DevToolsSettings.shared.selectedGPXFileURL else {
+                // 모순 상태 — Real로 fallback
+                print("[NAV] applyLocationType=File but no file → Real로 fallback")
+                DevToolsSettings.shared.validateSelection()
+                LocationService.shared.setProvider(RealGPSProvider(locationService: locationService))
+                return
+            }
+            print("[NAV] applyLocationType=File (\(url.lastPathComponent))")
+            LocationService.shared.setProvider(FileGPSProvider(gpxFileURL: url))
+        }
     }
 
     // MARK: - Start
@@ -717,20 +752,36 @@ final class AppCoordinator: NSObject, Coordinator {
         let resolvedDestination = destination
             ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
-        // GPS Provider 결정
-        let (provider, recordingMode, simulSource) = makeGPSProvider(
-            route: route,
-            transportMode: transportMode,
-            forceSimul: forceSimul
-        )
+        // GPS publisher / locationSource / recordingMode 결정
+        let gpsPublisher: AnyPublisher<GPSData, Never>
+        let locationSource: AnyPublisher<CLLocation, Never>
+        let recordingMode: GPXRecorder.RecordingMode
+
+        if forceSimul {
+            // 가상 주행: 별도 driver 생성, lifecycle은 안내 종료까지
+            print("[NAV] GPS=Simul (가상 주행)")
+            let driver = VirtualDriveDriver()
+            driver.start(polyline: route.polylineCoordinates, transportMode: transportMode)
+            activeVirtualDriveDriver = driver
+
+            gpsPublisher = driver.gpsPublisher
+            locationSource = driver.locationPublisher
+            recordingMode = .simul
+        } else {
+            // 일반 안내: LocationService.activeProvider (Real or File)가 이미 흐름
+            let type = DevToolsSettings.shared.locationType.value
+            print("[NAV] GPS=\(type.rawValue)")
+            gpsPublisher = LocationService.shared.gpsPublisher.eraseToAnyPublisher()
+            locationSource = LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
+            recordingMode = (type == .real) ? .real : .simul
+        }
 
         // GPX 녹화 자동 시작 (armed 상태면)
-        // simul/file 모드는 LocationService.override로 좌표 주입
         startGPXRecordingIfArmed(
             mode: recordingMode,
             originName: nil,
             destinationName: resolvedDestination.name,
-            simulSource: simulSource
+            locationSource: locationSource
         )
 
         // 엔진 시작
@@ -738,7 +789,7 @@ final class AppCoordinator: NSObject, Coordinator {
             route: route,
             destination: resolvedDestination,
             transportMode: transportMode,
-            gpsProvider: provider,
+            gpsPublisher: gpsPublisher,
             source: .phone
         )
 
@@ -759,38 +810,6 @@ final class AppCoordinator: NSObject, Coordinator {
         }
     }
 
-    /// Location Type 설정과 forceSimul 플래그로 GPS Provider 선택
-    /// - Returns: (provider, 녹화 모드, override용 시뮬 소스)
-    private func makeGPSProvider(
-        route: Route,
-        transportMode: TransportMode,
-        forceSimul: Bool
-    ) -> (GPSProviding, GPXRecorder.RecordingMode, PassthroughSubject<CLLocation, Never>?) {
-        if forceSimul {
-            print("[NAV] GPS=Simul (가상 주행)")
-            let simul = SimulGPSProvider()
-            simul.load(polyline: route.polylineCoordinates, transportMode: transportMode)
-            return (simul, .simul, simul.simulatedLocationPublisher)
-        }
-
-        switch DevToolsSettings.shared.locationType.value {
-        case .real:
-            print("[NAV] GPS=Real")
-            return (RealGPSProvider(), .real, nil)
-        case .file:
-            // 불변조건: validateSelection이 .file 모드일 땐 selectedGPXFileURL != nil 보장
-            // 만약 도달하면 상태가 어긋난 것 — 안전하게 Real로 처리
-            guard let url = DevToolsSettings.shared.selectedGPXFileURL else {
-                print("[NAV] GPS=File 모드인데 파일 없음 (불변조건 위반) → Real로 처리")
-                DevToolsSettings.shared.validateSelection()
-                return (RealGPSProvider(), .real, nil)
-            }
-            print("[NAV] GPS=File (\(url.lastPathComponent))")
-            let file = FileGPSProvider(gpxFileURL: url)
-            return (file, .simul, file.simulatedLocationPublisher)
-        }
-    }
-
     private func dismissNavigation() {
         VoiceTTSPlayer.shared.stop()
 
@@ -798,6 +817,11 @@ final class AppCoordinator: NSObject, Coordinator {
         finishGPXRecordingIfRecording()
 
         sessionManager.stopNavigation()
+
+        // 가상 주행 driver 정리 (있으면)
+        activeVirtualDriveDriver?.stop()
+        activeVirtualDriveDriver = nil
+
         navigationMapViewController = nil
         mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
         navigationController.popToViewController(homeViewController, animated: true)
@@ -806,19 +830,13 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - GPX Recording (1회 자동 녹화)
 
     /// armed 상태면 자동으로 녹화 시작
-    /// - simulSource: 가상 좌표 소스 (Simul/File). nil이면 Real GPS 모드 — override 불필요
+    /// - locationSource: 좌표 소스 (Real/File: LocationService, 가상주행: driver.locationPublisher)
     private func startGPXRecordingIfArmed(
         mode: GPXRecorder.RecordingMode,
         originName: String?,
         destinationName: String?,
-        simulSource: PassthroughSubject<CLLocation, Never>? = nil
+        locationSource: AnyPublisher<CLLocation, Never>
     ) {
-        // simul/file 모드는 무조건 override (녹화 여부와 무관 — MapView/RealGPS도 가상 좌표 받아야 함)
-        if let simulSource {
-            print("[GPX-DEBUG] startLocationOverride for \(mode.rawValue)")
-            LocationService.shared.startLocationOverride(from: simulSource)
-        }
-
         let recorder = GPXRecorder.shared
         print("[GPX-DEBUG] startGPXRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
         guard recorder.isArmed else { return }
@@ -826,7 +844,8 @@ final class AppCoordinator: NSObject, Coordinator {
         recorder.startRecording(
             mode: mode,
             originName: originName,
-            destinationName: destinationName
+            destinationName: destinationName,
+            locationSource: locationSource
         )
     }
 
@@ -837,12 +856,6 @@ final class AppCoordinator: NSObject, Coordinator {
         guard recorder.statePublisher.value == .recording else { return }
 
         let result = recorder.stopRecording()
-
-        // 가상 주행 override 해제
-        if LocationService.shared.isOverrideActive {
-            print("[GPX-DEBUG] stopLocationOverride")
-            LocationService.shared.stopLocationOverride()
-        }
 
         // DataService 저장
         if let result {
@@ -870,15 +883,6 @@ final class AppCoordinator: NSObject, Coordinator {
     private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
         // 가상 주행은 Location Type 설정 무시 — 항상 SimulGPS
         startNavigation(with: route, transportMode: transportMode, forceSimul: true)
-    }
-
-    private func stopVirtualDrive() {
-        simulationCancellables.removeAll()
-        virtualDriveEngine?.stop()
-        virtualDriveEngine = nil
-        navigationMapViewController = nil
-        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
-        navigationController.popToViewController(homeViewController, animated: true)
     }
 
     private func cleanUpNavigationUI() {
