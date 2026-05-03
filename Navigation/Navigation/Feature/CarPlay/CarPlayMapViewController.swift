@@ -19,6 +19,7 @@ final class CarPlayMapViewController: UIViewController {
     private let sessionManager: NavigationSessionManager
     private lazy var userLocationPresenter = UserLocationPresenter(
         mapView: mapView,
+        headingSource: .locationCourse,
         locationService: locationService
     )
     private var cancellables = Set<AnyCancellable>()

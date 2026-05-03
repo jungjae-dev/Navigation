@@ -10,6 +10,7 @@ final class MapViewController: UIViewController {
     private let locationService: LocationService
     private lazy var userLocationPresenter = UserLocationPresenter(
         mapView: mapView,
+        headingSource: .compass,
         locationService: locationService
     )
     private var cancellables = Set<AnyCancellable>()

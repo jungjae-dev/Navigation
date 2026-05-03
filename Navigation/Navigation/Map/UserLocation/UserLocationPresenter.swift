@@ -25,6 +25,11 @@ final class UserLocationPresenter {
 
     enum TrackingMode { case none, follow, followWithHeading }
 
+    /// heading 결정 소스
+    /// - compass: 비주행 (홈) — 단말 방위. 정지 상태에서 단말 회전 따라옴.
+    /// - locationCourse: 주행 (CarPlay/주행화면) — GPS 진행 방향. 컴파스 노이즈 회피.
+    enum HeadingSource { case compass, locationCourse }
+
     // MARK: - Public
 
     var onTrackingModeChanged: ((TrackingMode) -> Void)?
@@ -41,6 +46,7 @@ final class UserLocationPresenter {
 
     private weak var mapView: MKMapView?
     private let locationService: LocationService
+    private let headingSource: HeadingSource
     private let annotation = UserLocationAnnotation()
     private let interpolator = LocationInterpolator()
     private var displayLink: CADisplayLink?
@@ -50,13 +56,18 @@ final class UserLocationPresenter {
     /// 첫 GPS 좌표 수신 여부 — interpolator 초기화/카메라 추적 가드
     private var hasReceivedFirstLocation = false
 
-    /// 컴파스 heading — location.course가 invalid일 때 fallback
+    /// 컴파스 heading — compass 모드에서 사용
     private var lastCompassHeading: CLLocationDirection = 0
 
     // MARK: - Init
 
-    init(mapView: MKMapView, locationService: LocationService = .shared) {
+    init(
+        mapView: MKMapView,
+        headingSource: HeadingSource = .compass,
+        locationService: LocationService = .shared
+    ) {
         self.mapView = mapView
+        self.headingSource = headingSource
         self.locationService = locationService
     }
 
@@ -137,20 +148,20 @@ final class UserLocationPresenter {
     // MARK: - Private: Bindings
 
     private func bindLocationService() {
-        // 좌표 (1Hz) → interpolator target
-        // location.course invalid 시 컴파스 heading fallback
+        // 좌표 (1Hz) → interpolator target. heading은 모드 무관하게 location.course 저장
+        // (compass 모드에선 displayLink가 무시)
         locationService.locationPublisher
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] location in
                 guard let self else { return }
-                let heading = location.course >= 0 ? location.course : lastCompassHeading
-                interpolator.setTarget(location.coordinate, heading: heading)
+                let courseHeading = location.course >= 0 ? location.course : 0
+                interpolator.setTarget(location.coordinate, heading: courseHeading)
                 hasReceivedFirstLocation = true
             }
             .store(in: &cancellables)
 
-        // 컴파스 — 별도 저장만, interpolator는 건드리지 않음
+        // 컴파스 — compass 모드에서만 사용 (locationCourse 모드는 무시)
         locationService.headingPublisher
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
@@ -178,7 +189,10 @@ final class UserLocationPresenter {
     @objc private func displayLinkFired() {
         let result = interpolator.interpolate()
         annotation.coordinate = result.coordinate
-        annotation.heading = result.heading
+        annotation.heading = switch headingSource {
+        case .compass: lastCompassHeading
+        case .locationCourse: result.heading
+        }
 
         if trackingMode != .none {
             applyTrackingMode(animated: false)
