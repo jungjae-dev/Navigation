@@ -38,11 +38,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private var navigationMapViewController: MapViewController?
 
-    // MARK: - Virtual Drive / GPX
+    // MARK: - Virtual Drive
 
     /// 가상 주행 진행 중인 driver (안내 lifecycle에 종속)
     private var activeVirtualDriveDriver: VirtualDriveDriver?
-    private var simulationCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
