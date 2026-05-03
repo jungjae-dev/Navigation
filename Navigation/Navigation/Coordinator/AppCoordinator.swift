@@ -776,7 +776,7 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         // GPX 녹화 자동 시작 (armed 상태면)
-        startGPXRecordingIfArmed(
+        startRecordingIfArmed(
             mode: recordingMode,
             originName: nil,
             destinationName: resolvedDestination.name,
@@ -816,7 +816,7 @@ final class AppCoordinator: NSObject, Coordinator {
         VoiceTTSPlayer.shared.stop()
 
         // GPX 녹화 자동 종료 (recording 상태면)
-        finishGPXRecordingIfRecording()
+        finishRecordingIfRecording()
 
         sessionManager.stopNavigation()
 
@@ -834,14 +834,14 @@ final class AppCoordinator: NSObject, Coordinator {
 
     /// armed 상태면 자동으로 녹화 시작
     /// - locationSource: 좌표 소스 (Real/File: LocationService, 가상주행: driver.locationPublisher)
-    private func startGPXRecordingIfArmed(
+    private func startRecordingIfArmed(
         mode: LocationRecorder.RecordingMode,
         originName: String?,
         destinationName: String?,
         locationSource: AnyPublisher<CLLocation, Never>
     ) {
         let recorder = LocationRecorder.shared
-        print("[GPX-DEBUG] startGPXRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
+        print("[Recording] startRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
         guard recorder.isArmed else { return }
 
         recorder.startRecording(
@@ -853,9 +853,9 @@ final class AppCoordinator: NSObject, Coordinator {
     }
 
     /// 녹화 중이면 종료 + 파일 저장 + DataService 기록
-    private func finishGPXRecordingIfRecording() {
+    private func finishRecordingIfRecording() {
         let recorder = LocationRecorder.shared
-        print("[GPX-DEBUG] finishGPXRecordingIfRecording() — state=\(recorder.statePublisher.value)")
+        print("[Recording] finishRecordingIfRecording() — state=\(recorder.statePublisher.value)")
         guard recorder.statePublisher.value == .recording else { return }
 
         let result = recorder.stopRecording()

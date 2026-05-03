@@ -102,7 +102,7 @@ final class DevToolsViewModel {
     /// 주행 시작/종료 시 AppCoordinator가 자동으로 녹화를 시작/종료함
     func toggleRecording() {
         let state = recorder.statePublisher.value
-        print("[GPX-DEBUG] toggleRecording() — current=\(state)")
+        print("[Recording] toggleRecording() — current=\(state)")
         switch state {
         case .idle:
             recorder.arm()                  // 다음 주행 시 자동 녹화
