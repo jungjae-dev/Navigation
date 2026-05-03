@@ -823,7 +823,8 @@ final class AppCoordinator: NSObject, Coordinator {
         activeVirtualDriveDriver = nil
 
         navigationMapViewController = nil
-        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
+        // 시스템 setUserTrackingMode은 showsUserLocation을 암묵적으로 켜 시스템 파란점이 부활하므로 사용 X
+        mapViewController.setUserTrackingMode(.follow)
         navigationController.popToViewController(homeViewController, animated: true)
     }
 
@@ -887,7 +888,8 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func cleanUpNavigationUI() {
         navigationMapViewController = nil
-        mapViewController.mapView.setUserTrackingMode(.follow, animated: false)
+        // 시스템 setUserTrackingMode은 showsUserLocation을 암묵적으로 켜 시스템 파란점이 부활하므로 사용 X
+        mapViewController.setUserTrackingMode(.follow)
         navigationController.popToViewController(homeViewController, animated: true)
     }
 }

@@ -60,9 +60,14 @@ final class LocationService: NSObject {
         authStatusPublisher.send(LocationAuthStatus(from: locationManager.authorizationStatus))
     }
 
-    /// 정확한 위치 → raw 위치 순으로 최선의 위치를 반환 (경로 출발지 등에 사용)
+    /// 정확한 위치 → raw → CLLocationManager 캐시 순 fallback
     var bestAvailableLocation: CLLocation? {
-        locationPublisher.value ?? rawLocationPublisher.value
+        locationPublisher.value ?? rawLocationPublisher.value ?? cachedLocation
+    }
+
+    /// CLLocationManager 마지막 캐시 (이전 세션 포함, 앱 시작 시드용)
+    var cachedLocation: CLLocation? {
+        locationManager.location
     }
 
     // MARK: - Public Methods

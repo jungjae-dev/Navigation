@@ -6,8 +6,12 @@ final class MapViewController: UIViewController {
 
     // MARK: - Properties
 
-    let mapView = MKMapView()
+    let mapView = TouchObservableMapView()
     private let locationService: LocationService
+    private lazy var userLocationPresenter = UserLocationPresenter(
+        mapView: mapView,
+        locationService: locationService
+    )
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Search & Route State
@@ -65,7 +69,6 @@ final class MapViewController: UIViewController {
         ])
 
         mapView.delegate = self
-        mapView.showsUserLocation = true
         mapView.showsCompass = false
         mapView.showsScale = true
         mapView.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .realistic)
@@ -73,6 +76,14 @@ final class MapViewController: UIViewController {
         mapView.isPitchEnabled = true
         mapView.pointOfInterestFilter = .includingAll
         mapView.selectableMapFeatures = [.pointsOfInterest]
+
+        userLocationPresenter.attach()
+        userLocationPresenter.onTrackingModeChanged = { [weak self] mode in
+            self?.onTrackingModeChanged?(mode)
+        }
+        mapView.onUserTouch = { [weak self] in
+            self?.userLocationPresenter.userDidInteractWithMap()
+        }
     }
 
     // MARK: - Binding
@@ -383,24 +394,26 @@ final class MapViewController: UIViewController {
 
     // MARK: - Public: Map Controls
 
-    /// Called when the user tracking mode changes (including auto-reset by MapKit)
-    var onTrackingModeChanged: ((MKUserTrackingMode) -> Void)?
+    /// Called when the user tracking mode changes
+    var onTrackingModeChanged: ((UserLocationPresenter.TrackingMode) -> Void)?
 
     /// Called when the map region changes by user interaction
     var onRegionChanged: (() -> Void)?
     private var regionChangeSuppressionEnd: Date = .distantPast
 
-    /// Cycle through MKUserTrackingMode: none → follow → followWithHeading → none
+    /// Cycle through tracking mode: none → follow → followWithHeading → none
     @discardableResult
-    func cycleUserTrackingMode() -> MKUserTrackingMode {
-        let next: MKUserTrackingMode = switch mapView.userTrackingMode {
-        case .none: .follow
-        case .follow: .followWithHeading
-        case .followWithHeading: .none
-        @unknown default: .none
-        }
-        mapView.setUserTrackingMode(next, animated: true)
-        return next
+    func cycleUserTrackingMode() -> UserLocationPresenter.TrackingMode {
+        userLocationPresenter.cycleTrackingMode()
+    }
+
+    /// Tracking mode 직접 지정
+    func setUserTrackingMode(_ mode: UserLocationPresenter.TrackingMode) {
+        userLocationPresenter.setTrackingMode(mode)
+    }
+
+    var trackingMode: UserLocationPresenter.TrackingMode {
+        userLocationPresenter.trackingMode
     }
 
     /// Toggle between standard and satellite (both with realistic 3D elevation)
@@ -468,6 +481,11 @@ extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation { return nil }
+
+        // 우리 user location annotation
+        if let view = userLocationPresenter.makeAnnotationView(for: annotation) {
+            return view
+        }
 
         if let vehicleAnnotation = annotation as? VehicleAnnotation {
             let identifier = "Vehicle"
@@ -542,10 +560,6 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         guard Date() > regionChangeSuppressionEnd else { return }
         onRegionChanged?()
-    }
-
-    func mapView(_ mapView: MKMapView, didChange mode: MKUserTrackingMode, animated: Bool) {
-        onTrackingModeChanged?(mode)
     }
 
     func mapView(_ mapView: MKMapView, didSelect annotation: any MKAnnotation) {

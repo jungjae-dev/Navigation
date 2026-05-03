@@ -6,10 +6,9 @@ final class CarPlayMapViewController: UIViewController {
 
     // MARK: - UI
 
-    private let mapView: MKMapView = {
-        let map = MKMapView()
+    private let mapView: TouchObservableMapView = {
+        let map = TouchObservableMapView()
         map.translatesAutoresizingMaskIntoConstraints = false
-        map.showsUserLocation = true
         map.mapType = .standard
         return map
     }()
@@ -18,6 +17,10 @@ final class CarPlayMapViewController: UIViewController {
 
     private let locationService: LocationService
     private let sessionManager: NavigationSessionManager
+    private lazy var userLocationPresenter = UserLocationPresenter(
+        mapView: mapView,
+        locationService: locationService
+    )
     private var cancellables = Set<AnyCancellable>()
     private var navigationCancellables = Set<AnyCancellable>()
     private var routeOverlay: MKPolyline?
@@ -57,6 +60,11 @@ final class CarPlayMapViewController: UIViewController {
         ])
 
         mapView.delegate = self
+
+        userLocationPresenter.attach()
+        mapView.onUserTouch = { [weak self] in
+            self?.userLocationPresenter.userDidInteractWithMap()
+        }
     }
 
     // MARK: - Bindings
@@ -189,4 +197,13 @@ extension CarPlayMapViewController: MKMapViewDelegate {
             return MKOverlayRenderer(overlay: overlay)
         }
     }
+
+    func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
+        if annotation is MKUserLocation { return nil }
+        if let view = userLocationPresenter.makeAnnotationView(for: annotation) {
+            return view
+        }
+        return nil
+    }
+
 }
