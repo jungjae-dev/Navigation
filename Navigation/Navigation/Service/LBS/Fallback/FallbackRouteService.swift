@@ -22,6 +22,7 @@ final class FallbackRouteService: RouteProviding {
     func calculateRoutes(
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?,
         transportMode: TransportMode
     ) async throws -> [Route] {
         checkRecovery()
@@ -29,22 +30,22 @@ final class FallbackRouteService: RouteProviding {
         if isPrimaryAvailable {
             do {
                 return try await primary.calculateRoutes(
-                    from: origin, to: destination, transportMode: transportMode
+                    from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
             } catch let error as LBSError where error == .quotaExceeded {
                 markPrimaryUnavailable()
                 return try await fallback.calculateRoutes(
-                    from: origin, to: destination, transportMode: transportMode
+                    from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
             } catch let error as LBSError where error == .noRoutesFound {
                 return try await fallback.calculateRoutes(
-                    from: origin, to: destination, transportMode: transportMode
+                    from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
             }
         }
 
         return try await fallback.calculateRoutes(
-            from: origin, to: destination, transportMode: transportMode
+            from: origin, to: destination, heading: heading, transportMode: transportMode
         )
     }
 

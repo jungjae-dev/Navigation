@@ -7,15 +7,16 @@ final class KakaoRouteService: RouteProviding {
     func calculateRoutes(
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?,
         transportMode: TransportMode
     ) async throws -> [Route] {
         cancelCurrentRequest()
 
         switch transportMode {
         case .automobile:
-            return try await calculateDrivingRoutes(from: origin, to: destination)
+            return try await calculateDrivingRoutes(from: origin, to: destination, heading: heading)
         case .walking:
-            return try await calculateWalkingRoutes(from: origin, to: destination)
+            return try await calculateWalkingRoutes(from: origin, to: destination, heading: heading)
         }
     }
 
@@ -24,10 +25,22 @@ final class KakaoRouteService: RouteProviding {
         to destination: CLLocationCoordinate2D
     ) async throws -> TimeInterval {
         let routes = try await calculateRoutes(
-            from: origin, to: destination, transportMode: .automobile
+            from: origin, to: destination, heading: nil, transportMode: .automobile
         )
         guard let first = routes.first else { throw LBSError.noRoutesFound }
         return first.expectedTravelTime
+    }
+
+    // MARK: - Origin 빌드 (heading hint)
+
+    /// `경도,위도` 또는 `경도,위도,angle={0...360}` 형식 — Kakao Mobility 공식 지원
+    private static func makeOriginValue(
+        _ origin: CLLocationCoordinate2D,
+        heading: CLLocationDirection?
+    ) -> String {
+        let base = "\(origin.longitude),\(origin.latitude)"
+        guard let h = heading, h.isFinite, (0...360).contains(h) else { return base }
+        return "\(base),angle=\(Int(h.rounded()) % 360)"
     }
 
     func cancelCurrentRequest() {
@@ -39,19 +52,21 @@ final class KakaoRouteService: RouteProviding {
 
     private func calculateDrivingRoutes(
         from origin: CLLocationCoordinate2D,
-        to destination: CLLocationCoordinate2D
+        to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?
     ) async throws -> [Route] {
         let task = Task {
             let priorities: [(value: String, name: String)] = [
                 ("RECOMMEND", "추천"),
                 ("TIME", "최단시간"),
             ]
+            let originValue = Self.makeOriginValue(origin, heading: heading)
 
             let routes: [Route] = try await withThrowingTaskGroup(of: Route?.self) { group in
                 for priority in priorities {
                     group.addTask {
                         let queryItems = [
-                            URLQueryItem(name: "origin", value: "\(origin.longitude),\(origin.latitude)"),
+                            URLQueryItem(name: "origin", value: originValue),
                             URLQueryItem(name: "destination", value: "\(destination.longitude),\(destination.latitude)"),
                             URLQueryItem(name: "priority", value: priority.value),
                         ]
@@ -92,11 +107,12 @@ final class KakaoRouteService: RouteProviding {
 
     private func calculateWalkingRoutes(
         from origin: CLLocationCoordinate2D,
-        to destination: CLLocationCoordinate2D
+        to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?
     ) async throws -> [Route] {
         let task = Task { () -> [Route] in
             // 도보 API 미승인(403) 시 noRoutesFound로 변환 → FallbackService가 Apple로 폴백
-            do { return try await fetchWalkingRoutes(from: origin, to: destination) }
+            do { return try await fetchWalkingRoutes(from: origin, to: destination, heading: heading) }
             catch { throw LBSError.noRoutesFound }
         }
 
@@ -106,18 +122,20 @@ final class KakaoRouteService: RouteProviding {
 
     private func fetchWalkingRoutes(
         from origin: CLLocationCoordinate2D,
-        to destination: CLLocationCoordinate2D
+        to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?
     ) async throws -> [Route] {
         let priorities: [(value: String, name: String)] = [
             ("DISTANCE", "최단거리"),
             ("MAIN_STREET", "큰길우선"),
         ]
+        let originValue = Self.makeOriginValue(origin, heading: heading)
 
         let routes: [Route] = try await withThrowingTaskGroup(of: Route?.self) { group in
             for priority in priorities {
                 group.addTask {
                     let queryItems = [
-                        URLQueryItem(name: "origin", value: "\(origin.longitude),\(origin.latitude)"),
+                        URLQueryItem(name: "origin", value: originValue),
                         URLQueryItem(name: "destination", value: "\(destination.longitude),\(destination.latitude)"),
                         URLQueryItem(name: "priority", value: priority.value),
                     ]

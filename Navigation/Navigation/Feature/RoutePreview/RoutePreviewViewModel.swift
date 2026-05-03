@@ -63,6 +63,7 @@ final class RoutePreviewViewModel {
             let calculatedRoutes = try await routeService.calculateRoutes(
                 from: origin,
                 to: destination,
+                heading: nil,
                 transportMode: transportModePublisher.value
             )
             routes.send(calculatedRoutes)

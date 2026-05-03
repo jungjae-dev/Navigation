@@ -56,10 +56,10 @@ final class AppCoordinator: NSObject, Coordinator {
         // "File 모드인데 파일 없음" 모순 상태 정리 (앱 재시작 시점 stale UserDefaults 대응)
         DevToolsSettings.shared.validateSelection()
 
-        // DevToolsSettings 구독: locationType 또는 selectedGPXFileName 변경 시 즉시 반영
+        // DevToolsSettings 구독: locationType 또는 selectedRecordingFileName 변경 시 즉시 반영
         Publishers.CombineLatest(
             DevToolsSettings.shared.locationType,
-            DevToolsSettings.shared.selectedGPXFileName
+            DevToolsSettings.shared.selectedRecordingFileName
         )
         .removeDuplicates(by: { lhs, rhs in lhs.0 == rhs.0 && lhs.1 == rhs.1 })
         .sink { [weak self] type, _ in
@@ -77,7 +77,7 @@ final class AppCoordinator: NSObject, Coordinator {
             print("[NAV] applyLocationType=Real")
             LocationService.shared.setProvider(RealGPSProvider(locationService: locationService))
         case .file:
-            guard let url = DevToolsSettings.shared.selectedGPXFileURL else {
+            guard let url = DevToolsSettings.shared.selectedRecordingFileURL else {
                 // 모순 상태 — Real로 fallback
                 print("[NAV] applyLocationType=File but no file → Real로 fallback")
                 DevToolsSettings.shared.validateSelection()
@@ -85,7 +85,7 @@ final class AppCoordinator: NSObject, Coordinator {
                 return
             }
             print("[NAV] applyLocationType=File (\(url.lastPathComponent))")
-            LocationService.shared.setProvider(FileGPSProvider(gpxFileURL: url))
+            LocationService.shared.setProvider(FileGPSProvider(fileURL: url))
         }
     }
 
@@ -397,18 +397,18 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         devToolsVC.onShowFileList = { [weak self] in
-            self?.showGPXFileList()
+            self?.showRecordingFileList()
         }
 
-        devToolsVC.onSelectGPXFile = { [weak self] in
-            self?.showGPXFileList()
+        devToolsVC.onSelectRecordingFile = { [weak self] in
+            self?.showRecordingFileList()
         }
 
         navigationController.pushViewController(devToolsVC, animated: true)
     }
 
-    private func showGPXFileList() {
-        let fileListVC = GPXFileListViewController()
+    private func showRecordingFileList() {
+        let fileListVC = RecordingFileListViewController()
 
         fileListVC.onDismiss = { [weak self] in
             self?.navigationController.popViewController(animated: true)
@@ -417,7 +417,7 @@ final class AppCoordinator: NSObject, Coordinator {
         // 파일 탭 시 File 모드로 자동 전환 + 선택 저장 + 뒤로
         fileListVC.onSelectFile = { [weak self] record in
             DevToolsSettings.shared.setLocationType(.file)
-            DevToolsSettings.shared.setSelectedGPXFileName(record.fileName)
+            DevToolsSettings.shared.setSelectedRecordingFileName(record.fileName)
             self?.navigationController.popViewController(animated: true)
         }
 
@@ -754,7 +754,7 @@ final class AppCoordinator: NSObject, Coordinator {
         // GPS publisher / locationSource / recordingMode 결정
         let gpsPublisher: AnyPublisher<GPSData, Never>
         let locationSource: AnyPublisher<CLLocation, Never>
-        let recordingMode: GPXRecorder.RecordingMode
+        let recordingMode: LocationRecorder.RecordingMode
 
         if forceSimul {
             // 가상 주행: 별도 driver 생성, lifecycle은 안내 종료까지
@@ -835,12 +835,12 @@ final class AppCoordinator: NSObject, Coordinator {
     /// armed 상태면 자동으로 녹화 시작
     /// - locationSource: 좌표 소스 (Real/File: LocationService, 가상주행: driver.locationPublisher)
     private func startGPXRecordingIfArmed(
-        mode: GPXRecorder.RecordingMode,
+        mode: LocationRecorder.RecordingMode,
         originName: String?,
         destinationName: String?,
         locationSource: AnyPublisher<CLLocation, Never>
     ) {
-        let recorder = GPXRecorder.shared
+        let recorder = LocationRecorder.shared
         print("[GPX-DEBUG] startGPXRecordingIfArmed() — isArmed=\(recorder.isArmed) mode=\(mode.rawValue)")
         guard recorder.isArmed else { return }
 
@@ -854,7 +854,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
     /// 녹화 중이면 종료 + 파일 저장 + DataService 기록
     private func finishGPXRecordingIfRecording() {
-        let recorder = GPXRecorder.shared
+        let recorder = LocationRecorder.shared
         print("[GPX-DEBUG] finishGPXRecordingIfRecording() — state=\(recorder.statePublisher.value)")
         guard recorder.statePublisher.value == .recording else { return }
 
@@ -863,8 +863,8 @@ final class AppCoordinator: NSObject, Coordinator {
         // DataService 저장
         if let result {
             let fileSize = (try? FileManager.default.attributesOfItem(atPath: result.fileURL.path)[.size] as? Int64) ?? 0
-            let relativePath = "GPXRecordings/\(result.fileURL.lastPathComponent)"
-            DataService.shared.saveGPXRecord(
+            let relativePath = "Recordings/\(result.fileURL.lastPathComponent)"
+            DataService.shared.saveRecording(
                 fileName: result.fileURL.lastPathComponent,
                 filePath: relativePath,
                 duration: result.duration,
@@ -875,9 +875,9 @@ final class AppCoordinator: NSObject, Coordinator {
                 originName: result.originName,
                 destinationName: result.destinationName
             )
-            print("[GPX-DEBUG] DataService.saveGPXRecord OK — \(result.fileURL.lastPathComponent) points=\(result.pointCount) dist=\(Int(result.distance))m")
+            print("[Recording] DataService.saveRecording OK — \(result.fileURL.lastPathComponent) points=\(result.pointCount) dist=\(Int(result.distance))m")
         } else {
-            print("[GPX-DEBUG] DataService.saveGPXRecord skipped — result=nil")
+            print("[Recording] DataService.saveRecording skipped — result=nil")
         }
     }
 

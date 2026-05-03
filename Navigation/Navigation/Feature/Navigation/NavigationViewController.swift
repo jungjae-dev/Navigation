@@ -25,6 +25,10 @@ final class NavigationViewController: UIViewController {
     private var destinationAnnotation: MKPointAnnotation?
     private var routeOverlay: MKPolyline?
 
+    // 맵매칭 디버그 시각화 (DevTools 토글로 ON/OFF) — 단일 overlay 에 누적
+    private var mapMatchDebugEnabled: Bool = false
+    private var trailOverlay: MapMatchTrailOverlay?
+
     // 7초 자동 복귀 타이머
     private var autoTrackTimer: Timer?
     private let autoTrackTimeout: TimeInterval = 7.0
@@ -131,6 +135,17 @@ final class NavigationViewController: UIViewController {
                 self?.applyRouteUpdate(newRoute)
             }
             .store(in: &cancellables)
+
+        // 맵매칭 디버그 시각화 토글
+        DevToolsSettings.shared.mapMatchDebugEnabled
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                self?.mapMatchDebugEnabled = enabled
+                if !enabled {
+                    self?.removeMapMatchDebugVisualization()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Route Update (reroute 시)
@@ -167,6 +182,10 @@ final class NavigationViewController: UIViewController {
         updateSpeedometer(guide)
         updateGPSStatus(guide)
         updateRerouteBanner(guide)
+
+        if mapMatchDebugEnabled {
+            updateMapMatchDebugVisualization(guide)
+        }
 
         // 음성 재생
         if let voiceCommand = guide.voiceCommand {
@@ -439,6 +458,45 @@ final class NavigationViewController: UIViewController {
         rerouteBannerView.isHidden = guide.state != .rerouting
     }
 
+    // MARK: - Map Match Debug Visualization
+
+    /// 매 tick 마다 GPS/매칭 위치를 trail overlay 에 append.
+    /// 단일 MKOverlay 가 모든 entry 를 담고 한 번의 draw 로 그리므로 메모리/렌더 비용이 점 개수에 거의 비례하지 않음.
+    private func updateMapMatchDebugVisualization(_ guide: NavigationGuide) {
+        guard let gpsCoord = guide.rawGPSPosition else { return }
+
+        // 첫 호출 시 overlay 1개 생성·등록
+        let overlay: MapMatchTrailOverlay
+        if let existing = trailOverlay {
+            overlay = existing
+        } else {
+            let new = MapMatchTrailOverlay()
+            mapView.addOverlay(new, level: .aboveLabels)
+            trailOverlay = new
+            overlay = new
+        }
+
+        let entry = MapMatchTrailOverlay.Entry(
+            gpsCoord: gpsCoord,
+            gpsHeading: guide.rawGPSHeading ?? -1,
+            matchedCoord: guide.isMatched ? guide.matchedPosition : nil,
+            matchedHeading: guide.isMatched ? guide.heading : nil
+        )
+        overlay.append(entry)
+
+        // renderer redraw 트리거 (캐시된 renderer 인스턴스 가져와서 invalidate)
+        if let renderer = mapView.renderer(for: overlay) {
+            renderer.setNeedsDisplay()
+        }
+    }
+
+    private func removeMapMatchDebugVisualization() {
+        if let overlay = trailOverlay {
+            mapView.removeOverlay(overlay)
+            trailOverlay = nil
+        }
+    }
+
     // MARK: - Arrival Popup
 
     private func showArrivalPopup() {
@@ -586,6 +644,9 @@ final class NavigationViewController: UIViewController {
 extension NavigationViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
+        if let trail = overlay as? MapMatchTrailOverlay {
+            return MapMatchTrailRenderer(overlay: trail)
+        }
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
             renderer.strokeColor = .systemBlue

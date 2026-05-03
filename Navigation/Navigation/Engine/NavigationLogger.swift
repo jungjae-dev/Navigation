@@ -112,6 +112,12 @@ final class NavigationLogger {
         logger.warning("[Reroute] 🛑 giving up after \(attempts) attempts")
     }
 
+    func logRerouteMisaligned(routeBearing: CLLocationDirection, userHeading: CLLocationDirection, delta: Double) {
+        guard level >= .stateChangesOnly else { return }
+        logger.warning("[Reroute] ⚠️ misaligned route — heading=\(String(format: "%.0f", userHeading))° routeBearing=\(String(format: "%.0f", routeBearing))° Δ=\(String(format: "%.0f", delta))°")
+    }
+
+
     // MARK: - Dead Reckoning
 
     func logDeadReckoning(active: Bool, estimatedDistance: CLLocationDistance? = nil) {

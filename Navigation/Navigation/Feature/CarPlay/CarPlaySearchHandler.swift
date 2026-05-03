@@ -132,6 +132,7 @@ extension CarPlaySearchHandler {
                 let routes = try await self.routeService.calculateRoutes(
                     from: userLocation,
                     to: place.coordinate,
+                    heading: nil,
                     transportMode: .automobile
                 )
 

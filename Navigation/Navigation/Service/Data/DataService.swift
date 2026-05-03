@@ -182,9 +182,9 @@ final class DataService {
         }
     }
 
-    // MARK: - GPX Records
+    // MARK: - Recordings
 
-    func saveGPXRecord(
+    func saveRecording(
         fileName: String,
         filePath: String,
         duration: TimeInterval,
@@ -197,7 +197,7 @@ final class DataService {
     ) {
         guard let context = modelContext else { return }
 
-        let record = GPXRecord(
+        let recording = Recording(
             fileName: fileName,
             filePath: filePath,
             duration: duration,
@@ -209,33 +209,29 @@ final class DataService {
             destinationName: destinationName
         )
 
-        context.insert(record)
+        context.insert(recording)
         save()
     }
 
-    func fetchGPXRecords() -> [GPXRecord] {
+    func fetchRecordings() -> [Recording] {
         guard let context = modelContext else { return [] }
 
-        let descriptor = FetchDescriptor<GPXRecord>(
+        let descriptor = FetchDescriptor<Recording>(
             sortBy: [SortDescriptor(\.recordedAt, order: .reverse)]
         )
 
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("[DataService] fetchGPXRecords error: \(error)")
+            print("[DataService] fetchRecordings error: \(error)")
             return []
         }
     }
 
-    func deleteGPXRecord(_ record: GPXRecord) {
+    func deleteRecording(_ recording: Recording) {
         guard let context = modelContext else { return }
-
-        // Delete the file from disk
-        let fileURL = record.fileURL
-        try? FileManager.default.removeItem(at: fileURL)
-
-        context.delete(record)
+        try? FileManager.default.removeItem(at: recording.fileURL)
+        context.delete(recording)
         save()
     }
 

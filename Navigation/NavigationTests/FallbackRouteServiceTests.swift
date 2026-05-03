@@ -15,7 +15,7 @@ struct FallbackRouteServiceTests {
 
         let service = FallbackRouteService(primary: primary, fallback: fallback)
         let routes = try await service.calculateRoutes(
-            from: origin, to: destination, transportMode: .automobile
+            from: origin, to: destination, heading: nil, transportMode: .automobile
         )
 
         #expect(routes.count == 1)
@@ -32,7 +32,7 @@ struct FallbackRouteServiceTests {
 
         let service = FallbackRouteService(primary: primary, fallback: fallback)
         let routes = try await service.calculateRoutes(
-            from: origin, to: destination, transportMode: .automobile
+            from: origin, to: destination, heading: nil, transportMode: .automobile
         )
 
         #expect(routes.count == 1)
@@ -49,7 +49,7 @@ struct FallbackRouteServiceTests {
 
         let service = FallbackRouteService(primary: primary, fallback: fallback)
         let routes = try await service.calculateRoutes(
-            from: origin, to: destination, transportMode: .walking
+            from: origin, to: destination, heading: nil, transportMode: .walking
         )
 
         #expect(routes.count == 1)
@@ -67,12 +67,12 @@ struct FallbackRouteServiceTests {
 
         // First call: primary fails → fallback
         _ = try await service.calculateRoutes(
-            from: origin, to: destination, transportMode: .automobile
+            from: origin, to: destination, heading: nil, transportMode: .automobile
         )
 
         // Second call: primary should be skipped
         _ = try await service.calculateRoutes(
-            from: origin, to: destination, transportMode: .automobile
+            from: origin, to: destination, heading: nil, transportMode: .automobile
         )
 
         #expect(primary.calculateRoutesCallCount == 1)

@@ -180,6 +180,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
                 let routes = try await routeService.calculateRoutes(
                     from: userLocation,
                     to: place.coordinate,
+                    heading: nil,
                     transportMode: .automobile
                 )
 

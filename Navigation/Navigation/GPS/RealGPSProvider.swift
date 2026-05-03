@@ -5,6 +5,8 @@ import Combine
 /// - LocationService.rawLocationPublisher를 구독해 GPSData로 변환
 /// - 1초 틱 보장: GPS 미수신 시 타이머가 isValid=false GPSData 발행
 /// - 정확도 필터: 첫 정확한 좌표 받기 전엔 부정확한 좌표도 통과 (초기 표시 위해)
+/// - heading: 폰 compass 방향은 사용하지 않음. GPS course 값만 사용.
+///   course 무효(-1)이면 마지막 유효 course 유지(정지 구간 대응). GPS 미수신 시 -1.
 final class RealGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
@@ -28,10 +30,11 @@ final class RealGPSProvider: GPSProviding {
     private let tickInterval: TimeInterval = 1.0
 
     private var lastLocation: CLLocation?
-    private var lastHeading: CLLocationDirection = 0
+    /// 마지막으로 유효했던 GPS course. 정지·저속 구간에서 직전 진행방향 유지용.
+    /// GPS 미수신(tickTimeout) 시엔 -1 (isValid=false 라 다운스트림에서 무시됨).
+    private var lastValidCourse: CLLocationDirection = -1
     private var lastGPSReceivedTime: Date = .distantPast
 
-    /// 정확한 좌표(≤ 100m) 수신 후엔 부정확 좌표 차단 (스파이크 방지)
     private var hasReceivedAccurateLocation = false
     private static let accuracyThreshold: CLLocationAccuracy = 100
 
@@ -59,14 +62,8 @@ final class RealGPSProvider: GPSProviding {
             }
             .store(in: &cancellables)
 
-        locationService.headingPublisher
-            .compactMap { $0 }
-            .sink { [weak self] heading in
-                self?.lastHeading = heading.trueHeading >= 0 ? heading.trueHeading : heading.magneticHeading
-            }
-            .store(in: &cancellables)
+        // compass(headingPublisher) 구독 없음 — 폰 방향은 맵매칭에 사용하지 않음
 
-        // 1초 틱 타이머 시작
         startTickTimer()
     }
 
@@ -74,6 +71,7 @@ final class RealGPSProvider: GPSProviding {
         cancellables.removeAll()
         stopTickTimer()
         lastLocation = nil
+        lastValidCourse = -1
         hasReceivedAccurateLocation = false
     }
 
@@ -83,12 +81,13 @@ final class RealGPSProvider: GPSProviding {
         lastLocation = location
         lastGPSReceivedTime = Date()
 
-        // heading: CLLocation.course가 유효하면 사용, 아니면 compass heading
-        let heading = location.course >= 0 ? location.course : lastHeading
+        if location.course >= 0 {
+            lastValidCourse = location.course
+        }
 
         let gpsData = GPSData(
             coordinate: location.coordinate,
-            heading: heading,
+            heading: lastValidCourse,
             speed: max(0, location.speed),
             accuracy: location.horizontalAccuracy,
             timestamp: location.timestamp,
@@ -98,7 +97,6 @@ final class RealGPSProvider: GPSProviding {
         locationSubject.send(location)
         gpsSubject.send(gpsData)
 
-        // GPS 수신했으므로 타이머 리셋
         resetTickTimer()
     }
 
@@ -120,12 +118,13 @@ final class RealGPSProvider: GPSProviding {
         startTickTimer()
     }
 
-    /// GPS가 1초 이상 안 오면 invalid GPSData 발행
+    /// GPS 가 1초 이상 안 오면 invalid GPSData 발행
+    /// heading = -1: isValid=false 이므로 다운스트림(맵매칭)에서 무시됨
     private func handleTickTimeout() {
         let gpsData = GPSData(
             coordinate: lastLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0),
-            heading: lastHeading,
-            speed: lastLocation?.speed ?? 0,
+            heading: -1,
+            speed: lastLocation.map { max(0, $0.speed) } ?? 0,
             accuracy: lastLocation?.horizontalAccuracy ?? -1,
             timestamp: Date(),
             isValid: false

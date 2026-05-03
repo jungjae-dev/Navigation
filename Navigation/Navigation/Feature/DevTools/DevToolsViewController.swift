@@ -28,6 +28,7 @@ final class DevToolsViewController: UIViewController {
 
     private enum DebugRow: Int, CaseIterable {
         case overlay = 0
+        case mapMatchVisualization = 1
     }
 
     // MARK: - UI
@@ -46,7 +47,7 @@ final class DevToolsViewController: UIViewController {
 
     var onDismiss: (() -> Void)?
     var onShowFileList: (() -> Void)?
-    var onSelectGPXFile: (() -> Void)?
+    var onSelectRecordingFile: (() -> Void)?
 
     // MARK: - Init
 
@@ -140,7 +141,7 @@ final class DevToolsViewController: UIViewController {
 
         Publishers.CombineLatest(
             viewModel.locationType,
-            viewModel.selectedGPXFileName
+            viewModel.selectedRecordingFileName
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _, _ in
@@ -159,6 +160,10 @@ final class DevToolsViewController: UIViewController {
         viewModel.setDebugOverlayEnabled(sender.isOn)
     }
 
+    @objc private func mapMatchDebugSwitchChanged(_ sender: UISwitch) {
+        DevToolsSettings.shared.setMapMatchDebugEnabled(sender.isOn)
+    }
+
     @objc private func armSwitchChanged(_ sender: UISwitch) {
         let state = viewModel.recordingState.value
         // idle ↔ armed 만 토글 (recording/paused 상태에서는 호출되지 않음 — 셀이 스위치 미표시)
@@ -175,14 +180,14 @@ final class DevToolsViewController: UIViewController {
             return
         }
         // File 선택 — 유효한 파일이 이미 있으면 그대로 적용
-        if DevToolsSettings.shared.selectedGPXFileURL != nil {
+        if DevToolsSettings.shared.selectedRecordingFileURL != nil {
             viewModel.setLocationType(.file)
             return
         }
         // 파일 없음 — 세그먼트는 Real로 즉시 되돌리고 picker 진입
         // 사용자가 picker에서 파일을 선택하면 그때 .file로 전환됨 (AppCoordinator.onSelectFile)
         sender.selectedSegmentIndex = 0
-        onSelectGPXFile?()
+        onSelectRecordingFile?()
     }
 
     // MARK: - Helpers
@@ -224,7 +229,7 @@ extension DevToolsViewController: UITableViewDataSource {
         guard let sec = Section(rawValue: section) else { return nil }
         switch sec {
         case .gps: return "GPS 소스"
-        case .recording: return "GPX 녹화"
+        case .recording: return "녹화"
         case .files: return "파일 관리"
         case .debug: return "디버그"
         }
@@ -265,7 +270,7 @@ extension DevToolsViewController: UITableViewDataSource {
                 let isFileMode = viewModel.locationType.value == .file
                 config.imageProperties.tintColor = isFileMode ? .systemOrange : Theme.Colors.secondaryLabel
                 config.secondaryText = isFileMode
-                    ? (viewModel.selectedGPXFileName.value ?? "(파일 선택 필요)")
+                    ? (viewModel.selectedRecordingFileName.value ?? "(파일 선택 필요)")
                     : "(File 모드에서만 사용)"
                 config.textProperties.color = isFileMode ? Theme.Table.cellColor : Theme.Colors.secondaryLabel
                 cell.accessoryType = isFileMode ? .disclosureIndicator : .none
@@ -324,7 +329,7 @@ extension DevToolsViewController: UITableViewDataSource {
             switch row {
             case .manageFiles:
                 let count = viewModel.gpxFileCount.value
-                config.text = "GPX 파일"
+                config.text = "녹화 파일"
                 config.secondaryText = "\(count)개"
                 config.image = UIImage(systemName: "doc.text.fill")
                 config.imageProperties.tintColor = .systemOrange
@@ -343,6 +348,19 @@ extension DevToolsViewController: UITableViewDataSource {
                 toggle.isOn = viewModel.debugOverlayEnabled.value
                 toggle.onTintColor = Theme.Colors.primary
                 toggle.addTarget(self, action: #selector(debugOverlaySwitchChanged), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
+
+            case .mapMatchVisualization:
+                config.text = "맵매칭 시각화"
+                config.secondaryText = "GPS(빨강) ↔ 매칭 위치(파랑) 화살표 표시"
+                config.image = UIImage(systemName: "scope")
+                config.imageProperties.tintColor = .systemPurple
+
+                let toggle = UISwitch()
+                toggle.isOn = DevToolsSettings.shared.mapMatchDebugEnabled.value
+                toggle.onTintColor = Theme.Colors.primary
+                toggle.addTarget(self, action: #selector(mapMatchDebugSwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
                 cell.selectionStyle = .none
             }
@@ -366,7 +384,7 @@ extension DevToolsViewController: UITableViewDelegate {
         case .gps:
             guard let row = GPSRow(rawValue: indexPath.row) else { return }
             if row == .selectedFile, viewModel.locationType.value == .file {
-                onSelectGPXFile?()
+                onSelectRecordingFile?()
             }
 
         case .recording:
