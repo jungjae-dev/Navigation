@@ -49,7 +49,8 @@ final class GPXRecorder {
     private var totalDistance: CLLocationDistance = 0
     private var durationTimer: Timer?
     private var locationCancellable: AnyCancellable?
-    private let locationSource: AnyPublisher<CLLocation?, Never>
+    private let defaultLocationSource: AnyPublisher<CLLocation, Never>
+    private var currentLocationSource: AnyPublisher<CLLocation, Never>
 
     // 현재 녹화 메타데이터
     private var currentMode: RecordingMode = .real
@@ -58,12 +59,15 @@ final class GPXRecorder {
 
     // MARK: - Init
 
-    init(locationPublisher: AnyPublisher<CLLocation?, Never> = LocationService.shared.locationPublisher.eraseToAnyPublisher()) {
-        self.locationSource = locationPublisher
+    init(locationPublisher: AnyPublisher<CLLocation, Never>? = nil) {
+        let src = locationPublisher
+            ?? LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
+        self.defaultLocationSource = src
+        self.currentLocationSource = src
     }
 
     private convenience init() {
-        self.init(locationPublisher: LocationService.shared.locationPublisher.eraseToAnyPublisher())
+        self.init(locationPublisher: nil)
     }
 
     // MARK: - Public Methods
@@ -92,23 +96,33 @@ final class GPXRecorder {
     var isArmed: Bool { statePublisher.value == .armed }
 
     /// 주행 시작 시 호출 — armed 상태면 자동으로 녹화 시작
+    /// - Parameter locationSource: 좌표 소스 (nil이면 기본 = LocationService.locationPublisher)
     /// - Returns: 실제로 녹화가 시작되었는지
     @discardableResult
     func startRecordingIfArmed(
         mode: RecordingMode,
         originName: String? = nil,
-        destinationName: String? = nil
+        destinationName: String? = nil,
+        locationSource: AnyPublisher<CLLocation, Never>? = nil
     ) -> Bool {
         guard statePublisher.value == .armed else { return false }
-        startRecording(mode: mode, originName: originName, destinationName: destinationName)
+        startRecording(
+            mode: mode,
+            originName: originName,
+            destinationName: destinationName,
+            locationSource: locationSource
+        )
         return true
     }
 
     /// 녹화 직접 시작 (메타데이터 포함)
+    /// - Parameter locationSource: 좌표 소스 (nil이면 기본 = LocationService.locationPublisher)
+    ///   가상주행 시엔 VirtualDriveDriver.locationPublisher 주입
     func startRecording(
         mode: RecordingMode = .real,
         originName: String? = nil,
-        destinationName: String? = nil
+        destinationName: String? = nil,
+        locationSource: AnyPublisher<CLLocation, Never>? = nil
     ) {
         guard statePublisher.value == .idle || statePublisher.value == .armed else {
             print("[GPX-DEBUG] startRecording() skipped — state=\(statePublisher.value)")
@@ -124,6 +138,8 @@ final class GPXRecorder {
         currentMode = mode
         currentOriginName = originName
         currentDestinationName = destinationName
+
+        currentLocationSource = locationSource ?? defaultLocationSource
 
         statePublisher.send(.recording)
         durationPublisher.send(0)
@@ -209,8 +225,7 @@ final class GPXRecorder {
 
     private func subscribeToLocation() {
         print("[GPX-DEBUG] subscribeToLocation()")
-        locationCancellable = locationSource
-            .compactMap { $0 }
+        locationCancellable = currentLocationSource
             .sink { [weak self] location in
                 self?.appendLocation(location)
             }

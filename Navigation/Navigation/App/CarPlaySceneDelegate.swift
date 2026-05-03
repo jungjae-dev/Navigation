@@ -216,7 +216,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             route: route,
             destination: destination,
             transportMode: route.transportMode,
-            gpsProvider: RealGPSProvider(),
+            gpsPublisher: LocationService.shared.gpsPublisher.eraseToAnyPublisher(),
             source: .carPlay
         )
 

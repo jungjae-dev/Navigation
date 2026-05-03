@@ -27,3 +27,6 @@ Secrets.xcconfig
 *.hmap
 *.xccheckout
 *.xcscmblueprint
+
+# Claude Code runtime
+.claude/scheduled_tasks.lock

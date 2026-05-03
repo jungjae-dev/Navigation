@@ -1,12 +1,17 @@
 import CoreLocation
 import Combine
 
-/// 실제 GPS 기반 Provider
-/// - LocationService의 locationPublisher/headingPublisher를 GPSData로 변환
-/// - 1초 틱 보장: GPS 미수신 시 타이머가 isValid=false GPSData를 발행
+/// 실제 GPS Provider
+/// - LocationService.rawLocationPublisher를 구독해 GPSData로 변환
+/// - 1초 틱 보장: GPS 미수신 시 타이머가 isValid=false GPSData 발행
+/// - 정확도 필터: 첫 정확한 좌표 받기 전엔 부정확한 좌표도 통과 (초기 표시 위해)
 final class RealGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
+
+    var locationPublisher: AnyPublisher<CLLocation, Never> {
+        locationSubject.eraseToAnyPublisher()
+    }
 
     var gpsPublisher: AnyPublisher<GPSData, Never> {
         gpsSubject.eraseToAnyPublisher()
@@ -14,6 +19,7 @@ final class RealGPSProvider: GPSProviding {
 
     // MARK: - Private
 
+    private let locationSubject = PassthroughSubject<CLLocation, Never>()
     private let gpsSubject = PassthroughSubject<GPSData, Never>()
     private let locationService: LocationService
     private var cancellables = Set<AnyCancellable>()
@@ -25,6 +31,10 @@ final class RealGPSProvider: GPSProviding {
     private var lastHeading: CLLocationDirection = 0
     private var lastGPSReceivedTime: Date = .distantPast
 
+    /// 정확한 좌표(≤ 100m) 수신 후엔 부정확 좌표 차단 (스파이크 방지)
+    private var hasReceivedAccurateLocation = false
+    private static let accuracyThreshold: CLLocationAccuracy = 100
+
     // MARK: - Init
 
     init(locationService: LocationService = .shared) {
@@ -34,9 +44,16 @@ final class RealGPSProvider: GPSProviding {
     // MARK: - GPSProviding
 
     func start() {
-        // LocationService 구독
-        locationService.locationPublisher
+        locationService.rawLocationPublisher
             .compactMap { $0 }
+            .filter { [weak self] location in
+                guard let self, location.horizontalAccuracy >= 0 else { return false }
+                if location.horizontalAccuracy <= Self.accuracyThreshold {
+                    hasReceivedAccurateLocation = true
+                    return true
+                }
+                return !hasReceivedAccurateLocation
+            }
             .sink { [weak self] location in
                 self?.handleLocationUpdate(location)
             }
@@ -57,6 +74,7 @@ final class RealGPSProvider: GPSProviding {
         cancellables.removeAll()
         stopTickTimer()
         lastLocation = nil
+        hasReceivedAccurateLocation = false
     }
 
     // MARK: - GPS 수신 처리
@@ -77,6 +95,7 @@ final class RealGPSProvider: GPSProviding {
             isValid: true
         )
 
+        locationSubject.send(location)
         gpsSubject.send(gpsData)
 
         // GPS 수신했으므로 타이머 리셋

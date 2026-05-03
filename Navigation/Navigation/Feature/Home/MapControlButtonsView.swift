@@ -100,7 +100,7 @@ final class MapControlButtonsView: UIView {
 
     // MARK: - State Updates
 
-    func updateCurrentLocationIcon(for mode: MKUserTrackingMode) {
+    func updateCurrentLocationIcon(for mode: UserLocationPresenter.TrackingMode) {
         let iconName: String
         let tintColor: UIColor
 
@@ -114,9 +114,6 @@ final class MapControlButtonsView: UIView {
         case .followWithHeading:
             iconName = "location.north.line.fill"
             tintColor = Theme.Colors.primary
-        @unknown default:
-            iconName = "location"
-            tintColor = Theme.Colors.secondaryLabel
         }
 
         currentLocationButton.setImage(

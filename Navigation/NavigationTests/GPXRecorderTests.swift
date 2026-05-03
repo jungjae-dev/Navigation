@@ -9,7 +9,9 @@ struct GPXRecorderTests {
 
     private func makeLocationPublisher() -> (CurrentValueSubject<CLLocation?, Never>, GPXRecorder) {
         let subject = CurrentValueSubject<CLLocation?, Never>(nil)
-        let recorder = GPXRecorder(locationPublisher: subject.eraseToAnyPublisher())
+        let recorder = GPXRecorder(
+            locationPublisher: subject.compactMap { $0 }.eraseToAnyPublisher()
+        )
         return (subject, recorder)
     }
 

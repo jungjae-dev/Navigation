@@ -19,10 +19,9 @@ struct NavigationSessionManagerTests {
         TestFixtures.samplePlace
     }
 
-    private func makeGPSProvider() -> SimulGPSProvider {
-        let provider = SimulGPSProvider()
-        provider.load(polyline: makeRoute().polylineCoordinates)
-        return provider
+    private func makeGPSPublisher() -> AnyPublisher<GPSData, Never> {
+        // 테스트용 — 좌표 발행은 하지 않고 sessionManager가 구독 처리만 검증
+        Empty<GPSData, Never>(completeImmediately: false).eraseToAnyPublisher()
     }
 
     // MARK: - Tests
@@ -39,7 +38,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsProvider: makeGPSProvider(),
+            gpsPublisher: makeGPSPublisher(),
             source: .phone
         )
 
@@ -54,7 +53,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsProvider: makeGPSProvider(),
+            gpsPublisher: makeGPSPublisher(),
             source: .phone
         )
 
@@ -78,7 +77,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsProvider: makeGPSProvider(),
+            gpsPublisher: makeGPSPublisher(),
             source: .carPlay
         )
 
@@ -100,7 +99,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsProvider: makeGPSProvider(),
+            gpsPublisher: makeGPSPublisher(),
             source: .phone
         )
 

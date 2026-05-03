@@ -26,6 +26,7 @@ final class LocationSimulator {
     private var locations: [CLLocation] = []
     private var currentIndex = 0
     private var timer: Timer?
+    private var isLooping: Bool = false
 
     // MARK: - Public: Load
 
@@ -56,10 +57,13 @@ final class LocationSimulator {
 
     // MARK: - Public: Playback Control
 
-    func play() {
+    /// 재생 시작
+    /// - Parameter loop: true면 끝까지 재생 후 처음부터 반복 (long-lived 용도 — File/가상주행)
+    func play(loop: Bool = false) {
         guard !locations.isEmpty else { return }
         guard !isPlayingPublisher.value else { return }
 
+        isLooping = loop
         isPlayingPublisher.send(true)
         scheduleNext()
     }
@@ -73,6 +77,7 @@ final class LocationSimulator {
     func stop() {
         timer?.invalidate()
         timer = nil
+        isLooping = false
         currentIndex = 0
         progressPublisher.send(0.0)
         isPlayingPublisher.send(false)
@@ -92,7 +97,7 @@ final class LocationSimulator {
 
     private func scheduleNext() {
         guard currentIndex < locations.count else {
-            stop()
+            handleEnd()
             return
         }
 
@@ -105,7 +110,7 @@ final class LocationSimulator {
         currentIndex += 1
 
         guard currentIndex < locations.count else {
-            stop()
+            handleEnd()
             return
         }
 
@@ -130,6 +135,17 @@ final class LocationSimulator {
             repeats: false
         ) { [weak self] _ in
             self?.scheduleNext()
+        }
+    }
+
+    /// 마지막 좌표 도달 시 처리 — loop면 처음부터 다시, 아니면 정지
+    private func handleEnd() {
+        if isLooping {
+            currentIndex = 0
+            progressPublisher.send(0.0)
+            scheduleNext()
+        } else {
+            reset()
         }
     }
 
