@@ -9,6 +9,9 @@ final class NavigationEngine {
 
     let guidePublisher = CurrentValueSubject<NavigationGuide?, Never>(nil)
 
+    /// 활성 경로 — reroute 시 send. 모든 route 의 단일 진실.
+    let routePublisher: CurrentValueSubject<Route, Never>
+
     // MARK: - Components
 
     private var mapMatcher: MapMatcher
@@ -20,7 +23,7 @@ final class NavigationEngine {
 
     // MARK: - Configuration
 
-    private var route: Route
+    private var route: Route { routePublisher.value }
     private let transportMode: TransportMode
     private let routeService: RouteProviding
     private let logger = NavigationLogger.shared
@@ -40,7 +43,7 @@ final class NavigationEngine {
         transportMode: TransportMode,
         routeService: RouteProviding
     ) {
-        self.route = route
+        self.routePublisher = CurrentValueSubject<Route, Never>(route)
         self.transportMode = transportMode
         self.routeService = routeService
 
@@ -91,7 +94,6 @@ final class NavigationEngine {
             }
 
             isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
-            logger.logOffRoute(consecutiveFailures: offRouteDetector.consecutiveFailures, isOffRoute: isOffRoute)
 
             matchedPosition = matchResult.coordinate
             heading = matchResult.isMatched
@@ -227,6 +229,8 @@ final class NavigationEngine {
         isRerouteInProgress = true
         rerouteAttempts = 0
 
+        logger.logRerouteStart(from: coordinate)
+
         rerouteTask = Task { [weak self] in
             await self?.executeReroute(from: coordinate)
         }
@@ -234,13 +238,16 @@ final class NavigationEngine {
 
     private func executeReroute(from coordinate: CLLocationCoordinate2D) async {
         guard let destination = route.polylineCoordinates.last else {
-            stateManager.rerouteFailed()
-            isRerouteInProgress = false
+            await MainActor.run { [weak self] in
+                self?.stateManager.rerouteFailed()
+                self?.isRerouteInProgress = false
+            }
             return
         }
 
         while rerouteAttempts < maxRerouteAttempts {
             rerouteAttempts += 1
+            logger.logRerouteAttempt(attempt: rerouteAttempts, maxAttempts: maxRerouteAttempts)
 
             do {
                 let routes = try await routeService.calculateRoutes(
@@ -260,6 +267,7 @@ final class NavigationEngine {
                 return
 
             } catch {
+                logger.logRerouteFailure(error: error, attempt: rerouteAttempts)
                 if rerouteAttempts < maxRerouteAttempts {
                     try? await Task.sleep(nanoseconds: UInt64(rerouteRetryInterval * 1_000_000_000))
                 }
@@ -267,6 +275,7 @@ final class NavigationEngine {
         }
 
         // 3회 모두 실패
+        logger.logRerouteGiveUp(attempts: rerouteAttempts)
         await MainActor.run { [weak self] in
             self?.stateManager.rerouteFailed()
             self?.offRouteDetector.reset()
@@ -275,7 +284,8 @@ final class NavigationEngine {
     }
 
     private func applyNewRoute(_ newRoute: Route) {
-        route = newRoute
+        // 단일 mutation 지점 — publisher 발행 + 컴포넌트 재생성을 함께 수행
+        routePublisher.send(newRoute)
         mapMatcher = MapMatcher(polyline: newRoute.polylineCoordinates, transportMode: transportMode)
         routeTracker = RouteTracker(route: newRoute)
         voiceEngine = VoiceEngine(provider: newRoute.provider)
@@ -286,7 +296,11 @@ final class NavigationEngine {
         stateManager.rerouteSucceeded()
         isRerouteInProgress = false
 
-        logger.logRouteConverted(provider: newRoute.provider, stepCount: newRoute.steps.count, polylineCount: newRoute.polylineCoordinates.count)
+        logger.logRerouteSuccess(
+            provider: newRoute.provider,
+            stepCount: newRoute.steps.count,
+            polylineCount: newRoute.polylineCoordinates.count
+        )
     }
 
     // MARK: - Helpers

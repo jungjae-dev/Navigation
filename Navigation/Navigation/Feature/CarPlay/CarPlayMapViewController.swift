@@ -87,45 +87,64 @@ final class CarPlayMapViewController: UIViewController {
     }
 
     private func bindNavigationSession() {
-        // 주행 시작/종료 감지
+        // 주행 시작/종료 — 카메라 모드 전환만 담당
         sessionManager.navigationCommandPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] command in
                 switch command {
                 case .started:
-                    if let session = self?.sessionManager.activeSession {
-                        self?.configureForNavigation(session: session)
-                    }
+                    self?.enterNavigationCamera()
                 case .stopped:
-                    self?.configureForStandard()
+                    self?.exitNavigationCamera()
+                }
+            }
+            .store(in: &cancellables)
+
+        // 경로 변경 (초기 발행 + reroute) — overlay 만 담당
+        sessionManager.routePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] route in
+                if let route {
+                    self?.applyRouteOverlay(route)
+                } else {
+                    self?.clearRouteOverlay()
                 }
             }
             .store(in: &cancellables)
     }
 
-    // MARK: - Navigation Mode
+    // MARK: - Route Overlay (publisher-driven)
 
-    private func configureForNavigation(session: NavigationSession) {
-        // Clear previous overlay
-        if let overlay = routeOverlay {
-            mapView.removeOverlay(overlay)
+    private func applyRouteOverlay(_ route: Route) {
+        if let old = routeOverlay {
+            mapView.removeOverlay(old)
         }
-
-        // Add route overlay
-        let polyline = session.route.mkPolyline
+        let polyline = route.mkPolyline
         mapView.addOverlay(polyline, level: .aboveRoads)
         routeOverlay = polyline
+    }
 
-        // Fit route on map initially
-        mapView.setVisibleMapRect(
-            polyline.boundingMapRect,
-            edgePadding: UIEdgeInsets(top: 60, left: 40, bottom: 60, right: 40),
-            animated: true
-        )
+    private func clearRouteOverlay() {
+        if let overlay = routeOverlay {
+            mapView.removeOverlay(overlay)
+            routeOverlay = nil
+        }
+    }
 
-        // Follow user location with heading during navigation
+    // MARK: - Navigation Camera (command-driven)
+
+    private func enterNavigationCamera() {
+        // 현재 overlay 가 있으면 fit, 없으면 다음 routePublisher 발행 후 follow 가 잡아줌
+        if let overlay = routeOverlay {
+            mapView.setVisibleMapRect(
+                overlay.boundingMapRect,
+                edgePadding: UIEdgeInsets(top: 60, left: 40, bottom: 60, right: 40),
+                animated: true
+            )
+        }
+
+        // 주행 중 location follow + heading
         navigationCancellables.removeAll()
-
         locationService.locationPublisher
             .compactMap { $0 }
             .sink { [weak self] location in
@@ -142,15 +161,9 @@ final class CarPlayMapViewController: UIViewController {
             .store(in: &navigationCancellables)
     }
 
-    private func configureForStandard() {
+    private func exitNavigationCamera() {
         navigationCancellables.removeAll()
 
-        if let overlay = routeOverlay {
-            mapView.removeOverlay(overlay)
-            routeOverlay = nil
-        }
-
-        // Reset to 2D view
         let camera = MKMapCamera()
         camera.pitch = 0
         camera.heading = 0

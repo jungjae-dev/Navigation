@@ -5,9 +5,10 @@ import CoreLocation
 // MARK: - Navigation Session
 
 struct NavigationSession {
-    let route: Route
     let destination: Place
     let engine: NavigationEngine
+    // route 는 engine 의 routePublisher 에 위임 (reroute 시 자동 반영, stale snapshot 차단)
+    var route: Route { engine.routePublisher.value }
     // GPS provider lifecycle은 외부(AppCoordinator)에서 관리:
     // - Real/File: LocationService.setProvider/clearProvider
     // - 가상주행: VirtualDriveDriver.start/stop
@@ -34,6 +35,8 @@ final class NavigationSessionManager {
     // MARK: - Publishers
 
     let guidePublisher = CurrentValueSubject<NavigationGuide?, Never>(nil)
+    /// 활성 경로 — 세션 종료 시 nil. reroute 시 새 Route 발행.
+    let routePublisher = CurrentValueSubject<Route?, Never>(nil)
     let navigationCommandPublisher = PassthroughSubject<NavigationCommand, Never>()
 
     // MARK: - Session
@@ -81,16 +84,21 @@ final class NavigationSessionManager {
             }
             .store(in: &cancellables)
 
-        // 엔진 출력 → 외부 전달
+        // 엔진 출력 → 외부 전달 (guide + route 동일 패턴)
         engine.guidePublisher
             .sink { [weak self] guide in
                 self?.guidePublisher.send(guide)
             }
             .store(in: &cancellables)
 
+        engine.routePublisher
+            .sink { [weak self] route in
+                self?.routePublisher.send(route)
+            }
+            .store(in: &cancellables)
+
         // 세션 저장
         let session = NavigationSession(
-            route: route,
             destination: destination,
             engine: engine
         )
@@ -124,6 +132,7 @@ final class NavigationSessionManager {
 
         activeSession = nil
         guidePublisher.send(nil)
+        routePublisher.send(nil)
         navigationCommandPublisher.send(.stopped)
     }
 

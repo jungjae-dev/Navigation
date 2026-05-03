@@ -12,7 +12,7 @@ final class NavigationViewController: UIViewController {
     private let vehicleAnnotation = MKPointAnnotation()
     private let interpolator = LocationInterpolator()
 
-    private let route: Route
+    private var route: Route
     private let transportMode: TransportMode
     private let destinationName: String?
     private var cancellables = Set<AnyCancellable>()
@@ -110,14 +110,49 @@ final class NavigationViewController: UIViewController {
 
     // MARK: - Bind Engine
 
-    func bind(to guidePublisher: CurrentValueSubject<NavigationGuide?, Never>) {
-        guidePublisher
+    func bind(
+        guide: CurrentValueSubject<NavigationGuide?, Never>,
+        route: CurrentValueSubject<Route?, Never>
+    ) {
+        guide
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] guide in
                 self?.handleGuide(guide)
             }
             .store(in: &cancellables)
+
+        // 초기 route 는 init 시 받은 값이므로 dropFirst 로 reroute 만 처리
+        route
+            .compactMap { $0 }
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newRoute in
+                self?.applyRouteUpdate(newRoute)
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Route Update (reroute 시)
+
+    private func applyRouteUpdate(_ newRoute: Route) {
+        route = newRoute
+
+        // 기존 overlay 제거 후 새 polyline 추가
+        if let old = routeOverlay {
+            mapView.removeOverlay(old)
+            routeOverlay = nil
+        }
+        let coords = newRoute.polylineCoordinates
+        guard coords.count >= 2 else { return }
+        let polyline = MKPolyline(coordinates: coords, count: coords.count)
+        mapView.addOverlay(polyline, level: .aboveRoads)
+        routeOverlay = polyline
+
+        // 도착 마커는 새 경로의 끝점으로 갱신 (출발 마커는 초기 위치 유지)
+        if let last = coords.last {
+            destinationAnnotation?.coordinate = last
+        }
     }
 
     // MARK: - Handle Guide

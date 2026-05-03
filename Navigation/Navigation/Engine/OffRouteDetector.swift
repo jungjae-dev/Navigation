@@ -17,6 +17,8 @@ final class OffRouteDetector {
     private var navigationStartTime: Date?
     private var startCoordinate: CLLocationCoordinate2D?
 
+    private let logger = NavigationLogger.shared
+
     // MARK: - Init
 
     init() {}
@@ -36,21 +38,38 @@ final class OffRouteDetector {
     /// - Returns: true이면 이탈 확정
     func update(matchResult: MatchResult, gpsAccuracy: CLLocationAccuracy) -> Bool {
         // 보호 조건 1: 출발 후 5초 이내 → 보류
-        if let startTime = navigationStartTime,
-           Date().timeIntervalSince(startTime) < startTimeProtection {
-            return false
+        if let startTime = navigationStartTime {
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed < startTimeProtection {
+                if !matchResult.isMatched {
+                    logger.logOffRouteProtected(
+                        reason: "startTime \(String(format: "%.1f", elapsed))s < \(Int(startTimeProtection))s"
+                    )
+                }
+                return false
+            }
         }
 
         // 보호 조건 2: 출발 후 35m 이내 → 보류
         if let startCoord = startCoordinate {
             let distFromStart = distanceInMeters(from: startCoord, to: matchResult.coordinate)
             if distFromStart < startDistanceProtection {
+                if !matchResult.isMatched {
+                    logger.logOffRouteProtected(
+                        reason: "startDistance \(String(format: "%.1f", distFromStart))m < \(Int(startDistanceProtection))m"
+                    )
+                }
                 return false
             }
         }
 
         // 보호 조건 3: GPS 정확도 불량 → 보류
         if gpsAccuracy > accuracyThreshold {
+            if !matchResult.isMatched {
+                logger.logOffRouteProtected(
+                    reason: "accuracy \(String(format: "%.1f", gpsAccuracy))m > \(Int(accuracyThreshold))m"
+                )
+            }
             return false
         }
 
@@ -60,7 +79,11 @@ final class OffRouteDetector {
             return false
         } else {
             consecutiveFailures += 1
-            return consecutiveFailures >= requiredFailures
+            let confirmed = consecutiveFailures >= requiredFailures
+            if confirmed {
+                logger.logOffRouteConfirmed(consecutiveFailures: consecutiveFailures)
+            }
+            return confirmed
         }
     }
 
