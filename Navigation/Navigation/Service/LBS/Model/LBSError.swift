@@ -7,6 +7,7 @@ enum LBSError: Error, LocalizedError, Equatable {
     case noResults
     case completionNotFound
     case quotaExceeded
+    case routeMisaligned
 
     var errorDescription: String? {
         switch self {
@@ -22,6 +23,8 @@ enum LBSError: Error, LocalizedError, Equatable {
             return "검색 자동완성 항목을 찾을 수 없습니다"
         case .quotaExceeded:
             return "API 할당량이 초과되었습니다"
+        case .routeMisaligned:
+            return "진행방향과 일치하는 경로를 찾지 못했습니다"
         }
     }
 }

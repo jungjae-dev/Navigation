@@ -12,7 +12,7 @@ final class NavigationViewController: UIViewController {
     private let vehicleAnnotation = MKPointAnnotation()
     private let interpolator = LocationInterpolator()
 
-    private let route: Route
+    private var route: Route
     private let transportMode: TransportMode
     private let destinationName: String?
     private var cancellables = Set<AnyCancellable>()
@@ -24,6 +24,10 @@ final class NavigationViewController: UIViewController {
     private var originAnnotation: MKPointAnnotation?
     private var destinationAnnotation: MKPointAnnotation?
     private var routeOverlay: MKPolyline?
+
+    // 맵매칭 디버그 시각화 (DevTools 토글로 ON/OFF) — 단일 overlay 에 누적
+    private var mapMatchDebugEnabled: Bool = false
+    private var trailOverlay: MapMatchTrailOverlay?
 
     // 7초 자동 복귀 타이머
     private var autoTrackTimer: Timer?
@@ -110,14 +114,60 @@ final class NavigationViewController: UIViewController {
 
     // MARK: - Bind Engine
 
-    func bind(to guidePublisher: CurrentValueSubject<NavigationGuide?, Never>) {
-        guidePublisher
+    func bind(
+        guide: CurrentValueSubject<NavigationGuide?, Never>,
+        route: CurrentValueSubject<Route?, Never>
+    ) {
+        guide
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] guide in
                 self?.handleGuide(guide)
             }
             .store(in: &cancellables)
+
+        // 초기 route 는 init 시 받은 값이므로 dropFirst 로 reroute 만 처리
+        route
+            .compactMap { $0 }
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newRoute in
+                self?.applyRouteUpdate(newRoute)
+            }
+            .store(in: &cancellables)
+
+        // 맵매칭 디버그 시각화 토글
+        DevToolsSettings.shared.mapMatchDebugEnabled
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                self?.mapMatchDebugEnabled = enabled
+                if !enabled {
+                    self?.removeMapMatchDebugVisualization()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Route Update (reroute 시)
+
+    private func applyRouteUpdate(_ newRoute: Route) {
+        route = newRoute
+
+        // 기존 overlay 제거 후 새 polyline 추가
+        if let old = routeOverlay {
+            mapView.removeOverlay(old)
+            routeOverlay = nil
+        }
+        let coords = newRoute.polylineCoordinates
+        guard coords.count >= 2 else { return }
+        let polyline = MKPolyline(coordinates: coords, count: coords.count)
+        mapView.addOverlay(polyline, level: .aboveRoads)
+        routeOverlay = polyline
+
+        // 도착 마커는 새 경로의 끝점으로 갱신 (출발 마커는 초기 위치 유지)
+        if let last = coords.last {
+            destinationAnnotation?.coordinate = last
+        }
     }
 
     // MARK: - Handle Guide
@@ -132,6 +182,10 @@ final class NavigationViewController: UIViewController {
         updateSpeedometer(guide)
         updateGPSStatus(guide)
         updateRerouteBanner(guide)
+
+        if mapMatchDebugEnabled {
+            updateMapMatchDebugVisualization(guide)
+        }
 
         // 음성 재생
         if let voiceCommand = guide.voiceCommand {
@@ -197,6 +251,14 @@ final class NavigationViewController: UIViewController {
     private func setupVehicleAnnotation() {
         if let first = route.polylineCoordinates.first {
             vehicleAnnotation.coordinate = first
+            // 첫 GPS 도착 전 DisplayLink 가 (0,0) 을 반환하지 않도록 경로 출발점 + 첫 segment 방향으로 초기화
+            let initialHeading: CLLocationDirection
+            if route.polylineCoordinates.count >= 2 {
+                initialHeading = MapGeometry.bearing(from: route.polylineCoordinates[0], to: route.polylineCoordinates[1])
+            } else {
+                initialHeading = 0
+            }
+            interpolator.resetTo(first, initialHeading)
         }
         vehicleAnnotation.title = "vehicle"
         mapView.addAnnotation(vehicleAnnotation)
@@ -404,6 +466,45 @@ final class NavigationViewController: UIViewController {
         rerouteBannerView.isHidden = guide.state != .rerouting
     }
 
+    // MARK: - Map Match Debug Visualization
+
+    /// 매 tick 마다 GPS/매칭 위치를 trail overlay 에 append.
+    /// 단일 MKOverlay 가 모든 entry 를 담고 한 번의 draw 로 그리므로 메모리/렌더 비용이 점 개수에 거의 비례하지 않음.
+    private func updateMapMatchDebugVisualization(_ guide: NavigationGuide) {
+        guard let gpsCoord = guide.rawGPSPosition else { return }
+
+        // 첫 호출 시 overlay 1개 생성·등록
+        let overlay: MapMatchTrailOverlay
+        if let existing = trailOverlay {
+            overlay = existing
+        } else {
+            let new = MapMatchTrailOverlay()
+            mapView.addOverlay(new, level: .aboveLabels)
+            trailOverlay = new
+            overlay = new
+        }
+
+        let entry = MapMatchTrailOverlay.Entry(
+            gpsCoord: gpsCoord,
+            gpsHeading: guide.rawGPSHeading ?? -1,
+            matchedCoord: guide.isMatched ? guide.matchedPosition : nil,
+            matchedHeading: guide.isMatched ? guide.heading : nil
+        )
+        overlay.append(entry)
+
+        // renderer redraw 트리거 (캐시된 renderer 인스턴스 가져와서 invalidate)
+        if let renderer = mapView.renderer(for: overlay) {
+            renderer.setNeedsDisplay()
+        }
+    }
+
+    private func removeMapMatchDebugVisualization() {
+        if let overlay = trailOverlay {
+            mapView.removeOverlay(overlay)
+            trailOverlay = nil
+        }
+    }
+
     // MARK: - Arrival Popup
 
     private func showArrivalPopup() {
@@ -441,6 +542,17 @@ final class NavigationViewController: UIViewController {
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handleMapGesture))
         pinch.delegate = self
         mapView.addGestureRecognizer(pinch)
+
+        // 터치 시작 즉시 autoTracking 해제 — Pan 의 .began 보다 먼저 발생해
+        // displayLink 가 camera 를 덮어쓰는 구간을 없앰
+        let touchDown = UILongPressGestureRecognizer(target: self, action: #selector(handleTouchDown))
+        touchDown.minimumPressDuration = 0
+        touchDown.delegate = self
+        mapView.addGestureRecognizer(touchDown)
+    }
+
+    @objc private func handleTouchDown(_ gesture: UIGestureRecognizer) {
+        if gesture.state == .began { disableAutoTracking() }
     }
 
     @objc private func handleMapGesture(_ gesture: UIGestureRecognizer) {
@@ -495,6 +607,13 @@ final class NavigationViewController: UIViewController {
                 mode: transportMode
             )
         }
+
+        // 카메라 방향과 무관하게 아이콘이 실제 진행방향을 가리키도록 보정
+        // autoTracking: 카메라 heading == 차량 heading → 각도차 0 → identity
+        // 수동 모드:    카메라가 다른 방향 → 차이만큼 회전
+        let angleDiff = result.heading - mapView.camera.heading
+        let angleRad = CGFloat(angleDiff * .pi / 180)
+        mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
     }
 
     // MARK: - Helpers
@@ -551,6 +670,9 @@ final class NavigationViewController: UIViewController {
 extension NavigationViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
+        if let trail = overlay as? MapMatchTrailOverlay {
+            return MapMatchTrailRenderer(overlay: trail)
+        }
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
             renderer.strokeColor = .systemBlue

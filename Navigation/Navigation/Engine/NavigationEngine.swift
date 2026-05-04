@@ -9,6 +9,9 @@ final class NavigationEngine {
 
     let guidePublisher = CurrentValueSubject<NavigationGuide?, Never>(nil)
 
+    /// 활성 경로 — reroute 시 send. 모든 route 의 단일 진실.
+    let routePublisher: CurrentValueSubject<Route, Never>
+
     // MARK: - Components
 
     private var mapMatcher: MapMatcher
@@ -20,7 +23,7 @@ final class NavigationEngine {
 
     // MARK: - Configuration
 
-    private var route: Route
+    private var route: Route { routePublisher.value }
     private let transportMode: TransportMode
     private let routeService: RouteProviding
     private let logger = NavigationLogger.shared
@@ -33,6 +36,11 @@ final class NavigationEngine {
     private let rerouteRetryInterval: TimeInterval = 10
     private var rerouteTask: Task<Void, Never>?
 
+    /// heading 신뢰 임계 속도 (m/s). 미만이면 GPS heading 무시.
+    private let headingSpeedGate: CLLocationSpeed = 3.0
+    /// 새 경로 첫 segment 와 user heading 의 허용 각도차 (절대값, 도)
+    private let routeAlignmentTolerance: Double = 90
+
     // MARK: - Init
 
     init(
@@ -40,7 +48,7 @@ final class NavigationEngine {
         transportMode: TransportMode,
         routeService: RouteProviding
     ) {
-        self.route = route
+        self.routePublisher = CurrentValueSubject<Route, Never>(route)
         self.transportMode = transportMode
         self.routeService = routeService
 
@@ -76,6 +84,7 @@ final class NavigationEngine {
         var matchedPosition: CLLocationCoordinate2D
         var heading: CLLocationDirection
         var isOffRoute = false
+        var isMatched = false
 
         if gps.isValid {
             // GPS valid → 맵매칭 + 이탈 감지
@@ -91,7 +100,7 @@ final class NavigationEngine {
             }
 
             isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
-            logger.logOffRoute(consecutiveFailures: offRouteDetector.consecutiveFailures, isOffRoute: isOffRoute)
+            isMatched = matchResult.isMatched
 
             matchedPosition = matchResult.coordinate
             heading = matchResult.isMatched
@@ -147,7 +156,8 @@ final class NavigationEngine {
 
         // 이탈 확정 시 자동 재탐색
         if isOffRoute && !isRerouteInProgress {
-            startReroute(from: gps.coordinate)
+            let rerouteHeading = makeRerouteHeading(gpsHeading: gps.heading, gpsSpeed: gps.speed, fallback: heading)
+            startReroute(from: gps.coordinate, heading: rerouteHeading)
         }
 
         // 음성 트리거 (모든 음성은 VoiceEngine에서 관리)
@@ -192,6 +202,9 @@ final class NavigationEngine {
             matchedPosition: matchedPosition,
             heading: heading,
             speed: gps.speed,
+            rawGPSPosition: gps.isValid ? gps.coordinate : nil,
+            rawGPSHeading: gps.isValid ? gps.heading : nil,
+            isMatched: isMatched,
             isGPSValid: gps.isValid,
             voiceCommand: voiceCommand
         )
@@ -217,40 +230,60 @@ final class NavigationEngine {
     // MARK: - Reroute
 
     /// 수동 재탐색 요청
-    func requestReroute(from coordinate: CLLocationCoordinate2D) {
+    func requestReroute(from coordinate: CLLocationCoordinate2D, heading: CLLocationDirection? = nil) {
         stateManager.requestReroute()
-        startReroute(from: coordinate)
+        startReroute(from: coordinate, heading: heading)
     }
 
-    private func startReroute(from coordinate: CLLocationCoordinate2D) {
+    private func startReroute(from coordinate: CLLocationCoordinate2D, heading: CLLocationDirection?) {
         guard !isRerouteInProgress else { return }
         isRerouteInProgress = true
         rerouteAttempts = 0
 
+        logger.logRerouteStart(from: coordinate)
+
         rerouteTask = Task { [weak self] in
-            await self?.executeReroute(from: coordinate)
+            await self?.executeReroute(from: coordinate, heading: heading)
         }
     }
 
-    private func executeReroute(from coordinate: CLLocationCoordinate2D) async {
+    private func executeReroute(from coordinate: CLLocationCoordinate2D, heading: CLLocationDirection?) async {
         guard let destination = route.polylineCoordinates.last else {
-            stateManager.rerouteFailed()
-            isRerouteInProgress = false
+            await MainActor.run { [weak self] in
+                self?.stateManager.rerouteFailed()
+                self?.isRerouteInProgress = false
+            }
             return
         }
 
         while rerouteAttempts < maxRerouteAttempts {
             rerouteAttempts += 1
+            logger.logRerouteAttempt(attempt: rerouteAttempts, maxAttempts: maxRerouteAttempts)
 
             do {
                 let routes = try await routeService.calculateRoutes(
                     from: coordinate,
                     to: destination,
+                    heading: heading,
                     transportMode: transportMode
                 )
 
                 guard let newRoute = routes.first else {
                     throw LBSError.noRoutesFound
+                }
+
+                // 진행방향 정렬 검증 — Kakao 만 적용
+                // Kakao: angle 파라미터로 API 레벨 방향 강제 → 검증 의미 있음
+                // Apple: lateral offset 은 best-effort (미분리 도로에서 실패 가능)
+                //        → 검증 실패 시 무한 루프 유발하므로 스킵
+                if newRoute.provider == .kakao,
+                   let h = heading,
+                   let firstBearing = Self.firstBearing(of: newRoute.polylineCoordinates) {
+                    let delta = abs(Self.angleDelta(h, firstBearing))
+                    if delta >= routeAlignmentTolerance {
+                        logger.logRerouteMisaligned(routeBearing: firstBearing, userHeading: h, delta: delta)
+                        throw LBSError.routeMisaligned
+                    }
                 }
 
                 // 엔진 컴포넌트 리셋
@@ -259,34 +292,74 @@ final class NavigationEngine {
                 }
                 return
 
+            } catch let lbsError as LBSError where lbsError == .routeMisaligned {
+                // 방향 불일치 — 같은 heading 으로 재시도해봤자 동일 결과.
+                // heading 없이 한 번만 즉시 재시도 후 포기 (대기 없음).
+                logger.logRerouteFailure(error: lbsError, attempt: rerouteAttempts)
+                if let fallbackRoutes = try? await routeService.calculateRoutes(
+                    from: coordinate, to: destination, heading: nil, transportMode: transportMode
+                ), let fallbackRoute = fallbackRoutes.first {
+                    await MainActor.run { [weak self] in self?.applyNewRoute(fallbackRoute) }
+                    return
+                }
+                break
             } catch {
+                logger.logRerouteFailure(error: error, attempt: rerouteAttempts)
                 if rerouteAttempts < maxRerouteAttempts {
                     try? await Task.sleep(nanoseconds: UInt64(rerouteRetryInterval * 1_000_000_000))
                 }
             }
         }
 
-        // 3회 모두 실패
+        // 3회 모두 실패 — 5초/35m 보호 재적용 (재탐색 직후 즉시 재이탈 차단)
+        logger.logRerouteGiveUp(attempts: rerouteAttempts)
         await MainActor.run { [weak self] in
-            self?.stateManager.rerouteFailed()
-            self?.offRouteDetector.reset()
-            self?.isRerouteInProgress = false
+            guard let self else { return }
+            self.stateManager.rerouteFailed()
+            self.offRouteDetector.start(at: coordinate)  // reset() 대신 start() — 보호 일관성 유지
+            self.isRerouteInProgress = false
         }
     }
 
     private func applyNewRoute(_ newRoute: Route) {
-        route = newRoute
+        // 단일 mutation 지점 — publisher 발행 + 컴포넌트 재생성을 함께 수행
+        routePublisher.send(newRoute)
         mapMatcher = MapMatcher(polyline: newRoute.polylineCoordinates, transportMode: transportMode)
         routeTracker = RouteTracker(route: newRoute)
         voiceEngine = VoiceEngine(provider: newRoute.provider)
         deadReckoning = DeadReckoning(polyline: newRoute.polylineCoordinates)
-        offRouteDetector.reset()
+
+        // 재탐색 직후 출발 보호 재적용 (5초/35m 동안 재이탈 판정 보류)
+        if let firstCoord = newRoute.polylineCoordinates.first {
+            offRouteDetector.start(at: firstCoord)
+        } else {
+            offRouteDetector.reset()
+        }
         setupCallbacks()
 
         stateManager.rerouteSucceeded()
         isRerouteInProgress = false
 
-        logger.logRouteConverted(provider: newRoute.provider, stepCount: newRoute.steps.count, polylineCount: newRoute.polylineCoordinates.count)
+        logger.logRerouteSuccess(
+            provider: newRoute.provider,
+            stepCount: newRoute.steps.count,
+            polylineCount: newRoute.polylineCoordinates.count
+        )
+    }
+
+    /// GPS heading 의 신뢰성을 속도로 게이트하고, 부적합하면 fallback(매칭 segment bearing)을 사용
+    private func makeRerouteHeading(
+        gpsHeading: CLLocationDirection,
+        gpsSpeed: CLLocationSpeed,
+        fallback: CLLocationDirection
+    ) -> CLLocationDirection? {
+        if gpsSpeed >= headingSpeedGate, gpsHeading.isFinite, gpsHeading >= 0 {
+            return gpsHeading
+        }
+        if fallback.isFinite, fallback >= 0 {
+            return fallback
+        }
+        return nil
     }
 
     // MARK: - Helpers
@@ -303,18 +376,14 @@ final class NavigationEngine {
     private func bearingAtSegment(_ segmentIndex: Int) -> CLLocationDirection {
         let coords = route.polylineCoordinates
         guard segmentIndex < coords.count - 1 else { return 0 }
+        return MapGeometry.bearing(from: coords[segmentIndex], to: coords[segmentIndex + 1])
+    }
 
-        let from = coords[segmentIndex]
-        let to = coords[segmentIndex + 1]
+    static func firstBearing(of polyline: [CLLocationCoordinate2D]) -> CLLocationDirection? {
+        MapGeometry.firstBearing(of: polyline)
+    }
 
-        let lat1 = from.latitude * .pi / 180
-        let lat2 = to.latitude * .pi / 180
-        let dLon = (to.longitude - from.longitude) * .pi / 180
-
-        let y = sin(dLon) * cos(lat2)
-        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
-        let bearing = atan2(y, x) * 180 / .pi
-
-        return (bearing + 360).truncatingRemainder(dividingBy: 360)
+    static func angleDelta(_ a: CLLocationDirection, _ b: CLLocationDirection) -> Double {
+        MapGeometry.angleDelta(a, b)
     }
 }

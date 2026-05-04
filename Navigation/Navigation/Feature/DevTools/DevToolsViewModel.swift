@@ -11,18 +11,18 @@ final class DevToolsViewModel {
 
     // MARK: - Publishers
 
-    let recordingState = CurrentValueSubject<GPXRecorder.RecordingState, Never>(.idle)
+    let recordingState = CurrentValueSubject<LocationRecorder.RecordingState, Never>(.idle)
     let recordingDuration = CurrentValueSubject<TimeInterval, Never>(0)
     let recordingPointCount = CurrentValueSubject<Int, Never>(0)
     let recordingDistance = CurrentValueSubject<Double, Never>(0)
     let gpxFileCount = CurrentValueSubject<Int, Never>(0)
     let debugOverlayEnabled = CurrentValueSubject<Bool, Never>(false)
     let locationType = CurrentValueSubject<DevToolsSettings.LocationType, Never>(.real)
-    let selectedGPXFileName = CurrentValueSubject<String?, Never>(nil)
+    let selectedRecordingFileName = CurrentValueSubject<String?, Never>(nil)
 
     // MARK: - Dependencies
 
-    private let recorder: GPXRecorder
+    private let recorder: LocationRecorder
     private let dataService: DataService
     private let settings: DevToolsSettings
     private let defaults = UserDefaults.standard
@@ -31,7 +31,7 @@ final class DevToolsViewModel {
     // MARK: - Init
 
     init(
-        recorder: GPXRecorder = .shared,
+        recorder: LocationRecorder = .shared,
         dataService: DataService = .shared,
         settings: DevToolsSettings = .shared
     ) {
@@ -47,7 +47,7 @@ final class DevToolsViewModel {
 
     private func loadSettings() {
         debugOverlayEnabled.send(defaults.bool(forKey: Keys.debugOverlayEnabled))
-        gpxFileCount.send(dataService.fetchGPXRecords().count)
+        gpxFileCount.send(dataService.fetchRecordings().count)
     }
 
     private func bindRecorder() {
@@ -88,10 +88,10 @@ final class DevToolsViewModel {
             }
             .store(in: &cancellables)
 
-        settings.selectedGPXFileName
+        settings.selectedRecordingFileName
             .receive(on: DispatchQueue.main)
             .sink { [weak self] name in
-                self?.selectedGPXFileName.send(name)
+                self?.selectedRecordingFileName.send(name)
             }
             .store(in: &cancellables)
     }
@@ -102,7 +102,7 @@ final class DevToolsViewModel {
     /// 주행 시작/종료 시 AppCoordinator가 자동으로 녹화를 시작/종료함
     func toggleRecording() {
         let state = recorder.statePublisher.value
-        print("[GPX-DEBUG] toggleRecording() — current=\(state)")
+        print("[Recording] toggleRecording() — current=\(state)")
         switch state {
         case .idle:
             recorder.arm()                  // 다음 주행 시 자동 녹화
@@ -123,12 +123,12 @@ final class DevToolsViewModel {
         settings.setLocationType(type)
     }
 
-    func setSelectedGPXFileName(_ name: String?) {
-        settings.setSelectedGPXFileName(name)
+    func setSelectedRecordingFileName(_ name: String?) {
+        settings.setSelectedRecordingFileName(name)
     }
 
     func refreshFileCount() {
-        gpxFileCount.send(dataService.fetchGPXRecords().count)
+        gpxFileCount.send(dataService.fetchRecordings().count)
     }
 
     // MARK: - Private
@@ -140,9 +140,9 @@ final class DevToolsViewModel {
             atPath: result.fileURL.path
         )[.size] as? Int64) ?? 0
 
-        dataService.saveGPXRecord(
+        dataService.saveRecording(
             fileName: result.fileURL.lastPathComponent,
-            filePath: "GPXRecordings/\(result.fileURL.lastPathComponent)",
+            filePath: "Recordings/\(result.fileURL.lastPathComponent)",
             duration: result.duration,
             distance: result.distance,
             pointCount: result.pointCount,

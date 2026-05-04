@@ -2,7 +2,7 @@ import SwiftData
 import Foundation
 
 @Model
-final class GPXRecord {
+final class Recording {
 
     var id: UUID
     var fileName: String
@@ -12,12 +12,8 @@ final class GPXRecord {
     var pointCount: Int
     var recordedAt: Date
     var fileSize: Int64
-
-    /// 녹화 모드: "real" (실제 GPS) / "simul" (가상 주행)
     var recordingMode: String
-    /// 출발지명
     var originName: String?
-    /// 도착지명
     var destinationName: String?
 
     init(
@@ -44,7 +40,6 @@ final class GPXRecord {
         self.destinationName = destinationName
     }
 
-    /// Full file URL resolved from Documents directory
     var fileURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(filePath)

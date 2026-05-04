@@ -73,14 +73,50 @@ final class NavigationLogger {
         logger.info("[Voice] step=\(stepIndex) \(String(format: "%.0f", distance))m: \(text)")
     }
 
-    // MARK: - Off Route
+    // MARK: - Reroute (이탈 감지 + 재탐색 — `[Reroute]` 한 단어로 필터링)
 
-    func logOffRoute(consecutiveFailures: Int, isOffRoute: Bool) {
+    /// 이탈 확정 (3회 연속 매칭 실패 + 보호 조건 통과)
+    func logOffRouteConfirmed(consecutiveFailures: Int) {
         guard level >= .stateChangesOnly else { return }
-        if isOffRoute {
-            logger.warning("[Match] ❌ offRoute! consecutiveFailures=\(consecutiveFailures)")
-        }
+        logger.warning("[Reroute] ❌ off-route confirmed consecutiveFailures=\(consecutiveFailures)")
     }
+
+    /// 매칭 실패했지만 보호 조건이 막은 경우 (어떤 조건이 막았는지 사유 표시)
+    func logOffRouteProtected(reason: String) {
+        guard level >= .everyTick else { return }
+        logger.debug("[Reroute] ⚠️ protected — \(reason)")
+    }
+
+    func logRerouteStart(from coordinate: CLLocationCoordinate2D) {
+        guard level >= .stateChangesOnly else { return }
+        logger.info("[Reroute] start from=(\(String(format: "%.6f", coordinate.latitude)), \(String(format: "%.6f", coordinate.longitude)))")
+    }
+
+    func logRerouteAttempt(attempt: Int, maxAttempts: Int) {
+        guard level >= .stateChangesOnly else { return }
+        logger.info("[Reroute] attempt \(attempt)/\(maxAttempts)")
+    }
+
+    func logRerouteSuccess(provider: RouteProvider, stepCount: Int, polylineCount: Int) {
+        guard level >= .stateChangesOnly else { return }
+        logger.info("[Reroute] ✅ success provider=\(provider.rawValue) steps=\(stepCount) polyline=\(polylineCount)pts")
+    }
+
+    func logRerouteFailure(error: Error, attempt: Int) {
+        guard level >= .stateChangesOnly else { return }
+        logger.warning("[Reroute] ❌ attempt \(attempt) failed — \(String(describing: error))")
+    }
+
+    func logRerouteGiveUp(attempts: Int) {
+        guard level >= .stateChangesOnly else { return }
+        logger.warning("[Reroute] 🛑 giving up after \(attempts) attempts")
+    }
+
+    func logRerouteMisaligned(routeBearing: CLLocationDirection, userHeading: CLLocationDirection, delta: Double) {
+        guard level >= .stateChangesOnly else { return }
+        logger.warning("[Reroute] ⚠️ misaligned route — heading=\(String(format: "%.0f", userHeading))° routeBearing=\(String(format: "%.0f", routeBearing))° Δ=\(String(format: "%.0f", delta))°")
+    }
+
 
     // MARK: - Dead Reckoning
 

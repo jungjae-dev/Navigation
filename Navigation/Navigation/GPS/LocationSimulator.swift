@@ -37,12 +37,11 @@ final class LocationSimulator {
         progressPublisher.send(0.0)
     }
 
-    /// GPX 파일 파싱 → CLLocation 배열 로드
-    func load(gpxFileURL: URL) -> Bool {
-        let parser = GPXParser()
-        let parsed = parser.parse(fileURL: gpxFileURL)
-        guard !parsed.isEmpty else { return false }
-        load(locations: parsed)
+    /// NDJSON 파일 파싱 → CLLocation 배열 로드
+    func load(fileURL: URL) -> Bool {
+        guard let locations = try? LocationFileReader.read(fileURL: fileURL),
+              !locations.isEmpty else { return false }
+        load(locations: locations)
         return true
     }
 

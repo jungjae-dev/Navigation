@@ -74,9 +74,14 @@ final class MapMatcher {
             )
         }
 
-        // 방향 검증 (도보 모드 또는 저속 시 스킵)
+        // 방향 검증 스킵 조건:
+        // - 도보 모드
+        // - 저속(< 5km/h): course 부정확
+        // - heading < 0: GPS course 미확보 (첫 fix 전, 터널 등)
         let headingDelta = angleDelta(gps.heading, bestSegmentHeading)
-        let skipHeadingCheck = transportMode == .walking || gps.speed < 1.4  // < 5km/h
+        let skipHeadingCheck = transportMode == .walking
+            || gps.speed < 1.4
+            || gps.heading < 0
 
         if !skipHeadingCheck && headingDelta > maxAngleDelta {
             return MatchResult(

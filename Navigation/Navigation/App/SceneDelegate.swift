@@ -21,9 +21,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func setupSwiftData() {
         do {
-            let schema = Schema([FavoritePlace.self, SearchHistory.self, GPXRecord.self])
-            let config = ModelConfiguration(isStoredInMemoryOnly: false)
-            let container = try ModelContainer(for: schema, configurations: [config])
+            let storeDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+
+            // 모델별 독립 SQLite 파일 — 각 도메인의 schema 변경이 서로 영향을 주지 않음
+            let container = try ModelContainer(
+                for: Schema([FavoritePlace.self, SearchHistory.self, Recording.self]),
+                configurations: [
+                    ModelConfiguration(
+                        "Favorites",
+                        schema: Schema([FavoritePlace.self]),
+                        url: storeDir.appendingPathComponent("Favorites.store")
+                    ),
+                    ModelConfiguration(
+                        "SearchHistory",
+                        schema: Schema([SearchHistory.self]),
+                        url: storeDir.appendingPathComponent("SearchHistory.store")
+                    ),
+                    ModelConfiguration(
+                        "Recordings",
+                        schema: Schema([Recording.self]),
+                        url: storeDir.appendingPathComponent("Recordings.store")
+                    ),
+                ]
+            )
             DataService.shared.configure(with: container)
         } catch {
             print("[SceneDelegate] SwiftData setup failed: \(error)")

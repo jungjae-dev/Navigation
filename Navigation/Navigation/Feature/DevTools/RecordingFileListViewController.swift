@@ -1,7 +1,6 @@
 import UIKit
-import Combine
 
-final class GPXFileListViewController: UIViewController {
+final class RecordingFileListViewController: UIViewController {
 
     // MARK: - UI
 
@@ -15,7 +14,7 @@ final class GPXFileListViewController: UIViewController {
     private let emptyLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "녹화된 GPX 파일이 없습니다"
+        label.text = "녹화된 파일이 없습니다"
         label.font = Theme.Fonts.body
         label.textColor = Theme.Colors.secondaryLabel
         label.textAlignment = .center
@@ -24,11 +23,11 @@ final class GPXFileListViewController: UIViewController {
 
     // MARK: - Properties
 
-    private var records: [GPXRecord] = []
+    private var records: [Recording] = []
     private let dataService: DataService
 
     var onDismiss: (() -> Void)?
-    var onSelectFile: ((GPXRecord) -> Void)?
+    var onSelectFile: ((Recording) -> Void)?
 
     // MARK: - Init
 
@@ -37,9 +36,7 @@ final class GPXFileListViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError() }
 
     // MARK: - Lifecycle
 
@@ -70,7 +67,7 @@ final class GPXFileListViewController: UIViewController {
         appearance.configureWithDefaultBackground()
         navigationItem.standardAppearance = appearance
         navigationItem.scrollEdgeAppearance = appearance
-        navigationItem.title = "GPX 파일"
+        navigationItem.title = "녹화 파일"
 
         let backButton = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -89,7 +86,6 @@ final class GPXFileListViewController: UIViewController {
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
@@ -98,13 +94,13 @@ final class GPXFileListViewController: UIViewController {
     private func setupTableView() {
         tableView.delegate = self
         tableView.dataSource = self
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "GPXFileCell")
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "RecordingFileCell")
     }
 
     // MARK: - Data
 
     private func loadRecords() {
-        records = dataService.fetchGPXRecords()
+        records = dataService.fetchRecordings()
         tableView.reloadData()
         emptyLabel.isHidden = !records.isEmpty
         tableView.isHidden = records.isEmpty
@@ -112,102 +108,85 @@ final class GPXFileListViewController: UIViewController {
 
     // MARK: - Actions
 
-    @objc private func backTapped() {
-        onDismiss?()
-    }
+    @objc private func backTapped() { onDismiss?() }
 
     private func confirmDelete(at indexPath: IndexPath) {
         let record = records[indexPath.row]
-
         let alert = UIAlertController(
             title: "삭제",
             message: "\(record.fileName)을(를) 삭제하시겠습니까?",
             preferredStyle: .alert
         )
-
         alert.addAction(UIAlertAction(title: "삭제", style: .destructive) { [weak self] _ in
-            self?.dataService.deleteGPXRecord(record)
+            self?.dataService.deleteRecording(record)
             DevToolsSettings.shared.validateSelection()
             self?.loadRecords()
         })
-
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
         present(alert, animated: true)
     }
 
     private func shareFile(at indexPath: IndexPath) {
         let record = records[indexPath.row]
-        let activityVC = UIActivityViewController(
-            activityItems: [record.fileURL],
-            applicationActivities: nil
-        )
+        let activityVC = UIActivityViewController(activityItems: [record.fileURL], applicationActivities: nil)
         present(activityVC, animated: true)
     }
 
     // MARK: - Helpers
 
     private func formattedDuration(_ interval: TimeInterval) -> String {
-        let minutes = Int(interval) / 60
-        let seconds = Int(interval) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+        let m = Int(interval) / 60, s = Int(interval) % 60
+        return String(format: "%02d:%02d", m, s)
     }
 
     private func formattedDistance(_ meters: Double) -> String {
-        if meters < 1000 {
-            return String(format: "%.0fm", meters)
-        }
-        return String(format: "%.1fkm", meters / 1000)
+        meters < 1000
+            ? String(format: "%.0fm", meters)
+            : String(format: "%.1fkm", meters / 1000)
     }
 
     private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy/MM/dd HH:mm"
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/MM/dd HH:mm"
+        return f.string(from: date)
     }
 
     private func formattedFileSize(_ bytes: Int64) -> String {
-        if bytes < 1024 {
-            return "\(bytes)B"
-        }
-        if bytes < 1024 * 1024 {
-            return String(format: "%.1fKB", Double(bytes) / 1024)
-        }
+        if bytes < 1024 { return "\(bytes)B" }
+        if bytes < 1024 * 1024 { return String(format: "%.1fKB", Double(bytes) / 1024) }
         return String(format: "%.1fMB", Double(bytes) / (1024 * 1024))
     }
 }
 
 // MARK: - UITableViewDataSource
 
-extension GPXFileListViewController: UITableViewDataSource {
+extension RecordingFileListViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         records.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "GPXFileCell", for: indexPath)
+        let cell = tableView.dequeueReusableCell(withIdentifier: "RecordingFileCell", for: indexPath)
         let record = records[indexPath.row]
-
         var config = cell.defaultContentConfiguration()
         config.text = record.fileName
         config.secondaryText = "\(formattedDate(record.recordedAt)) | \(formattedDistance(record.distance)) | \(formattedDuration(record.duration)) | \(record.pointCount)pts"
-        config.image = UIImage(systemName: "doc.text.fill")
-        config.imageProperties.tintColor = .systemOrange
+        config.image = UIImage(systemName: "waveform.path")
+        config.imageProperties.tintColor = .systemIndigo
         cell.contentConfiguration = config
         cell.accessoryType = .disclosureIndicator
-
         return cell
     }
 }
 
 // MARK: - UITableViewDelegate
 
-extension GPXFileListViewController: UITableViewDelegate {
+extension RecordingFileListViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let record = records[indexPath.row]
-        onSelectFile?(record)
+        onSelectFile?(records[indexPath.row])
     }
 
     func tableView(

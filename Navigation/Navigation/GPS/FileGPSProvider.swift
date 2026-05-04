@@ -36,13 +36,12 @@ final class FileGPSProvider: GPSProviding {
     private let gpsSubject = PassthroughSubject<GPSData, Never>()
     private let simulator = LocationSimulator()
     private var cancellables = Set<AnyCancellable>()
-    private let gpxFileURL: URL
+    private let fileURL: URL
 
     // MARK: - Init
 
-    /// GPX 파일 URL로 초기화
-    init(gpxFileURL: URL) {
-        self.gpxFileURL = gpxFileURL
+    init(fileURL: URL) {
+        self.fileURL = fileURL
 
         // LocationSimulator의 CLLocation → GPSData 변환
         simulator.simulatedLocationPublisher
@@ -55,12 +54,11 @@ final class FileGPSProvider: GPSProviding {
     // MARK: - GPSProviding
 
     func start() {
-        // GPX 파일 로드 후 재생
-        guard simulator.load(gpxFileURL: gpxFileURL) else {
-            print("[FileGPSProvider] GPX 파일 로드 실패: \(gpxFileURL.lastPathComponent)")
+        guard simulator.load(fileURL: fileURL) else {
+            print("[FileGPSProvider] 파일 로드 실패: \(fileURL.lastPathComponent)")
             return
         }
-        simulator.play()
+        simulator.play(loop: true)
     }
 
     func stop() {

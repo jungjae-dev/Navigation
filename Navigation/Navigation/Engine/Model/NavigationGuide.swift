@@ -20,6 +20,13 @@ struct NavigationGuide: Sendable {
     let heading: CLLocationDirection
     let speed: CLLocationSpeed
 
+    /// 맵매칭 전 원본 GPS 좌표 (디버그/시각화 용도). GPS valid 시에만 set, 그 외 nil.
+    let rawGPSPosition: CLLocationCoordinate2D?
+    /// 원본 GPS heading. rawGPSPosition 와 짝.
+    let rawGPSHeading: CLLocationDirection?
+    /// 매칭 성공 여부 (실제 도로 위에 있으면 true). 디버그 표시 색상 분기 등에 사용.
+    let isMatched: Bool
+
     // GPS 상태
     let isGPSValid: Bool
 

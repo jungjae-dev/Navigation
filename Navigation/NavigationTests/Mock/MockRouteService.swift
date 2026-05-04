@@ -7,13 +7,16 @@ final class MockRouteService: RouteProviding {
     var mockETA: TimeInterval = 600
     var shouldThrow: LBSError?
     var calculateRoutesCallCount = 0
+    var lastHeading: CLLocationDirection?
 
     func calculateRoutes(
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D,
+        heading: CLLocationDirection?,
         transportMode: TransportMode
     ) async throws -> [Route] {
         calculateRoutesCallCount += 1
+        lastHeading = heading
         if let error = shouldThrow { throw error }
         return mockRoutes
     }

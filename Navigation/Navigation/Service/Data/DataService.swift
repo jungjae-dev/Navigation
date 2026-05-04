@@ -1,7 +1,6 @@
 import Foundation
 import SwiftData
 import CoreLocation
-import CoreLocation
 
 final class DataService {
 
@@ -28,24 +27,28 @@ final class DataService {
         let address = place.address ?? ""
         let coordinate = place.coordinate
 
-        // Check for duplicate (same coordinate within last hour)
-        let recent = fetchRecentSearches(limit: 1)
-        if let last = recent.first,
-           last.placeName == name,
-           abs(last.searchedAt.timeIntervalSinceNow) < 60 {
-            // Skip duplicate within 1 minute
+        // 같은 장소가 이미 있으면 타임스탬프만 갱신 (upsert → 목록 맨 위로 이동)
+        // 동일 판정: 이름 일치 + 좌표 10m 이내 (같은 건물 내 다른 업체 구분)
+        let all = fetchRecentSearches(limit: 1000)
+        let threshold = 0.0001   // ~10m
+        if let existing = all.first(where: {
+            $0.placeName == name &&
+            abs($0.latitude - coordinate.latitude) < threshold &&
+            abs($0.longitude - coordinate.longitude) < threshold
+        }) {
+            existing.searchedAt = Date()
+            existing.query = query
+            save()
             return
         }
 
-        let history = SearchHistory(
+        context.insert(SearchHistory(
             query: query,
             placeName: name,
             address: address,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude
-        )
-
-        context.insert(history)
+        ))
         save()
     }
 
@@ -164,7 +167,7 @@ final class DataService {
 
     func isFavorite(latitude: Double, longitude: Double) -> Bool {
         let favorites = fetchFavorites()
-        let threshold = 0.0001 // ~11m
+        let threshold = 0.0001 // ~10m
 
         return favorites.contains { fav in
             abs(fav.latitude - latitude) < threshold &&
@@ -182,9 +185,9 @@ final class DataService {
         }
     }
 
-    // MARK: - GPX Records
+    // MARK: - Recordings
 
-    func saveGPXRecord(
+    func saveRecording(
         fileName: String,
         filePath: String,
         duration: TimeInterval,
@@ -197,7 +200,7 @@ final class DataService {
     ) {
         guard let context = modelContext else { return }
 
-        let record = GPXRecord(
+        let recording = Recording(
             fileName: fileName,
             filePath: filePath,
             duration: duration,
@@ -209,33 +212,29 @@ final class DataService {
             destinationName: destinationName
         )
 
-        context.insert(record)
+        context.insert(recording)
         save()
     }
 
-    func fetchGPXRecords() -> [GPXRecord] {
+    func fetchRecordings() -> [Recording] {
         guard let context = modelContext else { return [] }
 
-        let descriptor = FetchDescriptor<GPXRecord>(
+        let descriptor = FetchDescriptor<Recording>(
             sortBy: [SortDescriptor(\.recordedAt, order: .reverse)]
         )
 
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("[DataService] fetchGPXRecords error: \(error)")
+            print("[DataService] fetchRecordings error: \(error)")
             return []
         }
     }
 
-    func deleteGPXRecord(_ record: GPXRecord) {
+    func deleteRecording(_ recording: Recording) {
         guard let context = modelContext else { return }
-
-        // Delete the file from disk
-        let fileURL = record.fileURL
-        try? FileManager.default.removeItem(at: fileURL)
-
-        context.delete(record)
+        try? FileManager.default.removeItem(at: recording.fileURL)
+        context.delete(recording)
         save()
     }
 
