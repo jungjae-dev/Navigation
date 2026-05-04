@@ -311,12 +311,13 @@ final class NavigationEngine {
             }
         }
 
-        // 3회 모두 실패
+        // 3회 모두 실패 — 5초/35m 보호 재적용 (재탐색 직후 즉시 재이탈 차단)
         logger.logRerouteGiveUp(attempts: rerouteAttempts)
         await MainActor.run { [weak self] in
-            self?.stateManager.rerouteFailed()
-            self?.offRouteDetector.reset()
-            self?.isRerouteInProgress = false
+            guard let self else { return }
+            self.stateManager.rerouteFailed()
+            self.offRouteDetector.start(at: coordinate)  // reset() 대신 start() — 보호 일관성 유지
+            self.isRerouteInProgress = false
         }
     }
 

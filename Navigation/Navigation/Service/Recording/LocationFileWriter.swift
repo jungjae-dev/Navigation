@@ -14,13 +14,18 @@ final class LocationFileWriter {
     init(fileURL: URL) throws {
         self.fileURL = fileURL
 
-        // 파일이 없으면 생성
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
         }
 
-        fileHandle = try FileHandle(forWritingTo: fileURL)
-        fileHandle.seekToEndOfFile()
+        do {
+            fileHandle = try FileHandle(forWritingTo: fileURL)
+            fileHandle.seekToEndOfFile()
+        } catch {
+            // FileHandle 생성 실패 시 빈 파일 정리
+            try? FileManager.default.removeItem(at: fileURL)
+            throw error
+        }
     }
 
     func write(_ location: CLLocation) throws {

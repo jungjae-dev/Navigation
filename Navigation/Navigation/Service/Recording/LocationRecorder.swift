@@ -119,9 +119,14 @@ final class LocationRecorder {
         currentDestinationName = destinationName
         currentLocationSource = locationSource ?? defaultLocationSource
 
-        // 파일 생성 (빈 파일, 이후 append)
+        // 파일 생성 — 실패 시 녹화 진행 불가
         let fileURL = makeFileURL(mode: mode)
-        fileWriter = try? LocationFileWriter(fileURL: fileURL)
+        guard let writer = try? LocationFileWriter(fileURL: fileURL) else {
+            print("[LocationRecorder] 파일 생성 실패: \(fileURL.lastPathComponent)")
+            statePublisher.send(.idle)
+            return
+        }
+        fileWriter = writer
 
         statePublisher.send(.recording)
         durationPublisher.send(0)
@@ -218,9 +223,10 @@ final class LocationRecorder {
             distancePublisher.send(totalDistance)
         }
         lastLocation = location
-        try? fileWriter?.write(location)
-        pointCount += 1
-        pointCountPublisher.send(pointCount)
+        if (try? fileWriter?.write(location)) != nil {
+            pointCount += 1
+            pointCountPublisher.send(pointCount)
+        }
     }
 
     private func makeFileURL(mode: RecordingMode) -> URL {

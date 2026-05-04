@@ -1,7 +1,6 @@
 import Foundation
 import SwiftData
 import CoreLocation
-import CoreLocation
 
 final class DataService {
 
@@ -168,7 +167,7 @@ final class DataService {
 
     func isFavorite(latitude: Double, longitude: Double) -> Bool {
         let favorites = fetchFavorites()
-        let threshold = 0.0001 // ~11m
+        let threshold = 0.0001 // ~10m
 
         return favorites.contains { fav in
             abs(fav.latitude - latitude) < threshold &&
