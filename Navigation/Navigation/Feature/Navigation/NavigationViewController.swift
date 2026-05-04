@@ -251,6 +251,14 @@ final class NavigationViewController: UIViewController {
     private func setupVehicleAnnotation() {
         if let first = route.polylineCoordinates.first {
             vehicleAnnotation.coordinate = first
+            // 첫 GPS 도착 전 DisplayLink 가 (0,0) 을 반환하지 않도록 경로 출발점 + 첫 segment 방향으로 초기화
+            let initialHeading: CLLocationDirection
+            if route.polylineCoordinates.count >= 2 {
+                initialHeading = MapGeometry.bearing(from: route.polylineCoordinates[0], to: route.polylineCoordinates[1])
+            } else {
+                initialHeading = 0
+            }
+            interpolator.resetTo(first, initialHeading)
         }
         vehicleAnnotation.title = "vehicle"
         mapView.addAnnotation(vehicleAnnotation)

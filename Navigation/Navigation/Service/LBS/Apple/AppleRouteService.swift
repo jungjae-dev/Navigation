@@ -8,11 +8,10 @@ final class AppleRouteService: RouteProviding {
     private var currentDirections: MKDirections?
     private let maxRetryCount = 3
 
-    // 차로 인식 projection 설정 (한국=우측통행 기준)
-    private let projectionForwardDistance: CLLocationDistance = 50
-    private let projectionLateralOffset: CLLocationDistance = 3.0
-    private let headingSpeedGate: CLLocationSpeed = 3.0     // m/s 미만이면 heading 무시
-    private let alignmentToleranceDegrees: Double = 60      // leg2 alternates 필터 임계값
+    // MKDirections 는 heading 입력을 지원하지 않아 방향 강제 불가.
+    // alternates 중 heading 에 가장 가까운 경로를 best-effort 로 선택.
+    // 역방향 경로가 와도 NavigationEngine 의 bearing 검증 skip 으로 무한루프 없음.
+    private let alignmentToleranceDegrees: Double = 90
 
     // MARK: - RouteProviding
 
@@ -24,39 +23,17 @@ final class AppleRouteService: RouteProviding {
     ) async throws -> [Route] {
         cancelCurrentRequest()
 
-        // heading 없거나 도보 → 단순 경로
-        guard let heading,
-              heading.isFinite, (0...360).contains(heading),
-              transportMode == .automobile else {
-            return try await fetchSimpleRoutes(
-                from: origin, to: destination, transportMode: transportMode
-            )
+        let routes = try await fetchSimpleRoutes(from: origin, to: destination, transportMode: transportMode)
+
+        // heading 이 있고 자동차 모드면 alternates 중 방향이 가장 맞는 경로 우선 선택 (best-effort)
+        if let heading,
+           heading.isFinite, (0...360).contains(heading),
+           transportMode == .automobile,
+           let best = pickAligned(routes, heading: heading) {
+            return [best]
         }
 
-        // 차로 인식 projection + 2-leg 합성
-        let waypoint = projectLaneAware(
-            origin,
-            heading: heading,
-            forwardDistance: projectionForwardDistance,
-            lateralOffset: projectionLateralOffset
-        )
-
-        do {
-            async let leg1Task = fetchSimpleRoutes(from: origin, to: waypoint, transportMode: .automobile)
-            async let leg2Task = fetchSimpleRoutes(from: waypoint, to: destination, transportMode: .automobile)
-            let (leg1Routes, leg2Routes) = try await (leg1Task, leg2Task)
-
-            guard let leg1 = leg1Routes.first,
-                  let leg2 = pickAligned(leg2Routes, heading: heading) else {
-                throw LBSError.noRoutesFound
-            }
-            return [Self.concatenate(leg1: leg1, leg2: leg2)]
-        } catch {
-            // 합성 실패 시 단순 경로로 fallback
-            return try await fetchSimpleRoutes(
-                from: origin, to: destination, transportMode: transportMode
-            )
-        }
+        return routes
     }
 
     func calculateETA(
@@ -132,34 +109,6 @@ final class AppleRouteService: RouteProviding {
         }
     }
 
-    // MARK: - Lane-aware projection
-
-    /// 진행방향 forwardDistance 미터 앞 + 진행방향 우측 lateralOffset 미터
-    /// 한국=우측통행 가정. LHT 국가(JP/UK)에선 lateralOffset 부호 반전 필요.
-    private func projectLaneAware(
-        _ origin: CLLocationCoordinate2D,
-        heading: CLLocationDirection,
-        forwardDistance: CLLocationDistance,
-        lateralOffset: CLLocationDistance
-    ) -> CLLocationCoordinate2D {
-        let bearingRad = heading * .pi / 180
-        let rightBearingRad = (heading + 90) * .pi / 180
-
-        // ENU 평면 변위 (m)
-        let dxEast  = forwardDistance * sin(bearingRad)      + lateralOffset * sin(rightBearingRad)
-        let dyNorth = forwardDistance * cos(bearingRad)      + lateralOffset * cos(rightBearingRad)
-
-        // 미터 → 위경도 (한국 위도에서 충분히 정확)
-        let earthRadius = 6_371_000.0
-        let dLat = (dyNorth / earthRadius) * 180 / .pi
-        let cosLat = cos(origin.latitude * .pi / 180)
-        let dLon = (dxEast / (earthRadius * max(cosLat, 0.0001))) * 180 / .pi
-
-        return CLLocationCoordinate2D(
-            latitude: origin.latitude + dLat,
-            longitude: origin.longitude + dLon
-        )
-    }
 
     /// alternates 중 첫 segment bearing 이 user heading 과 ±tolerance 이내인 경로 선택
     private func pickAligned(_ routes: [Route], heading: CLLocationDirection) -> Route? {
@@ -172,35 +121,6 @@ final class AppleRouteService: RouteProviding {
         return aligned.first?.0 ?? scored.sorted { $0.1 < $1.1 }.first?.0
     }
 
-    // MARK: - Concatenation
-
-    private static func concatenate(leg1: Route, leg2: Route) -> Route {
-        var polyline = leg1.polylineCoordinates
-        // 두 leg 의 연결 지점(waypoint) 중복 제거 — 1m 이내면 동일 점으로 간주
-        if let last = polyline.last,
-           let firstOfLeg2 = leg2.polylineCoordinates.first {
-            let dist = CLLocation(latitude: last.latitude, longitude: last.longitude)
-                .distance(from: CLLocation(latitude: firstOfLeg2.latitude, longitude: firstOfLeg2.longitude))
-            if dist < 1.0 {
-                polyline.append(contentsOf: leg2.polylineCoordinates.dropFirst())
-            } else {
-                polyline.append(contentsOf: leg2.polylineCoordinates)
-            }
-        } else {
-            polyline.append(contentsOf: leg2.polylineCoordinates)
-        }
-
-        return Route(
-            id: UUID().uuidString,
-            distance: leg1.distance + leg2.distance,
-            expectedTravelTime: leg1.expectedTravelTime + leg2.expectedTravelTime,
-            name: leg2.name,
-            steps: leg1.steps + leg2.steps,
-            polylineCoordinates: polyline,
-            transportMode: leg2.transportMode,
-            provider: leg2.provider
-        )
-    }
 
     // MARK: - Bearing helpers (MapGeometry 위임)
 

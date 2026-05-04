@@ -28,24 +28,28 @@ final class DataService {
         let address = place.address ?? ""
         let coordinate = place.coordinate
 
-        // Check for duplicate (same coordinate within last hour)
-        let recent = fetchRecentSearches(limit: 1)
-        if let last = recent.first,
-           last.placeName == name,
-           abs(last.searchedAt.timeIntervalSinceNow) < 60 {
-            // Skip duplicate within 1 minute
+        // 같은 장소가 이미 있으면 타임스탬프만 갱신 (upsert → 목록 맨 위로 이동)
+        // 동일 판정: 이름 일치 + 좌표 10m 이내 (같은 건물 내 다른 업체 구분)
+        let all = fetchRecentSearches(limit: 1000)
+        let threshold = 0.0001   // ~10m
+        if let existing = all.first(where: {
+            $0.placeName == name &&
+            abs($0.latitude - coordinate.latitude) < threshold &&
+            abs($0.longitude - coordinate.longitude) < threshold
+        }) {
+            existing.searchedAt = Date()
+            existing.query = query
+            save()
             return
         }
 
-        let history = SearchHistory(
+        context.insert(SearchHistory(
             query: query,
             placeName: name,
             address: address,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude
-        )
-
-        context.insert(history)
+        ))
         save()
     }
 

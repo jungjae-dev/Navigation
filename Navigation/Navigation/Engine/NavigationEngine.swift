@@ -272,8 +272,12 @@ final class NavigationEngine {
                     throw LBSError.noRoutesFound
                 }
 
-                // 진행방향 정렬 검증 — heading 이 있고, 첫 segment bearing 과 90° 이상 어긋나면 거부
-                if let h = heading,
+                // 진행방향 정렬 검증 — Kakao 만 적용
+                // Kakao: angle 파라미터로 API 레벨 방향 강제 → 검증 의미 있음
+                // Apple: lateral offset 은 best-effort (미분리 도로에서 실패 가능)
+                //        → 검증 실패 시 무한 루프 유발하므로 스킵
+                if newRoute.provider == .kakao,
+                   let h = heading,
                    let firstBearing = Self.firstBearing(of: newRoute.polylineCoordinates) {
                     let delta = abs(Self.angleDelta(h, firstBearing))
                     if delta >= routeAlignmentTolerance {
