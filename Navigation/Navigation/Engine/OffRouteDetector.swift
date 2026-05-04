@@ -6,7 +6,7 @@ final class OffRouteDetector {
 
     // MARK: - Configuration
 
-    private let requiredFailures: Int = 3                       // 이탈 확정 연속 횟수
+    private let requiredFailures: Int = 5                       // 이탈 확정 연속 횟수
     private let startDistanceProtection: CLLocationDistance = 35 // 출발 거리 보호 (m)
     private let startTimeProtection: TimeInterval = 5           // 출발 시간 보호 (초)
     private let accuracyThreshold: CLLocationAccuracy = 120     // GPS 정확도 보류 임계값 (m)

@@ -25,8 +25,16 @@ final class LocationInterpolator {
     /// 새 GPS 위치 도착 시 호출 (1초마다)
     func setTarget(_ coordinate: CLLocationCoordinate2D, heading: CLLocationDirection) {
         if isInitialized {
-            previous = target
-            previousHeading = targetHeading
+            // 이전 목적지(target)가 아닌 현재 시각적 위치를 previous로 사용:
+            // previous = target 이면 setTarget 직후 t=0에서 아이콘이 이전 목적지로
+            // 순간이동한 뒤 새 목적지로 이동하는 점프가 발생함.
+            let elapsed = Date().timeIntervalSince(startTime)
+            let t = min(max(elapsed / duration, 0), 1)
+            let lat = previous.latitude + (target.latitude - previous.latitude) * t
+            let lon = previous.longitude + (target.longitude - previous.longitude) * t
+            previous = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            let delta = ((targetHeading - previousHeading + 540).truncatingRemainder(dividingBy: 360)) - 180
+            previousHeading = (previousHeading + delta * t + 360).truncatingRemainder(dividingBy: 360)
         } else {
             previous = coordinate
             previousHeading = heading

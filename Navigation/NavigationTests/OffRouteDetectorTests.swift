@@ -23,22 +23,59 @@ struct OffRouteDetectorTests {
         return detector
     }
 
-    // MARK: - 기본 이탈 판정
+    // MARK: - 연속 실패 카운트 (보호 조건 없는 상태로 검증)
+    // start()를 호출하지 않으면 navigationStartTime=nil, startCoordinate=nil →
+    // 시간/거리 보호 조건 스킵, 카운터 로직만 순수하게 테스트 가능
+
+    @Test func fourConsecutiveFailures_notOffRoute() {
+        let detector = OffRouteDetector()  // start() 미호출 → 보호 조건 없음
+
+        for i in 1...4 {
+            let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+            #expect(result == false, "실패 \(i)회 차에 이탈 확정되면 안 됨")
+        }
+        #expect(detector.consecutiveFailures == 4)
+    }
+
+    @Test func fiveConsecutiveFailures_triggersOffRoute() {
+        let detector = OffRouteDetector()
+
+        for _ in 1...4 {
+            _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+        }
+        let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+
+        #expect(result == true, "5회 연속 실패 시 이탈 확정되어야 함")
+        #expect(detector.consecutiveFailures == 5)
+    }
+
+    @Test func successInMiddle_resetsCounter_requiresFiveAgain() {
+        let detector = OffRouteDetector()
+
+        // 4번 실패
+        for _ in 1...4 {
+            _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+        }
+        #expect(detector.consecutiveFailures == 4)
+
+        // 1번 성공 → 카운터 리셋
+        _ = detector.update(matchResult: makeMatchResult(isMatched: true), gpsAccuracy: 5)
+        #expect(detector.consecutiveFailures == 0)
+
+        // 리셋 후 다시 4번 실패해도 이탈 미확정
+        for _ in 1...4 {
+            let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
+            #expect(result == false, "리셋 후 4회는 이탈 확정 안됨")
+        }
+    }
 
     @Test func twoFailures_notOffRoute() {
         let detector = makeDetectorAfterStart()
 
-        // 보호 시간 지나도록 시작 시간 조정은 어렵지만,
-        // start 좌표를 멀리 두면 거리/시간 보호를 우회 가능
-        // → 실제로는 5초 보호가 걸리므로 Sleep이 필요하나 단위 테스트에서는
-        //   보호 조건을 피하기 위해 충분히 먼 좌표 사용
-
-        // 5초 이내 보호 때문에 여기서는 보호 통과 안될 수 있음
-        // → 별도 테스트에서 보호 조건 확인
+        // start() 직후 5초 보호 내 → 모두 false
         let result1 = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
         let result2 = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
 
-        // 5초 보호 내이므로 false
         #expect(result1 == false)
         #expect(result2 == false)
     }

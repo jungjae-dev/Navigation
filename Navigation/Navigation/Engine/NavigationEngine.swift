@@ -102,12 +102,22 @@ final class NavigationEngine {
             isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
             isMatched = matchResult.isMatched
 
-            matchedPosition = matchResult.coordinate
-            heading = matchResult.isMatched
-                ? bearingAtSegment(matchResult.segmentIndex)
-                : gps.heading
-
-            logger.logDeadReckoning(active: false)
+            if matchResult.isMatched {
+                // 매칭 성공 → 스냅 좌표 사용
+                matchedPosition = matchResult.coordinate
+                heading = bearingAtSegment(matchResult.segmentIndex)
+                logger.logDeadReckoning(active: false)
+            } else if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
+                // 매칭 실패 → DR로 마지막 스냅 위치 유지 (rawGPS 사용 안 함)
+                matchedPosition = drResult.coordinate
+                heading = drResult.heading
+                logger.logDeadReckoning(active: true, estimatedDistance: gps.speed * 1.0)
+            } else {
+                // DR 데이터 없음 (첫 GPS 수신 전) → rawGPS 최후 수단
+                matchedPosition = matchResult.coordinate
+                heading = gps.heading
+                logger.logDeadReckoning(active: false)
+            }
         } else {
             // GPS invalid → Dead Reckoning (맵매칭/이탈감지 스킵)
             if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
@@ -123,10 +133,11 @@ final class NavigationEngine {
 
         // segmentIndex 결정 (경로 추적에 전달)
         let currentSegmentIndex: Int
-        if gps.isValid {
+        if isMatched {
+            // 매칭 성공: mapMatcher의 현재 segmentIndex
             currentSegmentIndex = mapMatcher.currentSegmentIndex
         } else {
-            // GPS invalid: DR 추정 위치의 segmentIndex 사용
+            // 매칭 실패 또는 GPS invalid: DR segmentIndex 사용
             if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
                 currentSegmentIndex = drResult.segmentIndex
             } else {

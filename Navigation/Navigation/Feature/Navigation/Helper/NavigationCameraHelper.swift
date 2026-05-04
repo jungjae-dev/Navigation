@@ -3,7 +3,7 @@ import MapKit
 /// 주행 카메라 설정 (속도별 고도/피치)
 enum NavigationCameraHelper {
 
-    /// 속도 기반 카메라 고도 계산 (TMAP 값)
+    /// 속도 기반 카메라 고도 계산
     static func altitude(for speed: CLLocationSpeed, mode: TransportMode) -> CLLocationDistance {
         let kmh = speed * 3.6
 
