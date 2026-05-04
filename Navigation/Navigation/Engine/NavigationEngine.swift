@@ -107,13 +107,13 @@ final class NavigationEngine {
                 matchedPosition = matchResult.coordinate
                 heading = bearingAtSegment(matchResult.segmentIndex)
                 logger.logDeadReckoning(active: false)
-            } else if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
-                // 매칭 실패 → DR로 마지막 스냅 위치 유지 (rawGPS 사용 안 함)
-                matchedPosition = drResult.coordinate
-                heading = drResult.heading
-                logger.logDeadReckoning(active: true, estimatedDistance: gps.speed * 1.0)
+            } else if let lastPos = deadReckoning.lastValidPosition {
+                // 매칭 실패 → 마지막 스냅 위치 고정 (시간 추정 없음)
+                matchedPosition = lastPos
+                heading = bearingAtSegment(mapMatcher.currentSegmentIndex)
+                logger.logDeadReckoning(active: false)
             } else {
-                // DR 데이터 없음 (첫 GPS 수신 전) → rawGPS 최후 수단
+                // 스냅 이력 없음 (첫 GPS 수신 전) → rawGPS 최후 수단
                 matchedPosition = matchResult.coordinate
                 heading = gps.heading
                 logger.logDeadReckoning(active: false)
@@ -132,17 +132,15 @@ final class NavigationEngine {
         }
 
         // segmentIndex 결정 (경로 추적에 전달)
+        // GPS valid: 매칭 성공/실패 모두 mapMatcher의 마지막 유효 index 사용
+        // GPS invalid: DR segmentIndex 사용
         let currentSegmentIndex: Int
-        if isMatched {
-            // 매칭 성공: mapMatcher의 현재 segmentIndex
+        if gps.isValid {
             currentSegmentIndex = mapMatcher.currentSegmentIndex
+        } else if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
+            currentSegmentIndex = drResult.segmentIndex
         } else {
-            // 매칭 실패 또는 GPS invalid: DR segmentIndex 사용
-            if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
-                currentSegmentIndex = drResult.segmentIndex
-            } else {
-                currentSegmentIndex = mapMatcher.currentSegmentIndex
-            }
+            currentSegmentIndex = mapMatcher.currentSegmentIndex
         }
 
         let routeProgress = routeTracker.update(

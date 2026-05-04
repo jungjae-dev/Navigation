@@ -27,45 +27,45 @@ struct OffRouteDetectorTests {
     // start()를 호출하지 않으면 navigationStartTime=nil, startCoordinate=nil →
     // 시간/거리 보호 조건 스킵, 카운터 로직만 순수하게 테스트 가능
 
-    @Test func fourConsecutiveFailures_notOffRoute() {
+    @Test func twoConsecutiveFailures_notOffRoute() {
         let detector = OffRouteDetector()  // start() 미호출 → 보호 조건 없음
 
-        for i in 1...4 {
+        for i in 1...2 {
             let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
             #expect(result == false, "실패 \(i)회 차에 이탈 확정되면 안 됨")
         }
-        #expect(detector.consecutiveFailures == 4)
+        #expect(detector.consecutiveFailures == 2)
     }
 
-    @Test func fiveConsecutiveFailures_triggersOffRoute() {
+    @Test func threeConsecutiveFailures_triggersOffRoute() {
         let detector = OffRouteDetector()
 
-        for _ in 1...4 {
+        for _ in 1...2 {
             _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
         }
         let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
 
-        #expect(result == true, "5회 연속 실패 시 이탈 확정되어야 함")
-        #expect(detector.consecutiveFailures == 5)
+        #expect(result == true, "3회 연속 실패 시 이탈 확정되어야 함")
+        #expect(detector.consecutiveFailures == 3)
     }
 
-    @Test func successInMiddle_resetsCounter_requiresFiveAgain() {
+    @Test func successInMiddle_resetsCounter_requiresThreeAgain() {
         let detector = OffRouteDetector()
 
-        // 4번 실패
-        for _ in 1...4 {
+        // 2번 실패
+        for _ in 1...2 {
             _ = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
         }
-        #expect(detector.consecutiveFailures == 4)
+        #expect(detector.consecutiveFailures == 2)
 
         // 1번 성공 → 카운터 리셋
         _ = detector.update(matchResult: makeMatchResult(isMatched: true), gpsAccuracy: 5)
         #expect(detector.consecutiveFailures == 0)
 
-        // 리셋 후 다시 4번 실패해도 이탈 미확정
-        for _ in 1...4 {
+        // 리셋 후 다시 2번 실패해도 이탈 미확정
+        for _ in 1...2 {
             let result = detector.update(matchResult: makeMatchResult(isMatched: false), gpsAccuracy: 5)
-            #expect(result == false, "리셋 후 4회는 이탈 확정 안됨")
+            #expect(result == false, "리셋 후 2회는 이탈 확정 안됨")
         }
     }
 
