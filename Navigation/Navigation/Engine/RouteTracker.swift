@@ -14,7 +14,7 @@ struct RouteProgress: Sendable {
 
 /// 경로 진행 추적
 /// 매칭된 좌표 + segmentIndex를 받아 현재 스텝, 남은 거리/시간/ETA를 계산
-/// 스텝 전진: TMAP 방식 — segmentIndex가 Step 끝 인덱스를 지나가면 전진
+/// 스텝 전진: segmentIndex가 Step 끝 인덱스를 지나가면 전진
 final class RouteTracker {
 
     // MARK: - State
@@ -95,7 +95,7 @@ final class RouteTracker {
         skipDepartureStep()
     }
 
-    // MARK: - Step Advance (segmentIndex 기반 — TMAP 방식)
+    // MARK: - Step Advance (segmentIndex 기반)
 
     /// 매칭된 segmentIndex가 현재 Step의 끝 인덱스를 지나갔으면 전진
     private func advanceStepIfNeeded(segmentIndex: Int) {

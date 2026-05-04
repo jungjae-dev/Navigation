@@ -7,7 +7,7 @@ final class DeadReckoning {
     // MARK: - State
 
     private let polyline: [CLLocationCoordinate2D]
-    private var lastValidPosition: CLLocationCoordinate2D?
+    private(set) var lastValidPosition: CLLocationCoordinate2D?
     private var lastValidSpeed: CLLocationSpeed = 0
     private var lastValidSegmentIndex: Int = 0
     private var lastValidTime: Date?

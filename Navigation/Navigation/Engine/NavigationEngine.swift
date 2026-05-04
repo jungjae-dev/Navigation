@@ -102,11 +102,15 @@ final class NavigationEngine {
             isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
             isMatched = matchResult.isMatched
 
-            matchedPosition = matchResult.coordinate
-            heading = matchResult.isMatched
-                ? bearingAtSegment(matchResult.segmentIndex)
-                : gps.heading
-
+            if matchResult.isMatched {
+                // 매칭 성공 → 스냅 좌표 사용
+                matchedPosition = matchResult.coordinate
+                heading = bearingAtSegment(matchResult.segmentIndex)
+            } else {
+                // 매칭 실패 → rawGPS 사용 (아이콘 색상으로 상태 표시)
+                matchedPosition = matchResult.coordinate
+                heading = gps.heading
+            }
             logger.logDeadReckoning(active: false)
         } else {
             // GPS invalid → Dead Reckoning (맵매칭/이탈감지 스킵)
@@ -122,16 +126,15 @@ final class NavigationEngine {
         }
 
         // segmentIndex 결정 (경로 추적에 전달)
+        // GPS valid: 매칭 성공/실패 모두 mapMatcher의 마지막 유효 index 사용
+        // GPS invalid: DR segmentIndex 사용
         let currentSegmentIndex: Int
         if gps.isValid {
             currentSegmentIndex = mapMatcher.currentSegmentIndex
+        } else if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
+            currentSegmentIndex = drResult.segmentIndex
         } else {
-            // GPS invalid: DR 추정 위치의 segmentIndex 사용
-            if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
-                currentSegmentIndex = drResult.segmentIndex
-            } else {
-                currentSegmentIndex = mapMatcher.currentSegmentIndex
-            }
+            currentSegmentIndex = mapMatcher.currentSegmentIndex
         }
 
         let routeProgress = routeTracker.update(

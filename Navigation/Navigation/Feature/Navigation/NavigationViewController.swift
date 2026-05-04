@@ -19,6 +19,13 @@ final class NavigationViewController: UIViewController {
     private var displayLink: CADisplayLink?
     private var currentSpeed: CLLocationSpeed = 0
     private var isAutoTracking = true
+    private var isVehicleMatched: Bool = true
+    private weak var vehicleAnnotationView: MKAnnotationView?
+    private var displayLinkLogCounter: Int = 0
+
+    // 차량 아이콘 이미지 캐시 (아이콘 소스 변경 시 rebuildVehicleImageCache() 로 갱신)
+    private var cachedMatchedImage: UIImage?
+    private var cachedUnmatchedImage: UIImage?
 
     // 마커
     private var originAnnotation: MKPointAnnotation?
@@ -88,6 +95,7 @@ final class NavigationViewController: UIViewController {
         setupRouteOverlay()
         setupMarkers()
         setupVehicleAnnotation()
+        rebuildVehicleImageCache()
         setupBanner()
         setupBottomBar()
         setupSpeedometer()
@@ -136,6 +144,23 @@ final class NavigationViewController: UIViewController {
             }
             .store(in: &cancellables)
 
+        VehicleIconService.shared.iconSourcePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] source in
+                guard let self else { return }
+                rebuildVehicleImageCache()
+                refreshVehicleAnnotationImage()
+                if source.isModel3D, let url = VehicleIconService.shared.loadModel3DURL() {
+                    let steps = VehicleIconService.shared.loadModel3DRotationSteps()
+                    let pitch = NavigationCameraHelper.pitch(for: transportMode)
+                    vehicle3DView?.loadModel(fileURL: url, rotationSteps: steps, pitch: pitch)
+                    vehicle3DView?.is3DVisible = isAutoTracking
+                } else {
+                    vehicle3DView?.is3DVisible = false
+                }
+            }
+            .store(in: &cancellables)
+
         // 맵매칭 디버그 시각화 토글
         DevToolsSettings.shared.mapMatchDebugEnabled
             .receive(on: DispatchQueue.main)
@@ -176,6 +201,7 @@ final class NavigationViewController: UIViewController {
         currentGuide = guide
         currentSpeed = guide.speed
         interpolator.setTarget(guide.matchedPosition, heading: guide.heading)
+        updateVehicleColor(isMatched: guide.isMatched)
 
         updateBanner(guide)
         updateBottomBar(guide)
@@ -251,7 +277,6 @@ final class NavigationViewController: UIViewController {
     private func setupVehicleAnnotation() {
         if let first = route.polylineCoordinates.first {
             vehicleAnnotation.coordinate = first
-            // 첫 GPS 도착 전 DisplayLink 가 (0,0) 을 반환하지 않도록 경로 출발점 + 첫 segment 방향으로 초기화
             let initialHeading: CLLocationDirection
             if route.polylineCoordinates.count >= 2 {
                 initialHeading = MapGeometry.bearing(from: route.polylineCoordinates[0], to: route.polylineCoordinates[1])
@@ -406,6 +431,53 @@ final class NavigationViewController: UIViewController {
             gpsStatusIcon.widthAnchor.constraint(equalToConstant: 24),
             gpsStatusIcon.heightAnchor.constraint(equalToConstant: 24),
         ])
+    }
+
+    private func updateVehicleColor(isMatched: Bool) {
+        guard isMatched != isVehicleMatched else { return }
+        isVehicleMatched = isMatched
+        if let view = mapView.view(for: vehicleAnnotation) {
+            view.image = vehicleImage(matched: isMatched)
+        }
+    }
+
+    private func rebuildVehicleImageCache() {
+        let source = VehicleIconService.shared.iconSourcePublisher.value
+        if case .custom = source,
+           let photo = VehicleIconService.shared.loadCustomImage() {
+            let size = CGSize(width: 66, height: 66)
+            let resized = photo.resized(to: size)
+            cachedMatchedImage = resized
+            cachedUnmatchedImage = resized.grayscale()
+        } else {
+            cachedMatchedImage = makeDefaultVehicleImage(matched: true)
+            cachedUnmatchedImage = makeDefaultVehicleImage(matched: false)
+        }
+    }
+
+    private func refreshVehicleAnnotationImage() {
+        guard let view = mapView.view(for: vehicleAnnotation) else { return }
+        view.image = vehicleImage(matched: isVehicleMatched)
+    }
+
+    private func vehicleImage(matched: Bool = true) -> UIImage? {
+        matched ? cachedMatchedImage : cachedUnmatchedImage
+    }
+
+    private var vehicle3DView: Vehicle3DAnnotationView? {
+        mapView.view(for: vehicleAnnotation) as? Vehicle3DAnnotationView
+    }
+
+    private func makeDefaultVehicleImage(matched: Bool) -> UIImage? {
+        let color: UIColor = matched ? UIColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1) : UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1)
+        let config = UIImage.SymbolConfiguration(pointSize: 38, weight: .bold)
+        guard let symbol = UIImage(systemName: "location.north.fill", withConfiguration: config) else { return nil }
+        let imageView = UIImageView(frame: CGRect(origin: .zero, size: symbol.size))
+        imageView.image = symbol
+        imageView.tintColor = color
+        return UIGraphicsImageRenderer(size: symbol.size).image { _ in
+            imageView.layer.render(in: UIGraphicsGetCurrentContext()!)
+        }
     }
 
     private func updateGPSStatus(_ guide: NavigationGuide) {
@@ -565,6 +637,7 @@ final class NavigationViewController: UIViewController {
         isAutoTracking = false
         recenterButton.isHidden = false
         resetAutoTrackTimer()
+        vehicle3DView?.is3DVisible = false
     }
 
     private func enableAutoTracking() {
@@ -572,6 +645,8 @@ final class NavigationViewController: UIViewController {
         recenterButton.isHidden = true
         autoTrackTimer?.invalidate()
         autoTrackTimer = nil
+        let isModel3D = VehicleIconService.shared.iconSourcePublisher.value.isModel3D
+        vehicle3DView?.is3DVisible = isModel3D
     }
 
     private func resetAutoTrackTimer() {
@@ -608,12 +683,13 @@ final class NavigationViewController: UIViewController {
             )
         }
 
-        // 카메라 방향과 무관하게 아이콘이 실제 진행방향을 가리키도록 보정
-        // autoTracking: 카메라 heading == 차량 heading → 각도차 0 → identity
-        // 수동 모드:    카메라가 다른 방향 → 차이만큼 회전
         let angleDiff = result.heading - mapView.camera.heading
-        let angleRad = CGFloat(angleDiff * .pi / 180)
-        mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
+        if let v = vehicle3DView, v.is3DVisible {
+            v.vehicleHeading = angleDiff
+        } else {
+            let angleRad = CGFloat(angleDiff * .pi / 180)
+            mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
+        }
     }
 
     // MARK: - Helpers
@@ -684,14 +760,26 @@ extension NavigationViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation === vehicleAnnotation {
-            let id = "vehicle"
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+            let id = "vehicle3D"
+            let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? Vehicle3DAnnotationView)
+                ?? Vehicle3DAnnotationView(annotation: annotation, reuseIdentifier: id)
             view.annotation = annotation
-            view.image = UIImage(systemName: "location.north.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 28, weight: .bold))
-                .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
+            view.image = vehicleImage(matched: isVehicleMatched)
             view.canShowCallout = false
+            view.layer.shadowColor = UIColor.black.cgColor
+            view.layer.shadowOpacity = 0.6
+            view.layer.shadowRadius = 6
+            view.layer.shadowOffset = CGSize(width: 0, height: 3)
+
+            let source = VehicleIconService.shared.iconSourcePublisher.value
+            if source.isModel3D, let url = VehicleIconService.shared.loadModel3DURL() {
+                let steps = VehicleIconService.shared.loadModel3DRotationSteps()
+                let pitch = NavigationCameraHelper.pitch(for: transportMode)
+                view.loadModel(fileURL: url, rotationSteps: steps, pitch: pitch)
+                view.is3DVisible = isAutoTracking
+            } else {
+                view.is3DVisible = false
+            }
             return view
         }
 

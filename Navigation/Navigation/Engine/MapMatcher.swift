@@ -6,7 +6,8 @@ final class MapMatcher {
 
     // MARK: - Configuration
 
-    private let threshold: CLLocationDistance = 50          // 매칭 거리 임계값 (m)
+    private let thresholdBase: CLLocationDistance = 20       // 기본 매칭 거리 (m)
+    private let thresholdTimeFactor: TimeInterval = 1.0      // 속도 반영 시간 계수 (초)
     private let maxAngleDelta: CLLocationDirection = 90     // 방향 검증 각도 (°)
     private let searchWindow: Int = 10                      // ±N 세그먼트 탐색
 
@@ -63,7 +64,8 @@ final class MapMatcher {
             }
         }
 
-        // 거리 검증
+        // 거리 검증: 기본 20m + 속도×2초 (고속일수록 여유 증가)
+        let threshold = thresholdBase + gps.speed * thresholdTimeFactor
         guard bestDistance <= threshold else {
             return MatchResult(
                 isMatched: false,
