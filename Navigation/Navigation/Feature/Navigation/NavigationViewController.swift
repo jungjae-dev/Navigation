@@ -542,6 +542,17 @@ final class NavigationViewController: UIViewController {
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handleMapGesture))
         pinch.delegate = self
         mapView.addGestureRecognizer(pinch)
+
+        // 터치 시작 즉시 autoTracking 해제 — Pan 의 .began 보다 먼저 발생해
+        // displayLink 가 camera 를 덮어쓰는 구간을 없앰
+        let touchDown = UILongPressGestureRecognizer(target: self, action: #selector(handleTouchDown))
+        touchDown.minimumPressDuration = 0
+        touchDown.delegate = self
+        mapView.addGestureRecognizer(touchDown)
+    }
+
+    @objc private func handleTouchDown(_ gesture: UIGestureRecognizer) {
+        if gesture.state == .began { disableAutoTracking() }
     }
 
     @objc private func handleMapGesture(_ gesture: UIGestureRecognizer) {
