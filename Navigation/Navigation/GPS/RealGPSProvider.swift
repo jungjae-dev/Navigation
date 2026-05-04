@@ -3,10 +3,9 @@ import Combine
 
 /// 실제 GPS Provider
 /// - LocationService.rawLocationPublisher를 구독해 GPSData로 변환
-/// - 1초 틱 보장: GPS 미수신 시 타이머가 isValid=false GPSData 발행
-/// - 정확도 필터: 첫 정확한 좌표 받기 전엔 부정확한 좌표도 통과 (초기 표시 위해)
-/// - heading: 폰 compass 방향은 사용하지 않음. GPS course 값만 사용.
-///   course 무효(-1)이면 마지막 유효 course 유지(정지 구간 대응). GPS 미수신 시 -1.
+/// - GPS 손실 감지: 마지막 GPS 수신 후 1.1s 경과 시 isValid=false 발행 (0.5s 폴링)
+/// - 연속 invalid: 0.9s 간격으로 rate limit
+/// - heading: GPS course 값만 사용. course 무효(-1)이면 마지막 유효 course 유지.
 final class RealGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
@@ -19,6 +18,12 @@ final class RealGPSProvider: GPSProviding {
         gpsSubject.eraseToAnyPublisher()
     }
 
+    // MARK: - Configuration
+
+    private let timerInterval: TimeInterval = 0.5
+    private let gpsLossThreshold: TimeInterval = 1.1
+    private let invalidGPSInterval: TimeInterval = 0.9
+
     // MARK: - Private
 
     private let locationSubject = PassthroughSubject<CLLocation, Never>()
@@ -27,13 +32,11 @@ final class RealGPSProvider: GPSProviding {
     private var cancellables = Set<AnyCancellable>()
 
     private var tickTimer: Timer?
-    private let tickInterval: TimeInterval = 1.0
 
     private var lastLocation: CLLocation?
-    /// 마지막으로 유효했던 GPS course. 정지·저속 구간에서 직전 진행방향 유지용.
-    /// GPS 미수신(tickTimeout) 시엔 -1 (isValid=false 라 다운스트림에서 무시됨).
     private var lastValidCourse: CLLocationDirection = -1
     private var lastGPSReceivedTime: Date = .distantPast
+    private var lastInvalidGPSTime: Date = .distantPast
 
     private var hasReceivedAccurateLocation = false
     private static let accuracyThreshold: CLLocationAccuracy = 100
@@ -62,8 +65,6 @@ final class RealGPSProvider: GPSProviding {
             }
             .store(in: &cancellables)
 
-        // compass(headingPublisher) 구독 없음 — 폰 방향은 맵매칭에 사용하지 않음
-
         startTickTimer()
     }
 
@@ -72,6 +73,8 @@ final class RealGPSProvider: GPSProviding {
         stopTickTimer()
         lastLocation = nil
         lastValidCourse = -1
+        lastGPSReceivedTime = .distantPast
+        lastInvalidGPSTime = .distantPast
         hasReceivedAccurateLocation = false
     }
 
@@ -80,6 +83,7 @@ final class RealGPSProvider: GPSProviding {
     private func handleLocationUpdate(_ location: CLLocation) {
         lastLocation = location
         lastGPSReceivedTime = Date()
+        lastInvalidGPSTime = .distantPast  // GPS 복구 시 invalid 상태 초기화
 
         if location.course >= 0 {
             lastValidCourse = location.course
@@ -96,15 +100,13 @@ final class RealGPSProvider: GPSProviding {
 
         locationSubject.send(location)
         gpsSubject.send(gpsData)
-
-        resetTickTimer()
     }
 
-    // MARK: - 1초 틱 타이머 (GPS 미수신 대응)
+    // MARK: - GPS 손실 감지 타이머
 
     private func startTickTimer() {
         stopTickTimer()
-        tickTimer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { [weak self] _ in
+        tickTimer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] _ in
             self?.handleTickTimeout()
         }
     }
@@ -114,19 +116,23 @@ final class RealGPSProvider: GPSProviding {
         tickTimer = nil
     }
 
-    private func resetTickTimer() {
-        startTickTimer()
-    }
-
-    /// GPS 가 1초 이상 안 오면 invalid GPSData 발행
-    /// heading = -1: isValid=false 이므로 다운스트림(맵매칭)에서 무시됨
     private func handleTickTimeout() {
+        let now = Date()
+
+        // 마지막 GPS 수신 후 1.1s 미경과 → 아직 손실 아님
+        guard now.timeIntervalSince(lastGPSReceivedTime) >= gpsLossThreshold else { return }
+
+        // 직전 invalid 발행 후 0.9s 미경과 → rate limit
+        guard now.timeIntervalSince(lastInvalidGPSTime) >= invalidGPSInterval else { return }
+
+        lastInvalidGPSTime = now
+
         let gpsData = GPSData(
             coordinate: lastLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0),
             heading: -1,
             speed: lastLocation.map { max(0, $0.speed) } ?? 0,
             accuracy: lastLocation?.horizontalAccuracy ?? -1,
-            timestamp: Date(),
+            timestamp: now,
             isValid: false
         )
 

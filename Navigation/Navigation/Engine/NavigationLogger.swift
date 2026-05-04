@@ -117,18 +117,6 @@ final class NavigationLogger {
         logger.warning("[Reroute] ⚠️ misaligned route — heading=\(String(format: "%.0f", userHeading))° routeBearing=\(String(format: "%.0f", routeBearing))° Δ=\(String(format: "%.0f", delta))°")
     }
 
-
-    // MARK: - Dead Reckoning
-
-    func logDeadReckoning(active: Bool, estimatedDistance: CLLocationDistance? = nil) {
-        guard level >= .everyTick else { return }
-        if active, let dist = estimatedDistance {
-            logger.debug("[DR] active Δd=\(String(format: "%.1f", dist))m")
-        } else {
-            logger.debug("[DR] inactive")
-        }
-    }
-
     // MARK: - Route
 
     func logRouteConverted(provider: RouteProvider, stepCount: Int, polylineCount: Int) {

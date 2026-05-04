@@ -19,7 +19,7 @@ final class NavigationEngine {
     private let offRouteDetector: OffRouteDetector
     private let stateManager: StateManager
     private var voiceEngine: VoiceEngine
-    private var deadReckoning: DeadReckoning
+    private var lastMatchedPosition: CLLocationCoordinate2D?
 
     // MARK: - Configuration
 
@@ -57,7 +57,6 @@ final class NavigationEngine {
         self.offRouteDetector = OffRouteDetector()
         self.stateManager = StateManager()
         self.voiceEngine = VoiceEngine(provider: route.provider)
-        self.deadReckoning = DeadReckoning(polyline: route.polylineCoordinates)
 
         setupCallbacks()
     }
@@ -77,71 +76,14 @@ final class NavigationEngine {
 
     // MARK: - Tick (매 1초)
 
-    /// GPSProvider로부터 1초마다 호출
     func tick(gps: GPSData) {
         logger.logGPS(gps)
 
-        var matchedPosition: CLLocationCoordinate2D
-        var heading: CLLocationDirection
-        var isOffRoute = false
-        var isMatched = false
-
-        if gps.isValid {
-            // GPS valid → 맵매칭 + 이탈 감지
-            let matchResult = mapMatcher.match(gps)
-            logger.logMatch(matchResult)
-
-            if matchResult.isMatched {
-                deadReckoning.updateLastValid(
-                    position: matchResult.coordinate,
-                    speed: gps.speed,
-                    segmentIndex: matchResult.segmentIndex
-                )
-            }
-
-            isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
-            isMatched = matchResult.isMatched
-
-            if matchResult.isMatched {
-                // 매칭 성공 → 스냅 좌표 사용
-                matchedPosition = matchResult.coordinate
-                heading = bearingAtSegment(matchResult.segmentIndex)
-            } else {
-                // 매칭 실패 → rawGPS 사용 (아이콘 색상으로 상태 표시)
-                matchedPosition = matchResult.coordinate
-                heading = gps.heading
-            }
-            logger.logDeadReckoning(active: false)
-        } else {
-            // GPS invalid → Dead Reckoning (맵매칭/이탈감지 스킵)
-            if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
-                matchedPosition = drResult.coordinate
-                heading = drResult.heading
-                logger.logDeadReckoning(active: true, estimatedDistance: gps.speed * 1.0)
-            } else {
-                matchedPosition = gps.coordinate
-                heading = gps.heading
-                logger.logDeadReckoning(active: false)
-            }
-        }
-
-        // segmentIndex 결정 (경로 추적에 전달)
-        // GPS valid: 매칭 성공/실패 모두 mapMatcher의 마지막 유효 index 사용
-        // GPS invalid: DR segmentIndex 사용
-        let currentSegmentIndex: Int
-        if gps.isValid {
-            currentSegmentIndex = mapMatcher.currentSegmentIndex
-        } else if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {
-            currentSegmentIndex = drResult.segmentIndex
-        } else {
-            currentSegmentIndex = mapMatcher.currentSegmentIndex
-        }
-
+        let matched = resolveMatchedState(gps: gps)
         let routeProgress = routeTracker.update(
-            matchedPosition: matchedPosition,
-            segmentIndex: currentSegmentIndex
+            matchedPosition: matched.position,
+            segmentIndex: mapMatcher.currentSegmentIndex
         )
-
         logger.logTrackProgress(
             stepIndex: routeProgress.currentStepIndex,
             totalSteps: routeProgress.totalSteps,
@@ -150,42 +92,20 @@ final class NavigationEngine {
             eta: routeProgress.eta
         )
 
-        // 상태 관리
         let state = stateManager.update(
-            isMatched: gps.isValid ? mapMatcher.currentSegmentIndex >= 0 : true,
-            isOffRoute: isOffRoute,
+            isMatched: gps.isValid ? matched.isMatched : true,
+            isOffRoute: matched.isOffRoute,
             distanceToGoal: routeProgress.remainingDistance
         )
 
-        // 이탈 확정 시 자동 재탐색
-        if isOffRoute && !isRerouteInProgress {
-            let rerouteHeading = makeRerouteHeading(gpsHeading: gps.heading, gpsSpeed: gps.speed, fallback: heading)
-            startReroute(from: gps.coordinate, heading: rerouteHeading)
-        }
-
-        // 음성 트리거 (모든 음성은 VoiceEngine에서 관리)
-        var voiceCommand: VoiceCommand?
-
-        // 초기 안내 (preparing → navigating 전환 시)
-        if state == .navigating {
-            voiceCommand = voiceEngine.checkInitial()
-        }
-
-        // 거리별 안내
-        if voiceCommand == nil && state == .navigating {
-            voiceCommand = voiceEngine.check(
-                distanceToManeuver: routeProgress.distanceToNextManeuver,
-                speed: gps.speed,
-                stepIndex: routeProgress.currentStepIndex,
-                step: routeProgress.currentStep
+        if matched.isOffRoute && !isRerouteInProgress {
+            startReroute(
+                from: gps.coordinate,
+                heading: makeRerouteHeading(gpsHeading: gps.heading, gpsSpeed: gps.speed, fallback: matched.heading)
             )
         }
 
-        // 상태 변화 안내 (도착/재탐색 — 각 1회)
-        if voiceCommand == nil {
-            voiceCommand = voiceEngine.checkStateChange(state: state)
-        }
-
+        let voiceCommand = resolveVoiceCommand(state: state, routeProgress: routeProgress, speed: gps.speed)
         if let vc = voiceCommand {
             logger.logVoiceTrigger(
                 stepIndex: routeProgress.currentStepIndex,
@@ -194,25 +114,69 @@ final class NavigationEngine {
             )
         }
 
-        // NavigationGuide 조립
-        let guide = NavigationGuide(
+        guidePublisher.send(NavigationGuide(
             state: state,
             currentManeuver: makeManeuverInfo(from: routeProgress.currentStep, distance: routeProgress.distanceToNextManeuver),
             nextManeuver: routeProgress.nextStep.map { makeManeuverInfo(from: $0, distance: $0.distance) },
             remainingDistance: routeProgress.remainingDistance,
             remainingTime: routeProgress.remainingTime,
             eta: routeProgress.eta,
-            matchedPosition: matchedPosition,
-            heading: heading,
+            matchedPosition: matched.position,
+            heading: matched.heading,
             speed: gps.speed,
             rawGPSPosition: gps.isValid ? gps.coordinate : nil,
             rawGPSHeading: gps.isValid ? gps.heading : nil,
-            isMatched: isMatched,
+            isMatched: matched.isMatched,
             isGPSValid: gps.isValid,
             voiceCommand: voiceCommand
-        )
+        ))
+    }
 
-        guidePublisher.send(guide)
+    // MARK: - Tick Helpers
+
+    private struct MatchedState {
+        let position: CLLocationCoordinate2D
+        let heading: CLLocationDirection
+        let isMatched: Bool
+        let isOffRoute: Bool
+    }
+
+    private func resolveMatchedState(gps: GPSData) -> MatchedState {
+        guard gps.isValid else {
+            if let lastPos = lastMatchedPosition {
+                return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: false)
+            }
+            return MatchedState(position: gps.coordinate, heading: gps.heading, isMatched: false, isOffRoute: false)
+        }
+
+        let matchResult = mapMatcher.match(gps)
+        logger.logMatch(matchResult)
+        let isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
+
+        if matchResult.isMatched {
+            lastMatchedPosition = matchResult.coordinate
+            return MatchedState(
+                position: matchResult.coordinate,
+                heading: bearingAtSegment(matchResult.segmentIndex),
+                isMatched: true,
+                isOffRoute: isOffRoute
+            )
+        }
+        if let lastPos = lastMatchedPosition {
+            return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: isOffRoute)
+        }
+        return MatchedState(position: matchResult.coordinate, heading: gps.heading, isMatched: false, isOffRoute: isOffRoute)
+    }
+
+    private func resolveVoiceCommand(state: NavigationState, routeProgress: RouteProgress, speed: CLLocationSpeed) -> VoiceCommand? {
+        if state == .navigating, let cmd = voiceEngine.checkInitial() { return cmd }
+        if state == .navigating, let cmd = voiceEngine.check(
+            distanceToManeuver: routeProgress.distanceToNextManeuver,
+            speed: speed,
+            stepIndex: routeProgress.currentStepIndex,
+            step: routeProgress.currentStep
+        ) { return cmd }
+        return voiceEngine.checkStateChange(state: state)
     }
 
     // MARK: - Configure
@@ -242,6 +206,7 @@ final class NavigationEngine {
         guard !isRerouteInProgress else { return }
         isRerouteInProgress = true
         rerouteAttempts = 0
+        lastMatchedPosition = nil
 
         logger.logRerouteStart(from: coordinate)
 
@@ -330,7 +295,7 @@ final class NavigationEngine {
         mapMatcher = MapMatcher(polyline: newRoute.polylineCoordinates, transportMode: transportMode)
         routeTracker = RouteTracker(route: newRoute)
         voiceEngine = VoiceEngine(provider: newRoute.provider)
-        deadReckoning = DeadReckoning(polyline: newRoute.polylineCoordinates)
+        lastMatchedPosition = nil
 
         // 재탐색 직후 출발 보호 재적용 (5초/35m 동안 재이탈 판정 보류)
         if let firstCoord = newRoute.polylineCoordinates.first {

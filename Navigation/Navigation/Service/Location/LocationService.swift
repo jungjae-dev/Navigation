@@ -97,7 +97,7 @@ final class LocationService: NSObject {
 
     func configureForNavigation() {
         locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-        locationManager.distanceFilter = 5
+        locationManager.distanceFilter = 0
         locationManager.activityType = .automotiveNavigation
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
@@ -105,13 +105,13 @@ final class LocationService: NSObject {
 
     func configureForWalking() {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 5
+        locationManager.distanceFilter = 0
         locationManager.activityType = .fitness
     }
 
     func configureForStandard() {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 10
+        locationManager.distanceFilter = 5
         locationManager.activityType = .automotiveNavigation
         locationManager.allowsBackgroundLocationUpdates = false
         locationManager.pausesLocationUpdatesAutomatically = true
