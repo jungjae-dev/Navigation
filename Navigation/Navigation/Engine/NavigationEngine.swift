@@ -106,18 +106,12 @@ final class NavigationEngine {
                 // 매칭 성공 → 스냅 좌표 사용
                 matchedPosition = matchResult.coordinate
                 heading = bearingAtSegment(matchResult.segmentIndex)
-                logger.logDeadReckoning(active: false)
-            } else if let lastPos = deadReckoning.lastValidPosition {
-                // 매칭 실패 → 마지막 스냅 위치 고정 (시간 추정 없음)
-                matchedPosition = lastPos
-                heading = bearingAtSegment(mapMatcher.currentSegmentIndex)
-                logger.logDeadReckoning(active: false)
             } else {
-                // 스냅 이력 없음 (첫 GPS 수신 전) → rawGPS 최후 수단
+                // 매칭 실패 → rawGPS 사용 (아이콘 색상으로 상태 표시)
                 matchedPosition = matchResult.coordinate
                 heading = gps.heading
-                logger.logDeadReckoning(active: false)
             }
+            logger.logDeadReckoning(active: false)
         } else {
             // GPS invalid → Dead Reckoning (맵매칭/이탈감지 스킵)
             if let drResult = deadReckoning.estimate(currentTime: gps.timestamp) {

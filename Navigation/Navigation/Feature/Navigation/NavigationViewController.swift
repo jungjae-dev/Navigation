@@ -19,6 +19,13 @@ final class NavigationViewController: UIViewController {
     private var displayLink: CADisplayLink?
     private var currentSpeed: CLLocationSpeed = 0
     private var isAutoTracking = true
+    private var isVehicleMatched: Bool = true
+    private weak var vehicleAnnotationView: MKAnnotationView?
+    private var displayLinkLogCounter: Int = 0
+
+    // 차량 아이콘 이미지 캐시 (파란/회색 각 1회만 생성)
+    private lazy var vehicleImageMatched: UIImage? = makeVehicleImage(matched: true)
+    private lazy var vehicleImageUnmatched: UIImage? = makeVehicleImage(matched: false)
 
     // 마커
     private var originAnnotation: MKPointAnnotation?
@@ -176,6 +183,7 @@ final class NavigationViewController: UIViewController {
         currentGuide = guide
         currentSpeed = guide.speed
         interpolator.setTarget(guide.matchedPosition, heading: guide.heading)
+        updateVehicleColor(isMatched: guide.isMatched)
 
         updateBanner(guide)
         updateBottomBar(guide)
@@ -251,7 +259,6 @@ final class NavigationViewController: UIViewController {
     private func setupVehicleAnnotation() {
         if let first = route.polylineCoordinates.first {
             vehicleAnnotation.coordinate = first
-            // 첫 GPS 도착 전 DisplayLink 가 (0,0) 을 반환하지 않도록 경로 출발점 + 첫 segment 방향으로 초기화
             let initialHeading: CLLocationDirection
             if route.polylineCoordinates.count >= 2 {
                 initialHeading = MapGeometry.bearing(from: route.polylineCoordinates[0], to: route.polylineCoordinates[1])
@@ -406,6 +413,30 @@ final class NavigationViewController: UIViewController {
             gpsStatusIcon.widthAnchor.constraint(equalToConstant: 24),
             gpsStatusIcon.heightAnchor.constraint(equalToConstant: 24),
         ])
+    }
+
+    private func updateVehicleColor(isMatched: Bool) {
+        guard isMatched != isVehicleMatched else { return }  // 상태 변화 시에만 업데이트
+        isVehicleMatched = isMatched
+        if let view = mapView.view(for: vehicleAnnotation) {
+            view.image = isMatched ? vehicleImageMatched : vehicleImageUnmatched
+        }
+    }
+
+    private func makeVehicleImage(matched: Bool) -> UIImage? {
+        let color: UIColor = matched ? UIColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1) : UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1)
+        let config = UIImage.SymbolConfiguration(pointSize: 38, weight: .bold)
+        guard let symbol = UIImage(systemName: "location.north.fill", withConfiguration: config) else { return nil }
+        let imageView = UIImageView(frame: CGRect(origin: .zero, size: symbol.size))
+        imageView.image = symbol
+        imageView.tintColor = color
+        return UIGraphicsImageRenderer(size: symbol.size).image { _ in
+            imageView.layer.render(in: UIGraphicsGetCurrentContext()!)
+        }
+    }
+
+    private func vehicleImage(matched: Bool = true) -> UIImage? {
+        matched ? vehicleImageMatched : vehicleImageUnmatched
     }
 
     private func updateGPSStatus(_ guide: NavigationGuide) {
@@ -688,10 +719,12 @@ extension NavigationViewController: MKMapViewDelegate {
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
                 ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
             view.annotation = annotation
-            view.image = UIImage(systemName: "location.north.fill")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: 28, weight: .bold))
-                .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
+            view.image = vehicleImage(matched: isVehicleMatched)
             view.canShowCallout = false
+            view.layer.shadowColor = UIColor.black.cgColor
+            view.layer.shadowOpacity = 0.6
+            view.layer.shadowRadius = 6
+            view.layer.shadowOffset = CGSize(width: 0, height: 3)
             return view
         }
 
