@@ -162,13 +162,23 @@ final class VehicleIconService {
     }
 }
 
-// MARK: - UIImage Resize Extension
+// MARK: - UIImage Extensions
 
-private extension UIImage {
+extension UIImage {
     func resized(to targetSize: CGSize) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: targetSize)
         return renderer.image { _ in
             draw(in: CGRect(origin: .zero, size: targetSize))
         }
+    }
+
+    func grayscale() -> UIImage {
+        let context = CIContext()
+        guard let ciImage = CIImage(image: self),
+              let filter = CIFilter(name: "CIPhotoEffectMono") else { return self }
+        filter.setValue(ciImage, forKey: kCIInputImageKey)
+        guard let output = filter.outputImage,
+              let cgImage = context.createCGImage(output, from: output.extent) else { return self }
+        return UIImage(cgImage: cgImage, scale: scale, orientation: imageOrientation)
     }
 }

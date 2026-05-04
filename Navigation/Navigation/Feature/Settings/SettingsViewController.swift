@@ -40,7 +40,7 @@ final class SettingsViewController: UIViewController {
     }
 
     private enum VehicleRow: Int, CaseIterable {
-        case preset = 0
+        case defaultIcon = 0
         case customPhoto = 1
         case vehicle3D = 2
     }
@@ -159,13 +159,12 @@ final class SettingsViewController: UIViewController {
         }
         .store(in: &cancellables)
 
-        Publishers.CombineLatest3(
+        Publishers.CombineLatest(
             viewModel.defaultTransportMode,
-            viewModel.hapticEnabled,
-            viewModel.vehiclePreset
+            viewModel.hapticEnabled
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _, _, _ in
+        .sink { [weak self] _, _ in
             self?.tableView.reloadData()
         }
         .store(in: &cancellables)
@@ -344,38 +343,47 @@ final class SettingsViewController: UIViewController {
             return
         }
 
-        let loadingAlert = UIAlertController(title: "처리 중", message: "배경을 제거하고 있습니다...", preferredStyle: .alert)
-        let indicator = UIActivityIndicatorView(style: .medium)
-        indicator.startAnimating()
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        loadingAlert.view.addSubview(indicator)
-        NSLayoutConstraint.activate([
-            indicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-            indicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -16),
-        ])
-        present(loadingAlert, animated: true)
+        let presentLoading = { [weak self] in
+            guard let self else { return }
+            let loadingAlert = UIAlertController(title: "처리 중", message: "배경을 제거하고 있습니다...", preferredStyle: .alert)
+            let indicator = UIActivityIndicatorView(style: .medium)
+            indicator.startAnimating()
+            indicator.translatesAutoresizingMaskIntoConstraints = false
+            loadingAlert.view.addSubview(indicator)
+            NSLayoutConstraint.activate([
+                indicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+                indicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -16),
+            ])
+            self.present(loadingAlert, animated: true)
 
-        Task {
-            do {
-                let service = LiftSubjectService()
-                let cutout = try await service.liftSubject(from: image)
-                let resized = cutout.resizedForVehicleIcon(maxSize: 100)
-
-                loadingAlert.dismiss(animated: true) { [weak self] in
-                    self?.showLiftSubjectPreview(cutout: resized)
+            Task {
+                do {
+                    let service = LiftSubjectService()
+                    let cutout = try await service.liftSubject(from: image)
+                    let resized = cutout.resizedForVehicleIcon(maxSize: 100)
+                    loadingAlert.dismiss(animated: true) { [weak self] in
+                        self?.showLiftSubjectPreview(cutout: resized)
+                    }
+                } catch {
+                    loadingAlert.dismiss(animated: true) { [weak self] in
+                        let errorAlert = UIAlertController(
+                            title: "오류",
+                            message: error.localizedDescription,
+                            preferredStyle: .alert
+                        )
+                        errorAlert.addAction(UIAlertAction(title: "확인", style: .default))
+                        self?.present(errorAlert, animated: true)
+                    }
                 }
-            } catch {
-                loadingAlert.dismiss(animated: true) { [weak self] in
-                    let errorAlert = UIAlertController(
-                        title: "오류",
-                        message: error.localizedDescription,
-                        preferredStyle: .alert
-                    )
-                    errorAlert.addAction(UIAlertAction(title: "확인", style: .default))
-                    self?.present(errorAlert, animated: true)
-                }
+                self.photoPickerHelper = nil
             }
-            photoPickerHelper = nil
+        }
+
+        // PHPicker dismiss 애니메이션이 진행 중일 수 있으므로 완료 후 present
+        if let presented = presentedViewController {
+            presented.dismiss(animated: true) { presentLoading() }
+        } else {
+            presentLoading()
         }
     }
 
@@ -534,21 +542,25 @@ extension SettingsViewController: UITableViewDataSource {
 
         case .vehicle:
             guard let row = VehicleRow(rawValue: indexPath.row) else { return cell }
+            let source = VehicleIconService.shared.iconSourcePublisher.value
+            let is3DEnabled = viewModel.vehicle3DEnabled.value
             switch row {
-            case .preset:
-                config.text = "차량 아이콘 프리셋"
-                config.secondaryText = viewModel.vehiclePreset.value.displayName
-                config.image = UIImage(systemName: viewModel.vehiclePreset.value.iconName)
-                config.imageProperties.tintColor = .systemOrange
-                cell.accessoryType = .disclosureIndicator
+            case .defaultIcon:
+                config.text = "기본 아이콘"
+                config.image = UIImage(systemName: "location.north.fill")
+                config.imageProperties.tintColor = .systemBlue
+                let isDefault = !source.isCustom && !is3DEnabled
+                cell.accessoryType = isDefault ? .checkmark : .none
 
             case .customPhoto:
-                let hasCustom = VehicleIconService.shared.iconSourcePublisher.value.isCustom
                 config.text = "사진에서 아이콘 만들기"
-                config.secondaryText = hasCustom ? "사용 중" : nil
                 config.image = UIImage(systemName: "photo.badge.plus")
                 config.imageProperties.tintColor = .systemPurple
-                cell.accessoryType = .disclosureIndicator
+                if source.isCustom {
+                    cell.accessoryType = .checkmark
+                } else {
+                    cell.accessoryType = .disclosureIndicator
+                }
 
             case .vehicle3D:
                 config.text = "3D 차량 모델"
@@ -556,7 +568,7 @@ extension SettingsViewController: UITableViewDataSource {
                 config.imageProperties.tintColor = .systemIndigo
 
                 let toggle = UISwitch()
-                toggle.isOn = viewModel.vehicle3DEnabled.value
+                toggle.isOn = is3DEnabled
                 toggle.onTintColor = Theme.Colors.primary
                 toggle.addTarget(self, action: #selector(vehicle3DSwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
@@ -661,8 +673,9 @@ extension SettingsViewController: UITableViewDelegate {
         case .vehicle:
             guard let row = VehicleRow(rawValue: indexPath.row) else { return }
             switch row {
-            case .preset:
-                showVehiclePresetPicker()
+            case .defaultIcon:
+                VehicleIconService.shared.clearCustomImage()
+                viewModel.setVehicle3DEnabled(false)
             case .customPhoto:
                 showCustomPhotoOptions()
             case .vehicle3D:

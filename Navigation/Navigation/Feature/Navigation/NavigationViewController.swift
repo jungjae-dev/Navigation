@@ -23,9 +23,9 @@ final class NavigationViewController: UIViewController {
     private weak var vehicleAnnotationView: MKAnnotationView?
     private var displayLinkLogCounter: Int = 0
 
-    // 차량 아이콘 이미지 캐시 (파란/회색 각 1회만 생성)
-    private lazy var vehicleImageMatched: UIImage? = makeVehicleImage(matched: true)
-    private lazy var vehicleImageUnmatched: UIImage? = makeVehicleImage(matched: false)
+    // 차량 아이콘 이미지 캐시 (아이콘 소스 변경 시 rebuildVehicleImageCache() 로 갱신)
+    private var cachedMatchedImage: UIImage?
+    private var cachedUnmatchedImage: UIImage?
 
     // 마커
     private var originAnnotation: MKPointAnnotation?
@@ -95,6 +95,7 @@ final class NavigationViewController: UIViewController {
         setupRouteOverlay()
         setupMarkers()
         setupVehicleAnnotation()
+        rebuildVehicleImageCache()
         setupBanner()
         setupBottomBar()
         setupSpeedometer()
@@ -140,6 +141,14 @@ final class NavigationViewController: UIViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newRoute in
                 self?.applyRouteUpdate(newRoute)
+            }
+            .store(in: &cancellables)
+
+        VehicleIconService.shared.iconSourcePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.rebuildVehicleImageCache()
+                self?.refreshVehicleAnnotationImage()
             }
             .store(in: &cancellables)
 
@@ -416,14 +425,37 @@ final class NavigationViewController: UIViewController {
     }
 
     private func updateVehicleColor(isMatched: Bool) {
-        guard isMatched != isVehicleMatched else { return }  // 상태 변화 시에만 업데이트
+        guard isMatched != isVehicleMatched else { return }
         isVehicleMatched = isMatched
         if let view = mapView.view(for: vehicleAnnotation) {
-            view.image = isMatched ? vehicleImageMatched : vehicleImageUnmatched
+            view.image = vehicleImage(matched: isMatched)
         }
     }
 
-    private func makeVehicleImage(matched: Bool) -> UIImage? {
+    private func rebuildVehicleImageCache() {
+        let source = VehicleIconService.shared.iconSourcePublisher.value
+        if case .custom = source,
+           let photo = VehicleIconService.shared.loadCustomImage() {
+            let size = CGSize(width: 66, height: 66)
+            let resized = photo.resized(to: size)
+            cachedMatchedImage = resized
+            cachedUnmatchedImage = resized.grayscale()
+        } else {
+            cachedMatchedImage = makeDefaultVehicleImage(matched: true)
+            cachedUnmatchedImage = makeDefaultVehicleImage(matched: false)
+        }
+    }
+
+    private func refreshVehicleAnnotationImage() {
+        guard let view = mapView.view(for: vehicleAnnotation) else { return }
+        view.image = vehicleImage(matched: isVehicleMatched)
+    }
+
+    private func vehicleImage(matched: Bool = true) -> UIImage? {
+        matched ? cachedMatchedImage : cachedUnmatchedImage
+    }
+
+    private func makeDefaultVehicleImage(matched: Bool) -> UIImage? {
         let color: UIColor = matched ? UIColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1) : UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1)
         let config = UIImage.SymbolConfiguration(pointSize: 38, weight: .bold)
         guard let symbol = UIImage(systemName: "location.north.fill", withConfiguration: config) else { return nil }
@@ -433,10 +465,6 @@ final class NavigationViewController: UIViewController {
         return UIGraphicsImageRenderer(size: symbol.size).image { _ in
             imageView.layer.render(in: UIGraphicsGetCurrentContext()!)
         }
-    }
-
-    private func vehicleImage(matched: Bool = true) -> UIImage? {
-        matched ? vehicleImageMatched : vehicleImageUnmatched
     }
 
     private func updateGPSStatus(_ guide: NavigationGuide) {

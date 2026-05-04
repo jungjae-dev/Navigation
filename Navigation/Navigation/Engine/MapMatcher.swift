@@ -7,7 +7,7 @@ final class MapMatcher {
     // MARK: - Configuration
 
     private let thresholdBase: CLLocationDistance = 20       // 기본 매칭 거리 (m)
-    private let thresholdTimeFactor: TimeInterval = 2.0      // 속도 반영 시간 계수 (초)
+    private let thresholdTimeFactor: TimeInterval = 1.0      // 속도 반영 시간 계수 (초)
     private let maxAngleDelta: CLLocationDirection = 90     // 방향 검증 각도 (°)
     private let searchWindow: Int = 10                      // ±N 세그먼트 탐색
 
