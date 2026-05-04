@@ -607,6 +607,13 @@ final class NavigationViewController: UIViewController {
                 mode: transportMode
             )
         }
+
+        // 카메라 방향과 무관하게 아이콘이 실제 진행방향을 가리키도록 보정
+        // autoTracking: 카메라 heading == 차량 heading → 각도차 0 → identity
+        // 수동 모드:    카메라가 다른 방향 → 차이만큼 회전
+        let angleDiff = result.heading - mapView.camera.heading
+        let angleRad = CGFloat(angleDiff * .pi / 180)
+        mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
     }
 
     // MARK: - Helpers
