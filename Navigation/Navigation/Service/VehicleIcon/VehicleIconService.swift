@@ -43,10 +43,16 @@ enum VehiclePreset: String, CaseIterable, Sendable {
 
 enum VehicleIconSource: Equatable {
     case preset(VehiclePreset)
-    case custom(String) // filename in documents directory
+    case custom(String)   // filename in documents directory
+    case model3D(String)  // filename in documents directory
 
     var isCustom: Bool {
         if case .custom = self { return true }
+        return false
+    }
+
+    var isModel3D: Bool {
+        if case .model3D = self { return true }
         return false
     }
 }
@@ -70,6 +76,8 @@ final class VehicleIconService {
     private let defaults = UserDefaults.standard
     private let presetKey = "settings_vehicle_preset"
     private let customImageKey = "settings_vehicle_custom_image"
+    private let model3DKey = "settings_vehicle_3d_filename"
+    private let model3DRotationKey = "settings_vehicle_3d_rotation_steps"
 
     // MARK: - Init
 
@@ -116,10 +124,51 @@ final class VehicleIconService {
 
     func clearCustomImage() {
         if let filename = defaults.string(forKey: customImageKey) {
-            let url = documentsDirectory.appendingPathComponent(filename)
-            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.removeItem(at: documentsDirectory.appendingPathComponent(filename))
         }
         defaults.removeObject(forKey: customImageKey)
+        if let model3DFilename = defaults.string(forKey: model3DKey) {
+            iconSourcePublisher.send(.model3D(model3DFilename))
+        } else {
+            iconSourcePublisher.send(.preset(selectedPreset))
+        }
+    }
+
+    // MARK: - Public: 3D Model
+
+    func setModel3D(fileURL: URL, rotationSteps: Int) -> Bool {
+        let filename = "vehicle_3d_model.usdz"
+        let dest = documentsDirectory.appendingPathComponent(filename)
+        do {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: fileURL, to: dest)
+            defaults.set(filename, forKey: model3DKey)
+            defaults.set(rotationSteps, forKey: model3DRotationKey)
+            iconSourcePublisher.send(.model3D(filename))
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func loadModel3DURL() -> URL? {
+        guard let filename = defaults.string(forKey: model3DKey) else { return nil }
+        let url = documentsDirectory.appendingPathComponent(filename)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func loadModel3DRotationSteps() -> Int {
+        defaults.integer(forKey: model3DRotationKey)
+    }
+
+    func clearModel3D() {
+        if let filename = defaults.string(forKey: model3DKey) {
+            try? FileManager.default.removeItem(at: documentsDirectory.appendingPathComponent(filename))
+        }
+        defaults.removeObject(forKey: model3DKey)
+        defaults.removeObject(forKey: model3DRotationKey)
         iconSourcePublisher.send(.preset(selectedPreset))
     }
 
@@ -132,6 +181,8 @@ final class VehicleIconService {
             return preset.image(size: size)
         case .custom:
             return loadCustomImage()?.resized(to: CGSize(width: size, height: size))
+        case .model3D:
+            return nil
         }
     }
 
@@ -142,22 +193,22 @@ final class VehicleIconService {
     }
 
     private func loadSettings() {
-        // Check for custom image first
-        if let filename = defaults.string(forKey: customImageKey) {
-            let url = documentsDirectory.appendingPathComponent(filename)
-            if FileManager.default.fileExists(atPath: url.path) {
-                let presetRaw = defaults.string(forKey: presetKey) ?? VehiclePreset.sedan.rawValue
-                let preset = VehiclePreset(rawValue: presetRaw) ?? .sedan
-                selectedPresetPublisher.send(preset)
-                iconSourcePublisher.send(.custom(filename))
-                return
-            }
-        }
-
-        // Load preset
         let presetRaw = defaults.string(forKey: presetKey) ?? VehiclePreset.sedan.rawValue
         let preset = VehiclePreset(rawValue: presetRaw) ?? .sedan
         selectedPresetPublisher.send(preset)
+
+        if let filename = defaults.string(forKey: customImageKey),
+           FileManager.default.fileExists(atPath: documentsDirectory.appendingPathComponent(filename).path) {
+            iconSourcePublisher.send(.custom(filename))
+            return
+        }
+
+        if let filename = defaults.string(forKey: model3DKey),
+           FileManager.default.fileExists(atPath: documentsDirectory.appendingPathComponent(filename).path) {
+            iconSourcePublisher.send(.model3D(filename))
+            return
+        }
+
         iconSourcePublisher.send(.preset(preset))
     }
 }

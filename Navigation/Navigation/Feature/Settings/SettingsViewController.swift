@@ -1,6 +1,7 @@
 import UIKit
 import Combine
 import PhotosUI
+import UniformTypeIdentifiers
 
 final class SettingsViewController: UIViewController {
 
@@ -42,7 +43,7 @@ final class SettingsViewController: UIViewController {
     private enum VehicleRow: Int, CaseIterable {
         case defaultIcon = 0
         case customPhoto = 1
-        case vehicle3D = 2
+        // case vehicle3D = 2
     }
 
     private enum HapticRow: Int, CaseIterable {
@@ -194,9 +195,6 @@ final class SettingsViewController: UIViewController {
         viewModel.setHapticEnabled(sender.isOn)
     }
 
-    @objc private func vehicle3DSwitchChanged(_ sender: UISwitch) {
-        viewModel.setVehicle3DEnabled(sender.isOn)
-    }
 
     private func showVoiceSpeedPicker() {
         let alert = UIAlertController(title: "음성 속도", message: nil, preferredStyle: .actionSheet)
@@ -416,6 +414,90 @@ final class SettingsViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
         present(alert, animated: true)
     }
+
+    // MARK: - 3D Model
+
+    private func showVehicle3DOptions() {
+        let source = VehicleIconService.shared.iconSourcePublisher.value
+        let hasFile = VehicleIconService.shared.loadModel3DURL() != nil
+
+        if source.isModel3D {
+            // 이미 활성 — 파일 변경 또는 제거 옵션
+            let alert = UIAlertController(title: "3D 차량 모델", message: nil, preferredStyle: .actionSheet)
+            alert.addAction(UIAlertAction(title: "파일 변경", style: .default) { [weak self] _ in
+                self?.presentUSDZPicker()
+            })
+            alert.addAction(UIAlertAction(title: "3D 모델 제거", style: .destructive) { _ in
+                VehicleIconService.shared.clearModel3D()
+            })
+            alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+            present(alert, animated: true)
+        } else if hasFile {
+            // 파일 있지만 미활성 — 활성화 또는 파일 변경
+            let alert = UIAlertController(title: "3D 차량 모델", message: nil, preferredStyle: .actionSheet)
+            alert.addAction(UIAlertAction(title: "3D 모델 사용", style: .default) { _ in
+                if let url = VehicleIconService.shared.loadModel3DURL() {
+                    let steps = VehicleIconService.shared.loadModel3DRotationSteps()
+                    _ = VehicleIconService.shared.setModel3D(fileURL: url, rotationSteps: steps)
+                }
+            })
+            alert.addAction(UIAlertAction(title: "파일 변경", style: .default) { [weak self] _ in
+                self?.presentUSDZPicker()
+            })
+            alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+            present(alert, animated: true)
+        } else {
+            presentUSDZPicker()
+        }
+    }
+
+    private func presentUSDZPicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.usdz])
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        present(picker, animated: true)
+    }
+
+    private func presentImportViewController(fileURL: URL) {
+        let importVC = Vehicle3DImportViewController(fileURL: fileURL)
+        importVC.onConfirm = { [weak self] url, rotationSteps in
+            let success = VehicleIconService.shared.setModel3D(fileURL: url, rotationSteps: rotationSteps)
+            if !success {
+                print("[Settings] Failed to save 3D model")
+            }
+            self?.tableView.reloadData()
+        }
+        let nav = UINavigationController(rootViewController: importVC)
+        present(nav, animated: true)
+    }
+}
+
+// MARK: - UIDocumentPickerDelegate
+
+extension SettingsViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        guard url.startAccessingSecurityScopedResource() else { return }
+
+        // 보안 범위 접근은 이 함수가 반환될 때 해제됨.
+        // setModel3D가 호출되는 시점(Import VC 확인 후)에는 접근 권한이 없으므로
+        // 미리 임시 디렉토리에 복사해서 전달.
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(url.lastPathComponent)
+        do {
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                try FileManager.default.removeItem(at: tempURL)
+            }
+            try FileManager.default.copyItem(at: url, to: tempURL)
+        } catch {
+            url.stopAccessingSecurityScopedResource()
+            print("[Settings] Failed to copy USDZ to temp: \(error)")
+            return
+        }
+        url.stopAccessingSecurityScopedResource()
+
+        presentImportViewController(fileURL: tempURL)
+    }
 }
 
 // MARK: - UIImage Lift Subject Extension
@@ -543,13 +625,12 @@ extension SettingsViewController: UITableViewDataSource {
         case .vehicle:
             guard let row = VehicleRow(rawValue: indexPath.row) else { return cell }
             let source = VehicleIconService.shared.iconSourcePublisher.value
-            let is3DEnabled = viewModel.vehicle3DEnabled.value
             switch row {
             case .defaultIcon:
                 config.text = "기본 아이콘"
                 config.image = UIImage(systemName: "location.north.fill")
                 config.imageProperties.tintColor = .systemBlue
-                let isDefault = !source.isCustom && !is3DEnabled
+                let isDefault = !source.isCustom && !source.isModel3D
                 cell.accessoryType = isDefault ? .checkmark : .none
 
             case .customPhoto:
@@ -562,17 +643,13 @@ extension SettingsViewController: UITableViewDataSource {
                     cell.accessoryType = .disclosureIndicator
                 }
 
-            case .vehicle3D:
-                config.text = "3D 차량 모델"
-                config.image = UIImage(systemName: "cube.fill")
-                config.imageProperties.tintColor = .systemIndigo
-
-                let toggle = UISwitch()
-                toggle.isOn = is3DEnabled
-                toggle.onTintColor = Theme.Colors.primary
-                toggle.addTarget(self, action: #selector(vehicle3DSwitchChanged), for: .valueChanged)
-                cell.accessoryView = toggle
-                cell.selectionStyle = .none
+            // case .vehicle3D:
+            //     let hasModel = VehicleIconService.shared.loadModel3DURL() != nil
+            //     config.text = "3D 차량 모델"
+            //     config.image = UIImage(systemName: "cube.fill")
+            //     config.imageProperties.tintColor = .systemIndigo
+            //     config.secondaryText = hasModel ? "파일 등록됨" : nil
+            //     cell.accessoryType = source.isModel3D ? .checkmark : .disclosureIndicator
             }
 
         case .haptic:
@@ -675,11 +752,11 @@ extension SettingsViewController: UITableViewDelegate {
             switch row {
             case .defaultIcon:
                 VehicleIconService.shared.clearCustomImage()
-                viewModel.setVehicle3DEnabled(false)
+                VehicleIconService.shared.clearModel3D()
             case .customPhoto:
                 showCustomPhotoOptions()
-            case .vehicle3D:
-                break
+            // case .vehicle3D:
+            //     showVehicle3DOptions()
             }
 
         case .haptic:

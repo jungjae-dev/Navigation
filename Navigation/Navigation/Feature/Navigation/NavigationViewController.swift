@@ -146,9 +146,18 @@ final class NavigationViewController: UIViewController {
 
         VehicleIconService.shared.iconSourcePublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.rebuildVehicleImageCache()
-                self?.refreshVehicleAnnotationImage()
+            .sink { [weak self] source in
+                guard let self else { return }
+                rebuildVehicleImageCache()
+                refreshVehicleAnnotationImage()
+                if source.isModel3D, let url = VehicleIconService.shared.loadModel3DURL() {
+                    let steps = VehicleIconService.shared.loadModel3DRotationSteps()
+                    let pitch = NavigationCameraHelper.pitch(for: transportMode)
+                    vehicle3DView?.loadModel(fileURL: url, rotationSteps: steps, pitch: pitch)
+                    vehicle3DView?.is3DVisible = isAutoTracking
+                } else {
+                    vehicle3DView?.is3DVisible = false
+                }
             }
             .store(in: &cancellables)
 
@@ -455,6 +464,10 @@ final class NavigationViewController: UIViewController {
         matched ? cachedMatchedImage : cachedUnmatchedImage
     }
 
+    private var vehicle3DView: Vehicle3DAnnotationView? {
+        mapView.view(for: vehicleAnnotation) as? Vehicle3DAnnotationView
+    }
+
     private func makeDefaultVehicleImage(matched: Bool) -> UIImage? {
         let color: UIColor = matched ? UIColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1) : UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1)
         let config = UIImage.SymbolConfiguration(pointSize: 38, weight: .bold)
@@ -624,6 +637,7 @@ final class NavigationViewController: UIViewController {
         isAutoTracking = false
         recenterButton.isHidden = false
         resetAutoTrackTimer()
+        vehicle3DView?.is3DVisible = false
     }
 
     private func enableAutoTracking() {
@@ -631,6 +645,8 @@ final class NavigationViewController: UIViewController {
         recenterButton.isHidden = true
         autoTrackTimer?.invalidate()
         autoTrackTimer = nil
+        let isModel3D = VehicleIconService.shared.iconSourcePublisher.value.isModel3D
+        vehicle3DView?.is3DVisible = isModel3D
     }
 
     private func resetAutoTrackTimer() {
@@ -667,12 +683,13 @@ final class NavigationViewController: UIViewController {
             )
         }
 
-        // 카메라 방향과 무관하게 아이콘이 실제 진행방향을 가리키도록 보정
-        // autoTracking: 카메라 heading == 차량 heading → 각도차 0 → identity
-        // 수동 모드:    카메라가 다른 방향 → 차이만큼 회전
         let angleDiff = result.heading - mapView.camera.heading
-        let angleRad = CGFloat(angleDiff * .pi / 180)
-        mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
+        if let v = vehicle3DView, v.is3DVisible {
+            v.vehicleHeading = angleDiff
+        } else {
+            let angleRad = CGFloat(angleDiff * .pi / 180)
+            mapView.view(for: vehicleAnnotation)?.transform = CGAffineTransform(rotationAngle: angleRad)
+        }
     }
 
     // MARK: - Helpers
@@ -743,9 +760,9 @@ extension NavigationViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation === vehicleAnnotation {
-            let id = "vehicle"
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+            let id = "vehicle3D"
+            let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? Vehicle3DAnnotationView)
+                ?? Vehicle3DAnnotationView(annotation: annotation, reuseIdentifier: id)
             view.annotation = annotation
             view.image = vehicleImage(matched: isVehicleMatched)
             view.canShowCallout = false
@@ -753,6 +770,16 @@ extension NavigationViewController: MKMapViewDelegate {
             view.layer.shadowOpacity = 0.6
             view.layer.shadowRadius = 6
             view.layer.shadowOffset = CGSize(width: 0, height: 3)
+
+            let source = VehicleIconService.shared.iconSourcePublisher.value
+            if source.isModel3D, let url = VehicleIconService.shared.loadModel3DURL() {
+                let steps = VehicleIconService.shared.loadModel3DRotationSteps()
+                let pitch = NavigationCameraHelper.pitch(for: transportMode)
+                view.loadModel(fileURL: url, rotationSteps: steps, pitch: pitch)
+                view.is3DVisible = isAutoTracking
+            } else {
+                view.is3DVisible = false
+            }
             return view
         }
 
