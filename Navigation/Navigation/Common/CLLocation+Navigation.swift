@@ -4,10 +4,14 @@ extension CLLocation {
 
     /// 주행 맵매칭 accuracy 임계값 (100m)
     static let navigationAccuracyThreshold: CLLocationAccuracy = 100
+    /// 앱 합성 GPS 손실 신호 (1.1s 무응답 시 RealGPSProvider가 발행)
+    static let gpsLossAccuracy: CLLocationAccuracy = 300
 
-    /// 기본화면 표시용 — 유효한 좌표 (accuracy >= 0)
+    /// 기본화면 표시용 — 유효한 좌표 (gpsLossAccuracy 미만)
+    /// - accuracy=-1 (iPhone GPS fix 실패, 마지막 위치 유지): valid → 아이콘 정상
+    /// - accuracy=300 (앱 합성 GPS 손실): invalid → 아이콘 회색
     var isValidForDisplay: Bool {
-        horizontalAccuracy >= 0
+        horizontalAccuracy < Self.gpsLossAccuracy
     }
 
     /// 주행 맵매칭용 — accuracy 100m 이내

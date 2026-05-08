@@ -32,7 +32,8 @@ final class NavigationLogger {
         guard level >= .everyTick else { return }
         let validStr = location.isValidForDisplay ? "valid" : "invalid"
         let speedKmh = String(format: "%.1f", location.safeSpeed * 3.6)
-        logger.debug("[GPS] \(validStr) coord=(\(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude))) heading=\(String(format: "%.1f", location.course)) speed=\(speedKmh)km/h accuracy=\(String(format: "%.1f", location.horizontalAccuracy))m")
+        let ts = String(format: "%.2f", location.timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: 1000))
+        logger.debug("[GPS] \(validStr) t=\(ts)s coord=(\(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude))) heading=\(String(format: "%.1f", location.course)) speed=\(speedKmh)km/h accuracy=\(String(format: "%.1f", location.horizontalAccuracy))m")
     }
 
     // MARK: - Match

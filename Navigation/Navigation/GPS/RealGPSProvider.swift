@@ -3,9 +3,10 @@ import Combine
 
 /// 실제 GPS Provider
 /// - locationPublisher: 위치·엔진 통합 스트림
-///   - GPS 수신: CLLocation 그대로 발행 (accuracy >= 0)
-///   - GPS 손실: horizontalAccuracy=-1 CLLocation 발행 (Apple 컨벤션)
+///   - GPS 수신 (accuracy <= 200): CLLocation 그대로 발행
+///   - GPS 손실: horizontalAccuracy=300 CLLocation 발행 (앱 합성 손실 신호)
 /// - GPS 손실 감지: 마지막 수신 후 1.1s 경과 시 손실 신호 발행 (0.5s 폴링)
+/// - iPhone accuracy=-1 은 타이머 리셋에는 포함되나 엔진에 발행하지 않음
 /// - 연속 invalid: 0.9s 간격 rate limit
 final class RealGPSProvider: GPSProviding {
 
@@ -44,9 +45,14 @@ final class RealGPSProvider: GPSProviding {
     func start() {
         locationService.rawLocationPublisher
             .compactMap { $0 }
-            .filter { $0.isValidForDisplay }
             .sink { [weak self] location in
-                self?.handleLocationUpdate(location)
+                guard let self else { return }
+                // accuracy 무관하게 타이머 리셋 — iPhone이 -1을 보내도 GPS가 살아있음을 의미
+                lastGPSReceivedTime = Date()
+                lastInvalidGPSTime = .distantPast
+                if location.isValidForDisplay {
+                    handleLocationUpdate(location)
+                }
             }
             .store(in: &cancellables)
 
@@ -65,9 +71,6 @@ final class RealGPSProvider: GPSProviding {
 
     private func handleLocationUpdate(_ location: CLLocation) {
         lastLocation = location
-        lastGPSReceivedTime = Date()
-        lastInvalidGPSTime = .distantPast
-
         locationSubject.send(location)
     }
 
@@ -92,11 +95,10 @@ final class RealGPSProvider: GPSProviding {
 
         lastInvalidGPSTime = now
 
-        // horizontalAccuracy = -1: Apple 컨벤션 상 무효 좌표 (GPS 손실 신호)
         let lossLocation = CLLocation(
             coordinate: lastLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0),
             altitude: lastLocation?.altitude ?? 0,
-            horizontalAccuracy: -1,
+            horizontalAccuracy: CLLocation.gpsLossAccuracy,
             verticalAccuracy: -1,
             course: -1,
             speed: 0,
