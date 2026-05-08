@@ -115,6 +115,15 @@ final class NavigationViewController: UIViewController {
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let vehicleScreenPosition: CGFloat = 0.75  // 0.5(중앙) ~ 1.0(하단)
+        mapView.layoutMargins = UIEdgeInsets(
+            top: view.bounds.height * (2 * vehicleScreenPosition - 1),
+            left: 0, bottom: 0, right: 0
+        )
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopDisplayLink()
@@ -230,6 +239,7 @@ final class NavigationViewController: UIViewController {
         mapView.translatesAutoresizingMaskIntoConstraints = false
         mapView.delegate = self
         mapView.showsUserLocation = false
+        mapView.showsCompass = false
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = true
         mapView.pointOfInterestFilter = .excludingAll
