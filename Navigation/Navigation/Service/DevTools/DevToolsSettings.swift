@@ -18,6 +18,7 @@ final class DevToolsSettings {
         static let locationType = "devtools_location_type"
         static let selectedRecordingPath = "devtools_selected_recording_path"
         static let mapMatchDebugEnabled = "devtools_mapmatch_debug_enabled"
+        static let predictiveDisplayEnabled = "devtools_predictive_display_enabled"
     }
 
     // MARK: - Publishers
@@ -25,6 +26,7 @@ final class DevToolsSettings {
     let locationType: CurrentValueSubject<LocationType, Never>
     let selectedRecordingFileName: CurrentValueSubject<String?, Never>
     let mapMatchDebugEnabled: CurrentValueSubject<Bool, Never>
+    let predictiveDisplayEnabled: CurrentValueSubject<Bool, Never>
 
     // MARK: - Private
 
@@ -36,6 +38,8 @@ final class DevToolsSettings {
         self.locationType = CurrentValueSubject(initialType)
         self.selectedRecordingFileName = CurrentValueSubject(defaults.string(forKey: Keys.selectedRecordingPath))
         self.mapMatchDebugEnabled = CurrentValueSubject(defaults.bool(forKey: Keys.mapMatchDebugEnabled))
+        let predictiveRaw = defaults.object(forKey: Keys.predictiveDisplayEnabled) as? Bool ?? true
+        self.predictiveDisplayEnabled = CurrentValueSubject(predictiveRaw)
     }
 
     // MARK: - Setters
@@ -48,6 +52,11 @@ final class DevToolsSettings {
     func setMapMatchDebugEnabled(_ enabled: Bool) {
         mapMatchDebugEnabled.send(enabled)
         defaults.set(enabled, forKey: Keys.mapMatchDebugEnabled)
+    }
+
+    func setPredictiveDisplayEnabled(_ enabled: Bool) {
+        predictiveDisplayEnabled.send(enabled)
+        defaults.set(enabled, forKey: Keys.predictiveDisplayEnabled)
     }
 
     func setSelectedRecordingFileName(_ fileName: String?) {

@@ -29,6 +29,7 @@ final class DevToolsViewController: UIViewController {
     private enum DebugRow: Int, CaseIterable {
         case overlay = 0
         case mapMatchVisualization = 1
+        case predictiveDisplay = 2
     }
 
     // MARK: - UI
@@ -162,6 +163,10 @@ final class DevToolsViewController: UIViewController {
 
     @objc private func mapMatchDebugSwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setMapMatchDebugEnabled(sender.isOn)
+    }
+
+    @objc private func predictiveDisplaySwitchChanged(_ sender: UISwitch) {
+        DevToolsSettings.shared.setPredictiveDisplayEnabled(sender.isOn)
     }
 
     @objc private func armSwitchChanged(_ sender: UISwitch) {
@@ -361,6 +366,19 @@ extension DevToolsViewController: UITableViewDataSource {
                 toggle.isOn = DevToolsSettings.shared.mapMatchDebugEnabled.value
                 toggle.onTintColor = Theme.Colors.primary
                 toggle.addTarget(self, action: #selector(mapMatchDebugSwitchChanged), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
+
+            case .predictiveDisplay:
+                config.text = "1초 예측 표시"
+                config.secondaryText = "매칭 위치에서 1초 앞을 예측해 아이콘 위치로 사용"
+                config.image = UIImage(systemName: "arrow.forward.circle")
+                config.imageProperties.tintColor = .systemBlue
+
+                let toggle = UISwitch()
+                toggle.isOn = DevToolsSettings.shared.predictiveDisplayEnabled.value
+                toggle.onTintColor = Theme.Colors.primary
+                toggle.addTarget(self, action: #selector(predictiveDisplaySwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
                 cell.selectionStyle = .none
             }

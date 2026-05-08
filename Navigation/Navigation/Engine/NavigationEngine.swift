@@ -21,6 +21,11 @@ final class NavigationEngine {
     private var voiceEngine: VoiceEngine
     private var lastMatchedPosition: CLLocationCoordinate2D?
 
+    // MARK: - Predictive Display
+
+    /// 직전 GPS 속도 — min(lastSpeed, currentSpeed) 로 예측거리 보수화
+    private var lastSpeed: CLLocationSpeed = 0
+
     // MARK: - Configuration
 
     private var route: Route { routePublisher.value }
@@ -159,9 +164,24 @@ final class NavigationEngine {
 
         if matchResult.isMatched {
             lastMatchedPosition = matchResult.coordinate
+
+            let predictSpeed = min(lastSpeed, location.safeSpeed)
+            lastSpeed = location.safeSpeed
+
+            let displayResult: MatchResult
+            if predictSpeed > 0, DevToolsSettings.shared.predictiveDisplayEnabled.value {
+                let bearing = bearingAtSegment(matchResult.segmentIndex)
+                let g4prime = matchResult.coordinate.moved(distance: predictSpeed * 1.0, bearing: bearing)
+                let g4Location = CLLocation(latitude: g4prime.latitude, longitude: g4prime.longitude)
+                let g4Match = mapMatcher.match(g4Location)
+                displayResult = g4Match.isMatched ? g4Match : matchResult
+            } else {
+                displayResult = matchResult
+            }
+
             return MatchedState(
-                position: matchResult.coordinate,
-                heading: bearingAtSegment(matchResult.segmentIndex),
+                position: displayResult.coordinate,
+                heading: bearingAtSegment(displayResult.segmentIndex),
                 isMatched: true,
                 isOffRoute: isOffRoute
             )
@@ -300,6 +320,7 @@ final class NavigationEngine {
         routeTracker = RouteTracker(route: newRoute)
         voiceEngine = VoiceEngine(provider: newRoute.provider)
         lastMatchedPosition = nil
+        lastSpeed = 0
 
         // 재탐색 직후 출발 보호 재적용 (5초/35m 동안 재이탈 판정 보류)
         if let firstCoord = newRoute.polylineCoordinates.first {

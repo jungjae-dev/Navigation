@@ -15,4 +15,24 @@ extension CLLocationCoordinate2D {
             longitude: longitude + (other.longitude - longitude) * t
         )
     }
+
+    /// bearing 방향으로 distance(m) 이동한 좌표 (haversine 역산)
+    func moved(distance: CLLocationDistance, bearing: CLLocationDirection) -> CLLocationCoordinate2D {
+        let earthRadius: Double = 6_371_000
+        let bearingRad = bearing * .pi / 180
+        let lat1 = latitude  * .pi / 180
+        let lon1 = longitude * .pi / 180
+        let angDist = distance / earthRadius
+
+        let lat2 = asin(sin(lat1) * cos(angDist)
+                      + cos(lat1) * sin(angDist) * cos(bearingRad))
+        let lon2 = lon1 + atan2(
+            sin(bearingRad) * sin(angDist) * cos(lat1),
+            cos(angDist) - sin(lat1) * sin(lat2)
+        )
+        return CLLocationCoordinate2D(
+            latitude:  lat2 * 180 / .pi,
+            longitude: lon2 * 180 / .pi
+        )
+    }
 }
