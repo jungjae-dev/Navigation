@@ -7,9 +7,8 @@ final class MapMatcher {
     // MARK: - Configuration
 
     private let thresholdBase: CLLocationDistance = 20       // 기본 매칭 거리 (m)
-    private let thresholdTimeFactor: TimeInterval = 1.0      // 속도 반영 시간 계수 (초)
+    private let thresholdTimeFactor: TimeInterval = 1.0      // 속도에 곱할 시간 계수
     private let maxAngleDelta: CLLocationDirection = 90     // 방향 검증 각도 (°)
-    private let searchWindow: Int = 10                      // ±N 세그먼트 탐색
 
     // MARK: - State
 
@@ -38,33 +37,71 @@ final class MapMatcher {
             )
         }
 
-        // 탐색 범위: currentSegmentIndex ± searchWindow
         let segmentCount = polyline.count - 1
-        let searchStart = max(0, currentSegmentIndex - searchWindow)
-        let searchEnd = min(segmentCount - 1, currentSegmentIndex + searchWindow)
 
-        var bestProjection = gps.coordinate
-        var bestDistance: CLLocationDistance = .infinity
-        var bestSegmentIndex = currentSegmentIndex
-        var bestSegmentHeading: CLLocationDirection = 0
+        // 앞 방향: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
+        var fwdProjection = gps.coordinate
+        var fwdDistance: CLLocationDistance = .infinity
+        var fwdSegmentIndex = currentSegmentIndex
+        var fwdHeading: CLLocationDirection = 0
+        var prevDist: CLLocationDistance = .infinity
 
-        for i in searchStart...searchEnd {
-            let p1 = polyline[i]
-            let p2 = polyline[i + 1]
-
+        for i in currentSegmentIndex..<segmentCount {
             let (projection, distance) = projectPointOnSegment(
-                point: gps.coordinate, segStart: p1, segEnd: p2
+                point: gps.coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
-
-            if distance < bestDistance {
-                bestDistance = distance
-                bestProjection = projection
-                bestSegmentIndex = i
-                bestSegmentHeading = bearing(from: p1, to: p2)
+            if distance < fwdDistance {
+                fwdDistance = distance
+                fwdProjection = projection
+                fwdSegmentIndex = i
+                fwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+            } else if distance > prevDist {
+                break
             }
+            prevDist = distance
         }
 
-        // 거리 검증: 기본 20m + 속도×2초 (고속일수록 여유 증가)
+        // 뒤 방향: currentSegmentIndex-1 → 처음, 거리가 커지면 조기 종료
+        var bwdProjection = gps.coordinate
+        var bwdDistance: CLLocationDistance = .infinity
+        var bwdSegmentIndex = currentSegmentIndex
+        var bwdHeading: CLLocationDirection = 0
+        prevDist = .infinity
+
+        for i in stride(from: currentSegmentIndex - 1, through: 0, by: -1) {
+            let (projection, distance) = projectPointOnSegment(
+                point: gps.coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
+            )
+            if distance < bwdDistance {
+                bwdDistance = distance
+                bwdProjection = projection
+                bwdSegmentIndex = i
+                bwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+            } else if distance > prevDist {
+                break
+            }
+            prevDist = distance
+        }
+
+        // 앞뒤 중 더 가까운 방향 선택
+        let bestProjection: CLLocationCoordinate2D
+        let bestDistance: CLLocationDistance
+        let bestSegmentIndex: Int
+        let bestSegmentHeading: CLLocationDirection
+
+        if fwdDistance <= bwdDistance {
+            bestProjection = fwdProjection
+            bestDistance = fwdDistance
+            bestSegmentIndex = fwdSegmentIndex
+            bestSegmentHeading = fwdHeading
+        } else {
+            bestProjection = bwdProjection
+            bestDistance = bwdDistance
+            bestSegmentIndex = bwdSegmentIndex
+            bestSegmentHeading = bwdHeading
+        }
+
+        // 거리 검증: 도로폭/폴리라인 오차 기준(20m) + 1초 이동거리
         let threshold = thresholdBase + gps.speed * thresholdTimeFactor
         guard bestDistance <= threshold else {
             return MatchResult(
@@ -72,7 +109,7 @@ final class MapMatcher {
                 coordinate: gps.coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: angleDelta(gps.heading, bestSegmentHeading)
+                headingDelta: abs(MapGeometry.angleDelta(gps.heading, bestSegmentHeading))
             )
         }
 
@@ -80,7 +117,7 @@ final class MapMatcher {
         // - 도보 모드
         // - 저속(< 5km/h): course 부정확
         // - heading < 0: GPS course 미확보 (첫 fix 전, 터널 등)
-        let headingDelta = angleDelta(gps.heading, bestSegmentHeading)
+        let headingDelta = abs(MapGeometry.angleDelta(gps.heading, bestSegmentHeading))
         let skipHeadingCheck = transportMode == .walking
             || gps.speed < 1.4
             || gps.heading < 0
@@ -107,12 +144,6 @@ final class MapMatcher {
         )
     }
 
-    /// 새 경로로 리셋 (재탐색 시)
-    func reset(polyline: [CLLocationCoordinate2D]) {
-        // MapMatcher는 let polyline이라 새 인스턴스 생성 필요
-        // NavigationEngine에서 새 MapMatcher를 생성하는 방식으로 처리
-    }
-
     // MARK: - Perpendicular Projection (수선의 발)
 
     /// 점 P를 선분 AB 위에 투영하여 가장 가까운 점과 거리를 반환
@@ -134,51 +165,15 @@ final class MapMatcher {
 
         // 선분 길이가 0이면 (동일 점) → segStart 반환
         guard segLenSq > 0 else {
-            let dist = distanceInMeters(from: point, to: segStart)
-            return (segStart, dist)
+            return (segStart, point.distance(to: segStart))
         }
 
         // 투영 비율 t (0~1 clamp)
         let t = max(0, min(1, (bx * ax + by * ay) / segLenSq))
 
         // 투영점
-        let projection = CLLocationCoordinate2D(
-            latitude: segStart.latitude + ay * t,
-            longitude: segStart.longitude + ax * t
-        )
+        let projection = segStart.interpolated(to: segEnd, t: t)
 
-        let dist = distanceInMeters(from: point, to: projection)
-        return (projection, dist)
-    }
-
-    // MARK: - Geometry Helpers
-
-    /// 두 좌표 간 방위각 (0~360)
-    private func bearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> CLLocationDirection {
-        let lat1 = from.latitude * .pi / 180
-        let lat2 = to.latitude * .pi / 180
-        let dLon = (to.longitude - from.longitude) * .pi / 180
-
-        let y = sin(dLon) * cos(lat2)
-        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
-        let bearing = atan2(y, x) * 180 / .pi
-
-        return (bearing + 360).truncatingRemainder(dividingBy: 360)
-    }
-
-    /// 두 각도의 최소 차이 (0~180)
-    private func angleDelta(_ a: CLLocationDirection, _ b: CLLocationDirection) -> CLLocationDirection {
-        let diff = abs(a - b).truncatingRemainder(dividingBy: 360)
-        return diff > 180 ? 360 - diff : diff
-    }
-
-    /// 두 좌표 간 거리 (미터)
-    private func distanceInMeters(
-        from a: CLLocationCoordinate2D,
-        to b: CLLocationCoordinate2D
-    ) -> CLLocationDistance {
-        let locA = CLLocation(latitude: a.latitude, longitude: a.longitude)
-        let locB = CLLocation(latitude: b.latitude, longitude: b.longitude)
-        return locA.distance(from: locB)
+        return (projection, point.distance(to: projection))
     }
 }

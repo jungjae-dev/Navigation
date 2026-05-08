@@ -2,10 +2,10 @@ import CoreLocation
 import Combine
 
 /// 실제 GPS Provider
-/// - LocationService.rawLocationPublisher를 구독해 GPSData로 변환
-/// - GPS 손실 감지: 마지막 GPS 수신 후 1.1s 경과 시 isValid=false 발행 (0.5s 폴링)
-/// - 연속 invalid: 0.9s 간격으로 rate limit
-/// - heading: GPS course 값만 사용. course 무효(-1)이면 마지막 유효 course 유지.
+/// - locationSubject: accuracy >= 0 (기본화면 표시용)
+/// - gpsSubject: accuracy 0~100m (주행 맵매칭용)
+/// - GPS 손실 감지: 마지막 수신 후 1.1s 경과 시 isValid=false 발행 (0.5s 폴링)
+/// - 연속 invalid: 0.9s 간격 rate limit
 final class RealGPSProvider: GPSProviding {
 
     // MARK: - GPSProviding
@@ -38,9 +38,6 @@ final class RealGPSProvider: GPSProviding {
     private var lastGPSReceivedTime: Date = .distantPast
     private var lastInvalidGPSTime: Date = .distantPast
 
-    private var hasReceivedAccurateLocation = false
-    private static let accuracyThreshold: CLLocationAccuracy = 100
-
     // MARK: - Init
 
     init(locationService: LocationService = .shared) {
@@ -52,14 +49,7 @@ final class RealGPSProvider: GPSProviding {
     func start() {
         locationService.rawLocationPublisher
             .compactMap { $0 }
-            .filter { [weak self] location in
-                guard let self, location.horizontalAccuracy >= 0 else { return false }
-                if location.horizontalAccuracy <= Self.accuracyThreshold {
-                    hasReceivedAccurateLocation = true
-                    return true
-                }
-                return !hasReceivedAccurateLocation
-            }
+            .filter { $0.isValidForDisplay }
             .sink { [weak self] location in
                 self?.handleLocationUpdate(location)
             }
@@ -75,31 +65,33 @@ final class RealGPSProvider: GPSProviding {
         lastValidCourse = -1
         lastGPSReceivedTime = .distantPast
         lastInvalidGPSTime = .distantPast
-        hasReceivedAccurateLocation = false
     }
 
     // MARK: - GPS 수신 처리
 
     private func handleLocationUpdate(_ location: CLLocation) {
+        // 기본화면 표시용 — accuracy >= 0 이면 모두 전송
+        locationSubject.send(location)
+
+        // 주행 맵매칭용 — accuracy 100m 이내만 처리
+        guard location.isValidForNavigation else { return }
+
         lastLocation = location
         lastGPSReceivedTime = Date()
-        lastInvalidGPSTime = .distantPast  // GPS 복구 시 invalid 상태 초기화
+        lastInvalidGPSTime = .distantPast
 
-        if location.course >= 0 {
+        if location.hasValidCourse {
             lastValidCourse = location.course
         }
 
-        let gpsData = GPSData(
+        gpsSubject.send(GPSData(
             coordinate: location.coordinate,
             heading: lastValidCourse,
             speed: max(0, location.speed),
             accuracy: location.horizontalAccuracy,
             timestamp: location.timestamp,
             isValid: true
-        )
-
-        locationSubject.send(location)
-        gpsSubject.send(gpsData)
+        ))
     }
 
     // MARK: - GPS 손실 감지 타이머
@@ -118,24 +110,18 @@ final class RealGPSProvider: GPSProviding {
 
     private func handleTickTimeout() {
         let now = Date()
-
-        // 마지막 GPS 수신 후 1.1s 미경과 → 아직 손실 아님
         guard now.timeIntervalSince(lastGPSReceivedTime) >= gpsLossThreshold else { return }
-
-        // 직전 invalid 발행 후 0.9s 미경과 → rate limit
         guard now.timeIntervalSince(lastInvalidGPSTime) >= invalidGPSInterval else { return }
 
         lastInvalidGPSTime = now
 
-        let gpsData = GPSData(
+        gpsSubject.send(GPSData(
             coordinate: lastLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0),
             heading: -1,
             speed: lastLocation.map { max(0, $0.speed) } ?? 0,
             accuracy: lastLocation?.horizontalAccuracy ?? -1,
             timestamp: now,
             isValid: false
-        )
-
-        gpsSubject.send(gpsData)
+        ))
     }
 }

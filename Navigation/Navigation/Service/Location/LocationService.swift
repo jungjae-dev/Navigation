@@ -159,13 +159,8 @@ extension LocationService: CLLocationManagerDelegate {
             rawLocationPublisher.send(location)
         }
 
-        // Filter inaccurate locations
-        guard location.horizontalAccuracy >= 0,
-              location.horizontalAccuracy <= 100 else {
-            return
-        }
-
         MainActor.assumeIsolated {
+            guard location.isValidForDisplay else { return }
             // activeProvider가 설정된 경우 provider가 locationPublisher를 구동
             guard activeProvider == nil else { return }
             locationPublisher.send(location)

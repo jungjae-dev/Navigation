@@ -9,7 +9,7 @@ final class OffRouteDetector {
     private let requiredFailures: Int = 3                       // 이탈 확정 연속 횟수
     private let startDistanceProtection: CLLocationDistance = 35 // 출발 거리 보호 (m)
     private let startTimeProtection: TimeInterval = 5           // 출발 시간 보호 (초)
-    private let accuracyThreshold: CLLocationAccuracy = 120     // GPS 정확도 보류 임계값 (m)
+    private let accuracyThreshold: CLLocationAccuracy = CLLocation.navigationAccuracyThreshold
 
     // MARK: - State
 
@@ -52,7 +52,7 @@ final class OffRouteDetector {
 
         // 보호 조건 2: 출발 후 35m 이내 → 보류
         if let startCoord = startCoordinate {
-            let distFromStart = distanceInMeters(from: startCoord, to: matchResult.coordinate)
+            let distFromStart = startCoord.distance(to: matchResult.coordinate)
             if distFromStart < startDistanceProtection {
                 if !matchResult.isMatched {
                     logger.logOffRouteProtected(
@@ -92,14 +92,4 @@ final class OffRouteDetector {
         consecutiveFailures = 0
     }
 
-    // MARK: - Helpers
-
-    private func distanceInMeters(
-        from a: CLLocationCoordinate2D,
-        to b: CLLocationCoordinate2D
-    ) -> CLLocationDistance {
-        let locA = CLLocation(latitude: a.latitude, longitude: a.longitude)
-        let locB = CLLocation(latitude: b.latitude, longitude: b.longitude)
-        return locA.distance(from: locB)
-    }
 }

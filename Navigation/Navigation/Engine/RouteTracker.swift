@@ -207,7 +207,7 @@ final class RouteTracker {
         let stepCoords = steps[stepIndex].polylineCoordinates
         guard let lastCoord = stepCoords.last else { return 0 }
 
-        return distanceInMeters(from: matchedPosition, to: lastCoord)
+        return matchedPosition.distance(to: lastCoord)
     }
 
     /// 매칭 위치 → 목적지까지 남은 총 거리
@@ -264,12 +264,4 @@ final class RouteTracker {
 
     // MARK: - Helpers
 
-    private func distanceInMeters(
-        from a: CLLocationCoordinate2D,
-        to b: CLLocationCoordinate2D
-    ) -> CLLocationDistance {
-        let locA = CLLocation(latitude: a.latitude, longitude: a.longitude)
-        let locB = CLLocation(latitude: b.latitude, longitude: b.longitude)
-        return locA.distance(from: locB)
-    }
 }

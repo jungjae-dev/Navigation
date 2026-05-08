@@ -142,7 +142,8 @@ final class NavigationEngine {
     }
 
     private func resolveMatchedState(gps: GPSData) -> MatchedState {
-        guard gps.isValid else {
+        // GPS 무효 또는 accuracy 불량 → 맵매칭 스킵 (터널과 동일 처리)
+        guard gps.isValid, gps.isAccurateForNavigation else {
             if let lastPos = lastMatchedPosition {
                 return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: false)
             }
@@ -246,8 +247,8 @@ final class NavigationEngine {
                 //        → 검증 실패 시 무한 루프 유발하므로 스킵
                 if newRoute.provider == .kakao,
                    let h = heading,
-                   let firstBearing = Self.firstBearing(of: newRoute.polylineCoordinates) {
-                    let delta = abs(Self.angleDelta(h, firstBearing))
+                   let firstBearing = MapGeometry.firstBearing(of: newRoute.polylineCoordinates) {
+                    let delta = abs(MapGeometry.angleDelta(h, firstBearing))
                     if delta >= routeAlignmentTolerance {
                         logger.logRerouteMisaligned(routeBearing: firstBearing, userHeading: h, delta: delta)
                         throw LBSError.routeMisaligned
@@ -347,11 +348,4 @@ final class NavigationEngine {
         return MapGeometry.bearing(from: coords[segmentIndex], to: coords[segmentIndex + 1])
     }
 
-    static func firstBearing(of polyline: [CLLocationCoordinate2D]) -> CLLocationDirection? {
-        MapGeometry.firstBearing(of: polyline)
-    }
-
-    static func angleDelta(_ a: CLLocationDirection, _ b: CLLocationDirection) -> Double {
-        MapGeometry.angleDelta(a, b)
-    }
 }
