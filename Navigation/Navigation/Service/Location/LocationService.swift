@@ -32,11 +32,10 @@ final class LocationService: NSObject {
 
     /// 활성 Provider의 위치 출력 (Real/File에 따라 자동 전환)
     /// - activeProvider 미설정 시: CLLocationManager 직접 출력 (backward compat)
+    /// - GPS 손실 신호: horizontalAccuracy=-1 CLLocation (Apple 컨벤션)
     let locationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
     /// 정확도 필터를 거치지 않은 raw 위치 (RealGPSProvider 입력 + 초기 지도 이동용)
     let rawLocationPublisher = CurrentValueSubject<CLLocation?, Never>(nil)
-    /// 활성 Provider의 GPSData 출력 (engine 입력 — activeProvider 설정 후 흐름)
-    let gpsPublisher = PassthroughSubject<GPSData, Never>()
     let headingPublisher = CurrentValueSubject<CLHeading?, Never>(nil)
     let authStatusPublisher = CurrentValueSubject<LocationAuthStatus, Never>(.notDetermined)
     let locationErrorPublisher = PassthroughSubject<Error, Never>()
@@ -45,7 +44,6 @@ final class LocationService: NSObject {
 
     private(set) var activeProvider: GPSProviding?
     private var providerLocationCancellable: AnyCancellable?
-    private var providerGPSCancellable: AnyCancellable?
 
     // MARK: - Private
 
@@ -129,10 +127,6 @@ final class LocationService: NSObject {
             .sink { [weak self] location in
                 self?.locationPublisher.send(location)
             }
-        providerGPSCancellable = provider.gpsPublisher
-            .sink { [weak self] gps in
-                self?.gpsPublisher.send(gps)
-            }
         provider.start()
     }
 
@@ -140,9 +134,7 @@ final class LocationService: NSObject {
     func clearProvider() {
         activeProvider?.stop()
         providerLocationCancellable?.cancel()
-        providerGPSCancellable?.cancel()
         providerLocationCancellable = nil
-        providerGPSCancellable = nil
         activeProvider = nil
     }
 

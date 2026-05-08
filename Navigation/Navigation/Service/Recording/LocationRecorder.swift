@@ -54,7 +54,6 @@ final class LocationRecorder {
     private var totalDistance: CLLocationDistance = 0
     private var durationTimer: Timer?
     private var locationCancellable: AnyCancellable?
-    private let defaultLocationSource: AnyPublisher<CLLocation, Never>
     private var currentLocationSource: AnyPublisher<CLLocation, Never>
 
     private var currentMode: RecordingMode = .real
@@ -63,15 +62,10 @@ final class LocationRecorder {
 
     // MARK: - Init
 
-    init(locationPublisher: AnyPublisher<CLLocation, Never>? = nil) {
-        let src = locationPublisher
-            ?? LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
-        self.defaultLocationSource = src
-        self.currentLocationSource = src
-    }
-
-    private convenience init() {
-        self.init(locationPublisher: nil)
+    private init() {
+        self.currentLocationSource = LocationService.shared.locationPublisher
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
     }
 
     // MARK: - Public
@@ -117,7 +111,9 @@ final class LocationRecorder {
         currentMode = mode
         currentOriginName = originName
         currentDestinationName = destinationName
-        currentLocationSource = locationSource ?? defaultLocationSource
+        currentLocationSource = locationSource ?? LocationService.shared.locationPublisher
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
 
         // 파일 생성 — 실패 시 녹화 진행 불가
         let fileURL = makeFileURL(mode: mode)

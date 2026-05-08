@@ -21,14 +21,9 @@ final class VirtualDriveDriver {
 
     // MARK: - Output Publishers
 
-    /// CLLocation 발행 (GPXRecorder, MapView 등 위치 표시 용도)
+    /// 위치 스트림 — 표시·엔진 통합 (GPSProviding.locationPublisher 와 동일 컨벤션)
     var locationPublisher: AnyPublisher<CLLocation, Never> {
         simulator.simulatedLocationPublisher.eraseToAnyPublisher()
-    }
-
-    /// engine 입력 — 폴리라인 위 좌표를 GPSData로 변환 (isValid: true)
-    var gpsPublisher: AnyPublisher<GPSData, Never> {
-        gpsSubject.eraseToAnyPublisher()
     }
 
     // MARK: - Playback State (UI 표시용)
@@ -51,19 +46,6 @@ final class VirtualDriveDriver {
     // MARK: - Private
 
     private let simulator = LocationSimulator()
-    private let gpsSubject = PassthroughSubject<GPSData, Never>()
-    private var cancellables = Set<AnyCancellable>()
-
-    // MARK: - Init
-
-    init() {
-        // simulator의 CLLocation → GPSData 변환
-        simulator.simulatedLocationPublisher
-            .sink { [weak self] location in
-                self?.handleLocation(location)
-            }
-            .store(in: &cancellables)
-    }
 
     // MARK: - Lifecycle
 
@@ -97,19 +79,5 @@ final class VirtualDriveDriver {
     /// 직접 속도 배수 지정
     func setSpeedMultiplier(_ multiplier: Double) {
         simulator.speedMultiplier = max(0.1, min(10.0, multiplier))
-    }
-
-    // MARK: - Private
-
-    private func handleLocation(_ location: CLLocation) {
-        let gpsData = GPSData(
-            coordinate: location.coordinate,
-            heading: location.course >= 0 ? location.course : 0,
-            speed: max(0, location.speed),
-            accuracy: location.horizontalAccuracy,
-            timestamp: location.timestamp,
-            isValid: true
-        )
-        gpsSubject.send(gpsData)
     }
 }

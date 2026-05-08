@@ -76,10 +76,13 @@ final class NavigationEngine {
 
     // MARK: - Tick (매 1초)
 
-    func tick(gps: GPSData) {
-        logger.logGPS(gps)
+    func tick(location: CLLocation) {
+        logger.logGPS(location)
 
-        let matched = resolveMatchedState(gps: gps)
+        let isGPSValid = location.isValidForDisplay
+        let speed = location.safeSpeed
+
+        let matched = resolveMatchedState(location: location)
         let routeProgress = routeTracker.update(
             matchedPosition: matched.position,
             segmentIndex: mapMatcher.currentSegmentIndex
@@ -93,19 +96,19 @@ final class NavigationEngine {
         )
 
         let state = stateManager.update(
-            isMatched: gps.isValid ? matched.isMatched : true,
+            isMatched: isGPSValid ? matched.isMatched : true,
             isOffRoute: matched.isOffRoute,
             distanceToGoal: routeProgress.remainingDistance
         )
 
         if matched.isOffRoute && !isRerouteInProgress {
             startReroute(
-                from: gps.coordinate,
-                heading: makeRerouteHeading(gpsHeading: gps.heading, gpsSpeed: gps.speed, fallback: matched.heading)
+                from: location.coordinate,
+                heading: makeRerouteHeading(gpsHeading: location.course, gpsSpeed: speed, fallback: matched.heading)
             )
         }
 
-        let voiceCommand = resolveVoiceCommand(state: state, routeProgress: routeProgress, speed: gps.speed)
+        let voiceCommand = resolveVoiceCommand(state: state, routeProgress: routeProgress, speed: speed)
         if let vc = voiceCommand {
             logger.logVoiceTrigger(
                 stepIndex: routeProgress.currentStepIndex,
@@ -123,11 +126,11 @@ final class NavigationEngine {
             eta: routeProgress.eta,
             matchedPosition: matched.position,
             heading: matched.heading,
-            speed: gps.speed,
-            rawGPSPosition: gps.isValid ? gps.coordinate : nil,
-            rawGPSHeading: gps.isValid ? gps.heading : nil,
+            speed: speed,
+            rawGPSPosition: isGPSValid ? location.coordinate : nil,
+            rawGPSHeading: isGPSValid ? location.course : nil,
             isMatched: matched.isMatched,
-            isGPSValid: gps.isValid,
+            isGPSValid: isGPSValid,
             voiceCommand: voiceCommand
         ))
     }
@@ -141,18 +144,18 @@ final class NavigationEngine {
         let isOffRoute: Bool
     }
 
-    private func resolveMatchedState(gps: GPSData) -> MatchedState {
+    private func resolveMatchedState(location: CLLocation) -> MatchedState {
         // GPS 무효 또는 accuracy 불량 → 맵매칭 스킵 (터널과 동일 처리)
-        guard gps.isValid, gps.isAccurateForNavigation else {
+        guard location.isValidForNavigation else {
             if let lastPos = lastMatchedPosition {
                 return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: false)
             }
-            return MatchedState(position: gps.coordinate, heading: gps.heading, isMatched: false, isOffRoute: false)
+            return MatchedState(position: location.coordinate, heading: location.course, isMatched: false, isOffRoute: false)
         }
 
-        let matchResult = mapMatcher.match(gps)
+        let matchResult = mapMatcher.match(location)
         logger.logMatch(matchResult)
-        let isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: gps.accuracy)
+        let isOffRoute = offRouteDetector.update(matchResult: matchResult, gpsAccuracy: location.horizontalAccuracy)
 
         if matchResult.isMatched {
             lastMatchedPosition = matchResult.coordinate
@@ -166,7 +169,7 @@ final class NavigationEngine {
         if let lastPos = lastMatchedPosition {
             return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: isOffRoute)
         }
-        return MatchedState(position: matchResult.coordinate, heading: gps.heading, isMatched: false, isOffRoute: isOffRoute)
+        return MatchedState(position: matchResult.coordinate, heading: location.course, isMatched: false, isOffRoute: isOffRoute)
     }
 
     private func resolveVoiceCommand(state: NavigationState, routeProgress: RouteProgress, speed: CLLocationSpeed) -> VoiceCommand? {

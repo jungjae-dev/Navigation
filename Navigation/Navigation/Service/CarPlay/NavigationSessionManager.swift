@@ -62,7 +62,7 @@ final class NavigationSessionManager {
         route: Route,
         destination: Place,
         transportMode: TransportMode,
-        gpsPublisher: AnyPublisher<GPSData, Never>,
+        locationPublisher: AnyPublisher<CLLocation, Never>,
         source: NavigationSource
     ) {
         // 기존 세션 정리
@@ -78,9 +78,9 @@ final class NavigationSessionManager {
         )
 
         // GPS → 엔진 연결 (publisher 구독만, lifecycle은 외부 관리)
-        gpsPublisher
-            .sink { [weak engine] gps in
-                engine?.tick(gps: gps)
+        locationPublisher
+            .sink { [weak engine] location in
+                engine?.tick(location: location)
             }
             .store(in: &cancellables)
 

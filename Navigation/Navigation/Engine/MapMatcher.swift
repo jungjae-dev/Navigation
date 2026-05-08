@@ -26,11 +26,15 @@ final class MapMatcher {
     // MARK: - Match
 
     /// GPS 좌표를 폴리라인 위에 투영
-    func match(_ gps: GPSData) -> MatchResult {
+    func match(_ location: CLLocation) -> MatchResult {
+        let coordinate = location.coordinate
+        let speed = location.safeSpeed
+        let course = location.course
+
         guard polyline.count >= 2 else {
             return MatchResult(
                 isMatched: false,
-                coordinate: gps.coordinate,
+                coordinate: coordinate,
                 segmentIndex: 0,
                 distanceFromRoute: .infinity,
                 headingDelta: 0
@@ -40,7 +44,7 @@ final class MapMatcher {
         let segmentCount = polyline.count - 1
 
         // 앞 방향: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
-        var fwdProjection = gps.coordinate
+        var fwdProjection = coordinate
         var fwdDistance: CLLocationDistance = .infinity
         var fwdSegmentIndex = currentSegmentIndex
         var fwdHeading: CLLocationDirection = 0
@@ -48,7 +52,7 @@ final class MapMatcher {
 
         for i in currentSegmentIndex..<segmentCount {
             let (projection, distance) = projectPointOnSegment(
-                point: gps.coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
+                point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
             if distance < fwdDistance {
                 fwdDistance = distance
@@ -62,7 +66,7 @@ final class MapMatcher {
         }
 
         // 뒤 방향: currentSegmentIndex-1 → 처음, 거리가 커지면 조기 종료
-        var bwdProjection = gps.coordinate
+        var bwdProjection = coordinate
         var bwdDistance: CLLocationDistance = .infinity
         var bwdSegmentIndex = currentSegmentIndex
         var bwdHeading: CLLocationDirection = 0
@@ -70,7 +74,7 @@ final class MapMatcher {
 
         for i in stride(from: currentSegmentIndex - 1, through: 0, by: -1) {
             let (projection, distance) = projectPointOnSegment(
-                point: gps.coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
+                point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
             if distance < bwdDistance {
                 bwdDistance = distance
@@ -102,30 +106,30 @@ final class MapMatcher {
         }
 
         // 거리 검증: 도로폭/폴리라인 오차 기준(20m) + 1초 이동거리
-        let threshold = thresholdBase + gps.speed * thresholdTimeFactor
+        let threshold = thresholdBase + speed * thresholdTimeFactor
         guard bestDistance <= threshold else {
             return MatchResult(
                 isMatched: false,
-                coordinate: gps.coordinate,
+                coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: abs(MapGeometry.angleDelta(gps.heading, bestSegmentHeading))
+                headingDelta: abs(MapGeometry.angleDelta(course, bestSegmentHeading))
             )
         }
 
         // 방향 검증 스킵 조건:
         // - 도보 모드
         // - 저속(< 5km/h): course 부정확
-        // - heading < 0: GPS course 미확보 (첫 fix 전, 터널 등)
-        let headingDelta = abs(MapGeometry.angleDelta(gps.heading, bestSegmentHeading))
+        // - course < 0: GPS course 미확보 (첫 fix 전, 터널 등)
+        let headingDelta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
         let skipHeadingCheck = transportMode == .walking
-            || gps.speed < 1.4
-            || gps.heading < 0
+            || speed < 1.4
+            || course < 0
 
         if !skipHeadingCheck && headingDelta > maxAngleDelta {
             return MatchResult(
                 isMatched: false,
-                coordinate: gps.coordinate,
+                coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
                 headingDelta: headingDelta

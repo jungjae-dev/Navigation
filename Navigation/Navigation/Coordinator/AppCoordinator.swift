@@ -751,9 +751,8 @@ final class AppCoordinator: NSObject, Coordinator {
         let resolvedDestination = destination
             ?? Place(name: nil, coordinate: lastCoord, address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
 
-        // GPS publisher / locationSource / recordingMode 결정
-        let gpsPublisher: AnyPublisher<GPSData, Never>
-        let locationSource: AnyPublisher<CLLocation, Never>
+        // locationPublisher / recordingMode 결정
+        let locationPublisher: AnyPublisher<CLLocation, Never>
         let recordingMode: LocationRecorder.RecordingMode
 
         if forceSimul {
@@ -763,15 +762,13 @@ final class AppCoordinator: NSObject, Coordinator {
             driver.start(polyline: route.polylineCoordinates, transportMode: transportMode)
             activeVirtualDriveDriver = driver
 
-            gpsPublisher = driver.gpsPublisher
-            locationSource = driver.locationPublisher
+            locationPublisher = driver.locationPublisher
             recordingMode = .simul
         } else {
             // 일반 안내: LocationService.activeProvider (Real or File)가 이미 흐름
             let type = DevToolsSettings.shared.locationType.value
             print("[NAV] GPS=\(type.rawValue)")
-            gpsPublisher = LocationService.shared.gpsPublisher.eraseToAnyPublisher()
-            locationSource = LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
+            locationPublisher = LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
             recordingMode = (type == .real) ? .real : .simul
         }
 
@@ -780,7 +777,7 @@ final class AppCoordinator: NSObject, Coordinator {
             mode: recordingMode,
             originName: nil,
             destinationName: resolvedDestination.name,
-            locationSource: locationSource
+            locationSource: locationPublisher
         )
 
         // 엔진 시작
@@ -788,7 +785,7 @@ final class AppCoordinator: NSObject, Coordinator {
             route: route,
             destination: resolvedDestination,
             transportMode: transportMode,
-            gpsPublisher: gpsPublisher,
+            locationPublisher: locationPublisher,
             source: .phone
         )
 

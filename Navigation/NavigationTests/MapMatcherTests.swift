@@ -14,21 +14,25 @@ struct MapMatcherTests {
         CLLocationCoordinate2D(latitude: 37.5, longitude: 127.01),
     ]
 
+    private func makeLocation(lat: Double, lon: Double, course: Double = 90, speed: Double = 15, accuracy: Double = 5) -> CLLocation {
+        CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+            altitude: 0,
+            horizontalAccuracy: accuracy,
+            verticalAccuracy: accuracy,
+            course: course,
+            speed: speed,
+            timestamp: Date()
+        )
+    }
+
     // MARK: - 매칭 성공 (경로 위)
 
     @Test func matchOnRoute_success() {
         let matcher = MapMatcher(polyline: Self.straightPolyline)
+        let location = makeLocation(lat: 37.5, lon: 127.0025)
 
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0025),
-            heading: 90,
-            speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
-
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == true)
         #expect(result.distanceFromRoute < 10)  // 경로 위이므로 거의 0m
@@ -41,16 +45,9 @@ struct MapMatcherTests {
         let matcher = MapMatcher(polyline: Self.straightPolyline)
 
         // 경로에서 약 30m 북쪽
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.50027, longitude: 127.0025),
-            heading: 90,
-            speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
+        let location = makeLocation(lat: 37.50027, lon: 127.0025)
 
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == true)
         #expect(result.distanceFromRoute < 50)
@@ -63,16 +60,9 @@ struct MapMatcherTests {
         let matcher = MapMatcher(polyline: Self.straightPolyline)
 
         // 경로에서 약 60m 북쪽
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.50055, longitude: 127.0025),
-            heading: 90,
-            speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
+        let location = makeLocation(lat: 37.50055, lon: 127.0025)
 
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == false)
         #expect(result.distanceFromRoute > 50)
@@ -83,17 +73,10 @@ struct MapMatcherTests {
     @Test func matchReverseHeading_failsForAutomobile() {
         let matcher = MapMatcher(polyline: Self.straightPolyline, transportMode: .automobile)
 
-        // 경로 위이지만 역방향 (heading = 270°, 경로는 90°)
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0025),
-            heading: 270,
-            speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
+        // 경로 위이지만 역방향 (course = 270°, 경로는 90°)
+        let location = makeLocation(lat: 37.5, lon: 127.0025, course: 270)
 
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == false)
         #expect(result.headingDelta > 90)
@@ -103,17 +86,9 @@ struct MapMatcherTests {
 
     @Test func matchReverseHeading_succeedsForWalking() {
         let matcher = MapMatcher(polyline: Self.straightPolyline, transportMode: .walking)
+        let location = makeLocation(lat: 37.5, lon: 127.0025, course: 270, speed: 1.0)
 
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0025),
-            heading: 270,
-            speed: 1.0,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
-
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == true)  // 도보 → 방향 검증 스킵
     }
@@ -124,16 +99,9 @@ struct MapMatcherTests {
         let matcher = MapMatcher(polyline: Self.straightPolyline, transportMode: .automobile)
 
         // 자동차 모드이지만 저속 (< 1.4 m/s = 5km/h)
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0025),
-            heading: 270,  // 역방향
-            speed: 1.0,    // 저속
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
+        let location = makeLocation(lat: 37.5, lon: 127.0025, course: 270, speed: 1.0)
 
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == true)  // 저속 → 방향 검증 스킵
     }
@@ -143,23 +111,14 @@ struct MapMatcherTests {
     @Test func segmentIndex_advances() {
         let matcher = MapMatcher(polyline: Self.straightPolyline)
 
-        // 첫 번째 세그먼트 위
-        let gps1 = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.002),
-            heading: 90, speed: 15, accuracy: 5, timestamp: Date(), isValid: true
-        )
-        let result1 = matcher.match(gps1)
+        let location1 = makeLocation(lat: 37.5, lon: 127.002)
+        let result1 = matcher.match(location1)
         #expect(result1.segmentIndex == 0)
 
-        // 두 번째 세그먼트 위
-        let gps2 = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.007),
-            heading: 90, speed: 15, accuracy: 5, timestamp: Date(), isValid: true
-        )
-        let result2 = matcher.match(gps2)
+        let location2 = makeLocation(lat: 37.5, lon: 127.007)
+        let result2 = matcher.match(location2)
         #expect(result2.segmentIndex == 1)
 
-        // currentSegmentIndex가 갱신되었는지
         #expect(matcher.currentSegmentIndex == 1)
     }
 
@@ -215,13 +174,9 @@ struct MapMatcherTests {
 
     @Test func emptyPolyline_fails() {
         let matcher = MapMatcher(polyline: [])
+        let location = makeLocation(lat: 37.5, lon: 127.0, course: 0, speed: 0)
 
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0),
-            heading: 0, speed: 0, accuracy: 5, timestamp: Date(), isValid: true
-        )
-
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
         #expect(result.isMatched == false)
     }
 
@@ -238,16 +193,9 @@ struct MapMatcherTests {
         let matcher = MapMatcher(polyline: lPolyline)
 
         // 두 번째 세그먼트(북쪽 방향) 위 점
-        let gps = GPSData(
-            coordinate: CLLocationCoordinate2D(latitude: 37.502, longitude: 127.005),
-            heading: 0,  // 북쪽
-            speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
-        )
+        let location = makeLocation(lat: 37.502, lon: 127.005, course: 0)
 
-        let result = matcher.match(gps)
+        let result = matcher.match(location)
 
         #expect(result.isMatched == true)
         #expect(result.segmentIndex == 1)

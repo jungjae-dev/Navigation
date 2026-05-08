@@ -28,11 +28,11 @@ final class NavigationLogger {
 
     // MARK: - GPS
 
-    func logGPS(_ gps: GPSData) {
+    func logGPS(_ location: CLLocation) {
         guard level >= .everyTick else { return }
-        let validStr = gps.isValid ? "valid" : "invalid"
-        let speedKmh = String(format: "%.1f", gps.speed * 3.6)
-        logger.debug("[GPS] \(validStr) coord=(\(String(format: "%.6f", gps.coordinate.latitude)), \(String(format: "%.6f", gps.coordinate.longitude))) heading=\(String(format: "%.1f", gps.heading)) speed=\(speedKmh)km/h accuracy=\(String(format: "%.1f", gps.accuracy))m")
+        let validStr = location.isValidForDisplay ? "valid" : "invalid"
+        let speedKmh = String(format: "%.1f", location.safeSpeed * 3.6)
+        logger.debug("[GPS] \(validStr) coord=(\(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude))) heading=\(String(format: "%.1f", location.course)) speed=\(speedKmh)km/h accuracy=\(String(format: "%.1f", location.horizontalAccuracy))m")
     }
 
     // MARK: - Match

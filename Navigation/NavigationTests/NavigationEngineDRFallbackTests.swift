@@ -38,27 +38,29 @@ struct NavigationEngineDRFallbackTests {
 
     // MARK: - Helpers
 
-    /// 경로 위 GPS: lat=37.5, heading=90°(동쪽), speed=15m/s
-    private func onRouteGPS(lon: Double = 127.0025) -> GPSData {
-        GPSData(
+    /// 경로 위 GPS: lat=37.5, course=90°(동쪽), speed=15m/s
+    private func onRouteLocation(lon: Double = 127.0025) -> CLLocation {
+        CLLocation(
             coordinate: CLLocationCoordinate2D(latitude: 37.5000, longitude: lon),
-            heading: 90,
+            altitude: 0,
+            horizontalAccuracy: 5,
+            verticalAccuracy: 5,
+            course: 90,
             speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
+            timestamp: Date()
         )
     }
 
     /// 경로 밖 GPS: lat=37.5006 (약 67m 북쪽, threshold 50m 초과)
-    private func offRouteGPS(lon: Double = 127.0025) -> GPSData {
-        GPSData(
+    private func offRouteLocation(lon: Double = 127.0025) -> CLLocation {
+        CLLocation(
             coordinate: CLLocationCoordinate2D(latitude: 37.5006, longitude: lon),
-            heading: 90,
+            altitude: 0,
+            horizontalAccuracy: 5,
+            verticalAccuracy: 5,
+            course: 90,
             speed: 15,
-            accuracy: 5,
-            timestamp: Date(),
-            isValid: true
+            timestamp: Date()
         )
     }
 
@@ -77,7 +79,7 @@ struct NavigationEngineDRFallbackTests {
     @Test func matchSuccess_usesSnappedPosition() {
         let engine = makeEngine()
 
-        engine.tick(gps: onRouteGPS())
+        engine.tick(location: onRouteLocation())
 
         let guide = engine.guidePublisher.value
         #expect(guide?.isMatched == true)
@@ -93,19 +95,19 @@ struct NavigationEngineDRFallbackTests {
         let engine = makeEngine()
 
         // tick 1: 경로 위 GPS → 매칭 성공, DR 데이터 갱신
-        engine.tick(gps: onRouteGPS())
+        engine.tick(location: onRouteLocation())
         let snappedLat = engine.guidePublisher.value?.matchedPosition.latitude ?? 0
         #expect(abs(snappedLat - 37.5) < 0.0001)
 
         // tick 2: 경로 밖 GPS (67m 이탈) → 매칭 실패
-        let offGPS = offRouteGPS()
-        engine.tick(gps: offGPS)
+        let offLocation = offRouteLocation()
+        engine.tick(location: offLocation)
         let guide = engine.guidePublisher.value
 
         #expect(guide?.isMatched == false, "경로 밖 GPS는 isMatched=false여야 함")
 
         let pos = guide!.matchedPosition
-        let rawLat = offGPS.coordinate.latitude  // 37.5006
+        let rawLat = offLocation.coordinate.latitude  // 37.5006
 
         // DR 폴백: matchedPosition이 경로(37.5) 근처여야 함
         #expect(abs(pos.latitude - snappedLat) < 0.0005,
@@ -122,14 +124,14 @@ struct NavigationEngineDRFallbackTests {
         let engine = makeEngine()
 
         // DR 데이터 없이 (tick 1 없이) 바로 경로 밖 GPS
-        let offGPS = offRouteGPS()
-        engine.tick(gps: offGPS)
+        let offLocation = offRouteLocation()
+        engine.tick(location: offLocation)
         let guide = engine.guidePublisher.value
 
         #expect(guide?.isMatched == false)
 
         let pos = guide!.matchedPosition
-        let rawLat = offGPS.coordinate.latitude
+        let rawLat = offLocation.coordinate.latitude
 
         // DR 없음 → rawGPS 최후 수단 사용
         #expect(abs(pos.latitude - rawLat) < 0.0001,
@@ -142,11 +144,11 @@ struct NavigationEngineDRFallbackTests {
         let engine = makeEngine()
 
         // tick 1: 매칭 성공 → DR 갱신
-        engine.tick(gps: onRouteGPS())
+        engine.tick(location: onRouteLocation())
 
         // tick 2~4: 연속 매칭 실패 (OffRouteDetector 5회 미만 → 재탐색 안 됨)
         for _ in 2...4 {
-            engine.tick(gps: offRouteGPS())
+            engine.tick(location: offRouteLocation())
             let guide = engine.guidePublisher.value
             let lat = guide?.matchedPosition.latitude ?? 0
 

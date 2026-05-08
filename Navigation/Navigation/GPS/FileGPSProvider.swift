@@ -11,10 +11,6 @@ final class FileGPSProvider: GPSProviding {
         simulator.simulatedLocationPublisher.eraseToAnyPublisher()
     }
 
-    var gpsPublisher: AnyPublisher<GPSData, Never> {
-        gpsSubject.eraseToAnyPublisher()
-    }
-
     // MARK: - Public Publishers (LocationSimulator 위임)
 
     var isPlayingPublisher: CurrentValueSubject<Bool, Never> {
@@ -33,22 +29,13 @@ final class FileGPSProvider: GPSProviding {
 
     // MARK: - Private
 
-    private let gpsSubject = PassthroughSubject<GPSData, Never>()
     private let simulator = LocationSimulator()
-    private var cancellables = Set<AnyCancellable>()
     private let fileURL: URL
 
     // MARK: - Init
 
     init(fileURL: URL) {
         self.fileURL = fileURL
-
-        // LocationSimulator의 CLLocation → GPSData 변환
-        simulator.simulatedLocationPublisher
-            .sink { [weak self] location in
-                self?.handleLocation(location)
-            }
-            .store(in: &cancellables)
     }
 
     // MARK: - GPSProviding
@@ -70,18 +57,4 @@ final class FileGPSProvider: GPSProviding {
     func play() { simulator.play() }
     func pause() { simulator.pause() }
     func cycleSpeed() { simulator.cycleSpeed() }
-
-    // MARK: - Private
-
-    private func handleLocation(_ location: CLLocation) {
-        let gpsData = GPSData(
-            coordinate: location.coordinate,
-            heading: location.course >= 0 ? location.course : 0,
-            speed: max(0, location.speed),
-            accuracy: location.horizontalAccuracy,
-            timestamp: location.timestamp,
-            isValid: true
-        )
-        gpsSubject.send(gpsData)
-    }
 }

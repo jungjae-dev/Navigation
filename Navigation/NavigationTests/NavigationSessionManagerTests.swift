@@ -19,9 +19,9 @@ struct NavigationSessionManagerTests {
         TestFixtures.samplePlace
     }
 
-    private func makeGPSPublisher() -> AnyPublisher<GPSData, Never> {
+    private func makeLocationPublisher() -> AnyPublisher<CLLocation, Never> {
         // 테스트용 — 좌표 발행은 하지 않고 sessionManager가 구독 처리만 검증
-        Empty<GPSData, Never>(completeImmediately: false).eraseToAnyPublisher()
+        Empty<CLLocation, Never>(completeImmediately: false).eraseToAnyPublisher()
     }
 
     // MARK: - Tests
@@ -38,7 +38,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsPublisher: makeGPSPublisher(),
+            locationPublisher: makeLocationPublisher(),
             source: .phone
         )
 
@@ -53,7 +53,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsPublisher: makeGPSPublisher(),
+            locationPublisher: makeLocationPublisher(),
             source: .phone
         )
 
@@ -77,7 +77,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsPublisher: makeGPSPublisher(),
+            locationPublisher: makeLocationPublisher(),
             source: .carPlay
         )
 
@@ -99,7 +99,7 @@ struct NavigationSessionManagerTests {
             route: makeRoute(),
             destination: makeDestination(),
             transportMode: .automobile,
-            gpsPublisher: makeGPSPublisher(),
+            locationPublisher: makeLocationPublisher(),
             source: .phone
         )
 
