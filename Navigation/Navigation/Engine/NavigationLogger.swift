@@ -73,7 +73,9 @@ final class NavigationLogger {
     func logMatch(_ result: MatchResult) {
         guard level >= .everyTick else { return }
         let matchStr = result.isMatched ? "✅" : "❌"
-        logger.debug("[Match] \(matchStr) coord=(\(String(format: "%.6f", result.coordinate.latitude)), \(String(format: "%.6f", result.coordinate.longitude))) seg=\(result.segmentIndex) dist=\(String(format: "%.1f", result.distanceFromRoute))m Δ=\(String(format: "%.1f", result.headingDelta))° score=\(String(format: "%.1f", result.score))")
+        let distStr = result.distanceFromRoute.isInfinite ? "inf" : String(format: "%.1f", result.distanceFromRoute)
+        let scoreStr = result.score.isInfinite ? "inf" : String(format: "%.1f", result.score)
+        logger.debug("[Match] \(matchStr) coord=(\(String(format: "%.6f", result.coordinate.latitude)), \(String(format: "%.6f", result.coordinate.longitude))) seg=\(result.segmentIndex) dist=\(distStr)m Δ=\(String(format: "%.1f", result.headingDelta))° score=\(scoreStr) thr=\(String(format: "%.1f", result.threshold))m")
     }
 
     // MARK: - Track

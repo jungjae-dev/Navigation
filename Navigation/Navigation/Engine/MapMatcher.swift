@@ -8,7 +8,6 @@ final class MapMatcher {
 
     private let thresholdBase: CLLocationDistance = 35       // 기본 매칭 거리 (m)
     private let thresholdTimeFactor: TimeInterval = 1.0      // 속도에 곱할 시간 계수
-    private let maxAngleDelta: CLLocationDirection = 90      // 방향 검증 각도 (°) — Phase 4에서 제거
     private let headingWeight: Double = 30                   // heading 180° 불일치 = 가상 30m
 
     // MARK: - State
@@ -39,7 +38,8 @@ final class MapMatcher {
                 segmentIndex: 0,
                 distanceFromRoute: .infinity,
                 headingDelta: 0,
-                score: .infinity
+                score: .infinity,
+                threshold: thresholdBase
             )
         }
 
@@ -97,19 +97,8 @@ final class MapMatcher {
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
                 headingDelta: bestHeadingDelta,
-                score: bestScore
-            )
-        }
-
-        // 방향 검증 (Phase 4에서 제거)
-        if !skipHeadingCheck && bestHeadingDelta > maxAngleDelta {
-            return MatchResult(
-                isMatched: false,
-                coordinate: coordinate,
-                segmentIndex: bestSegmentIndex,
-                distanceFromRoute: bestDistance,
-                headingDelta: bestHeadingDelta,
-                score: bestScore
+                score: bestScore,
+                threshold: threshold
             )
         }
 
@@ -122,7 +111,8 @@ final class MapMatcher {
             segmentIndex: bestSegmentIndex,
             distanceFromRoute: bestDistance,
             headingDelta: bestHeadingDelta,
-            score: bestScore
+            score: bestScore,
+            threshold: threshold
         )
     }
 

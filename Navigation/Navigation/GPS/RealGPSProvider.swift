@@ -102,7 +102,7 @@ final class RealGPSProvider: GPSProviding {
             horizontalAccuracy: CLLocation.gpsLossAccuracy,
             verticalAccuracy: lastLocation?.verticalAccuracy ?? -1,
             course: lastLocation?.course ?? -1,
-            speed: lastLocation?.speed ?? 0,
+            speed: 0,
             timestamp: now
         )
         locationSubject.send(lossLocation)
