@@ -7,4 +7,5 @@ struct MatchResult: Sendable {
     let segmentIndex: Int                     // 폴리라인 세그먼트 인덱스
     let distanceFromRoute: CLLocationDistance  // 경로로부터 거리
     let headingDelta: CLLocationDirection     // GPS heading과 세그먼트 방향 차이
+    let score: Double                         // 세그먼트 선택 스코어 (거리 + heading 패널티)
 }

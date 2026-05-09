@@ -8,7 +8,8 @@ final class MapMatcher {
 
     private let thresholdBase: CLLocationDistance = 35       // 기본 매칭 거리 (m)
     private let thresholdTimeFactor: TimeInterval = 1.0      // 속도에 곱할 시간 계수
-    private let maxAngleDelta: CLLocationDirection = 90     // 방향 검증 각도 (°)
+    private let maxAngleDelta: CLLocationDirection = 90      // 방향 검증 각도 (°) — Phase 4에서 제거
+    private let headingWeight: Double = 30                   // heading 180° 불일치 = 가상 30m
 
     // MARK: - State
 
@@ -37,102 +38,78 @@ final class MapMatcher {
                 coordinate: coordinate,
                 segmentIndex: 0,
                 distanceFromRoute: .infinity,
-                headingDelta: 0
+                headingDelta: 0,
+                score: .infinity
             )
         }
 
         let segmentCount = polyline.count - 1
+        let threshold = thresholdBase + speed * thresholdTimeFactor
 
-        // 앞 방향: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
-        var fwdProjection = coordinate
-        var fwdDistance: CLLocationDistance = .infinity
-        var fwdSegmentIndex = currentSegmentIndex
-        var fwdHeading: CLLocationDirection = 0
-        var prevDist: CLLocationDistance = .infinity
+        // heading score 적용 조건:
+        // - 도보 모드 / 저속(< 5km/h) / course 미확보 시 → 거리만 사용
+        let skipHeadingCheck = transportMode == .walking
+            || speed < 1.4
+            || course < 0
+        let effectiveHeadingWeight = skipHeadingCheck ? 0 : headingWeight
+
+        // Forward only: currentSegmentIndex → 끝
+        // score = distance + (headingDelta / 180°) × headingWeight
+        // threshold 초과 연속 3회 시 break (회전 구간 꼭짓점 세그먼트 건너뛰기 허용)
+        var bestScore: Double = .infinity
+        var bestProjection = coordinate
+        var bestDistance: CLLocationDistance = .infinity
+        var bestSegmentIndex = currentSegmentIndex
+        var bestSegmentHeading: CLLocationDirection = 0
+        var bestHeadingDelta: CLLocationDirection = 0
+        var consecutiveOverThreshold = 0
 
         for i in currentSegmentIndex..<segmentCount {
             let (projection, distance) = projectPointOnSegment(
                 point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
-            if distance < fwdDistance {
-                fwdDistance = distance
-                fwdProjection = projection
-                fwdSegmentIndex = i
-                fwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
-            } else if distance > prevDist {
-                break
+            if distance > threshold {
+                consecutiveOverThreshold += 1
+                if consecutiveOverThreshold > 3 { break }
+                continue
             }
-            prevDist = distance
-        }
+            consecutiveOverThreshold = 0
 
-        // 뒤 방향: currentSegmentIndex-1 → 처음, 거리가 커지면 조기 종료
-        var bwdProjection = coordinate
-        var bwdDistance: CLLocationDistance = .infinity
-        var bwdSegmentIndex = currentSegmentIndex
-        var bwdHeading: CLLocationDirection = 0
-        prevDist = .infinity
+            let segHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+            let delta = abs(MapGeometry.angleDelta(course, segHeading))
+            let score = distance + (delta / 180.0) * effectiveHeadingWeight
 
-        for i in stride(from: currentSegmentIndex - 1, through: 0, by: -1) {
-            let (projection, distance) = projectPointOnSegment(
-                point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
-            )
-            if distance < bwdDistance {
-                bwdDistance = distance
-                bwdProjection = projection
-                bwdSegmentIndex = i
-                bwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
-            } else if distance > prevDist {
-                break
+            if score < bestScore {
+                bestScore = score
+                bestDistance = distance
+                bestProjection = projection
+                bestSegmentIndex = i
+                bestSegmentHeading = segHeading
+                bestHeadingDelta = delta
             }
-            prevDist = distance
         }
 
-        // 앞뒤 중 더 가까운 방향 선택
-        let bestProjection: CLLocationCoordinate2D
-        let bestDistance: CLLocationDistance
-        let bestSegmentIndex: Int
-        let bestSegmentHeading: CLLocationDirection
-
-        if fwdDistance <= bwdDistance {
-            bestProjection = fwdProjection
-            bestDistance = fwdDistance
-            bestSegmentIndex = fwdSegmentIndex
-            bestSegmentHeading = fwdHeading
-        } else {
-            bestProjection = bwdProjection
-            bestDistance = bwdDistance
-            bestSegmentIndex = bwdSegmentIndex
-            bestSegmentHeading = bwdHeading
-        }
-
-        // 거리 검증: 도로폭/폴리라인 오차 기준(20m) + 1초 이동거리
-        let threshold = thresholdBase + speed * thresholdTimeFactor
+        // 거리 검증
         guard bestDistance <= threshold else {
             return MatchResult(
                 isMatched: false,
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: abs(MapGeometry.angleDelta(course, bestSegmentHeading))
+                headingDelta: bestHeadingDelta,
+                score: bestScore
             )
         }
 
-        // 방향 검증 스킵 조건:
-        // - 도보 모드
-        // - 저속(< 5km/h): course 부정확
-        // - course < 0: GPS course 미확보 (첫 fix 전, 터널 등)
-        let headingDelta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
-        let skipHeadingCheck = transportMode == .walking
-            || speed < 1.4
-            || course < 0
-
-        if !skipHeadingCheck && headingDelta > maxAngleDelta {
+        // 방향 검증 (Phase 4에서 제거)
+        if !skipHeadingCheck && bestHeadingDelta > maxAngleDelta {
             return MatchResult(
                 isMatched: false,
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: headingDelta
+                headingDelta: bestHeadingDelta,
+                score: bestScore
             )
         }
 
@@ -144,7 +121,8 @@ final class MapMatcher {
             coordinate: bestProjection,
             segmentIndex: bestSegmentIndex,
             distanceFromRoute: bestDistance,
-            headingDelta: headingDelta
+            headingDelta: bestHeadingDelta,
+            score: bestScore
         )
     }
 

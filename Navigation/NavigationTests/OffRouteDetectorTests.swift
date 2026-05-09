@@ -12,7 +12,8 @@ struct OffRouteDetectorTests {
             coordinate: coordinate,
             segmentIndex: 0,
             distanceFromRoute: isMatched ? 10 : 60,
-            headingDelta: 0
+            headingDelta: 0,
+            score: isMatched ? 10 : 60
         )
     }
 
@@ -114,7 +115,7 @@ struct OffRouteDetectorTests {
         // 출발점에서 10m 이내 좌표
         let nearStart = CLLocationCoordinate2D(latitude: 37.50005, longitude: 127.0)
         let result = detector.update(
-            matchResult: MatchResult(isMatched: false, coordinate: nearStart, segmentIndex: 0, distanceFromRoute: 60, headingDelta: 0),
+            matchResult: MatchResult(isMatched: false, coordinate: nearStart, segmentIndex: 0, distanceFromRoute: 60, headingDelta: 0, score: 60),
             gpsAccuracy: 5
         )
 
