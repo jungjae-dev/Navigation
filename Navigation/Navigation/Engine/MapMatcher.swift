@@ -43,31 +43,35 @@ final class MapMatcher {
         }
 
         let segmentCount = polyline.count - 1
+        let threshold = thresholdBase + speed * thresholdTimeFactor
 
-        // Forward only: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
+        // Forward only: currentSegmentIndex → 끝
+        // threshold 초과 연속 3회 시 break (회전 구간 꼭짓점 세그먼트 건너뛰기 허용)
         var bestProjection = coordinate
         var bestDistance: CLLocationDistance = .infinity
         var bestSegmentIndex = currentSegmentIndex
         var bestSegmentHeading: CLLocationDirection = 0
-        var prevDist: CLLocationDistance = .infinity
+        var consecutiveOverThreshold = 0
 
         for i in currentSegmentIndex..<segmentCount {
             let (projection, distance) = projectPointOnSegment(
                 point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
+            if distance > threshold {
+                consecutiveOverThreshold += 1
+                if consecutiveOverThreshold > 3 { break }
+                continue
+            }
+            consecutiveOverThreshold = 0
             if distance < bestDistance {
                 bestDistance = distance
                 bestProjection = projection
                 bestSegmentIndex = i
                 bestSegmentHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
-            } else if distance > prevDist {
-                break
             }
-            prevDist = distance
         }
 
-        // 거리 검증: 도로폭/폴리라인 오차 기준(20m) + 1초 이동거리
-        let threshold = thresholdBase + speed * thresholdTimeFactor
+        // 거리 검증
         guard bestDistance <= threshold else {
             let delta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
             return MatchResult(
