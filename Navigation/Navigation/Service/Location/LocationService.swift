@@ -152,7 +152,7 @@ extension LocationService: CLLocationManagerDelegate {
         }
 
         MainActor.assumeIsolated {
-            guard location.isValidForDisplay else { return }
+            guard location.isValid else { return }
             // activeProvider가 설정된 경우 provider가 locationPublisher를 구동
             guard activeProvider == nil else { return }
             locationPublisher.send(location)

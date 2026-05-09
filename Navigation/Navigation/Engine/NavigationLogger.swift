@@ -30,10 +30,42 @@ final class NavigationLogger {
 
     func logGPS(_ location: CLLocation) {
         guard level >= .everyTick else { return }
-        let validStr = location.isValidForDisplay ? "valid" : "invalid"
+        let validStr = location.isGPSLoss ? "loss" : (location.isValid ? "valid" : "invalid")
         let speedKmh = String(format: "%.1f", location.safeSpeed * 3.6)
         let ts = String(format: "%.2f", location.timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: 1000))
         logger.debug("[GPS] \(validStr) t=\(ts)s coord=(\(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude))) heading=\(String(format: "%.1f", location.course)) speed=\(speedKmh)km/h accuracy=\(String(format: "%.1f", location.horizontalAccuracy))m")
+    }
+
+    // MARK: - Display Position
+
+    private var lastDisplayCoord: CLLocationCoordinate2D?
+    private var lastDisplayTime: Date?
+
+    func resetDisplayState() {
+        lastDisplayCoord = nil
+        lastDisplayTime = nil
+    }
+
+    func logDisplay(matchedPosition: CLLocationCoordinate2D, heading: CLLocationDirection, isMatched: Bool, isGPSLoss: Bool) {
+        guard level >= .everyTick else { return }
+        let matchStr = isMatched ? "matched" : "unmatched"
+        let lossStr = isGPSLoss ? " [GPSLoss]" : ""
+        let now = Date()
+        let ts = String(format: "%.2f", now.timeIntervalSince1970.truncatingRemainder(dividingBy: 1000))
+        var intervalStr = ""
+        if let last = lastDisplayTime {
+            intervalStr = " dt=\(String(format: "%.2f", now.timeIntervalSince(last)))s"
+        }
+        lastDisplayTime = now
+        var jumpStr = ""
+        if let last = lastDisplayCoord {
+            let dist = last.distance(to: matchedPosition)
+            if dist > 1.0 {
+                jumpStr = " jump=\(String(format: "%.1f", dist))m"
+            }
+        }
+        lastDisplayCoord = matchedPosition
+        logger.debug("[Display]\(lossStr) t=\(ts)s\(intervalStr) \(matchStr) coord=(\(String(format: "%.6f", matchedPosition.latitude)), \(String(format: "%.6f", matchedPosition.longitude))) heading=\(String(format: "%.1f", heading))\(jumpStr)")
     }
 
     // MARK: - Match
@@ -46,11 +78,15 @@ final class NavigationLogger {
 
     // MARK: - Track
 
+    private let etaFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     func logTrackProgress(stepIndex: Int, totalSteps: Int, distanceToManeuver: CLLocationDistance, remainingDistance: CLLocationDistance, eta: Date) {
         guard level >= .everyTick else { return }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        let etaStr = formatter.string(from: eta)
+        let etaStr = etaFormatter.string(from: eta)
         let remainingKm = String(format: "%.1f", remainingDistance / 1000)
         logger.debug("[Track] step=\(stepIndex)/\(totalSteps) toManeuver=\(String(format: "%.0f", distanceToManeuver))m remaining=\(remainingKm)km eta=\(etaStr)")
     }

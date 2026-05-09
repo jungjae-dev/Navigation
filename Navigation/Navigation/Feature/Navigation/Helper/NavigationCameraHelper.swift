@@ -27,17 +27,27 @@ enum NavigationCameraHelper {
         }
     }
 
-    /// 주행 카메라 생성
+    /// 주행 카메라 생성 (속도 기반 고도 계산)
     static func makeCamera(
         center: CLLocationCoordinate2D,
         heading: CLLocationDirection,
         speed: CLLocationSpeed,
         mode: TransportMode
     ) -> MKMapCamera {
+        makeCamera(center: center, heading: heading, altitude: altitude(for: speed, mode: mode), mode: mode)
+    }
+
+    /// 주행 카메라 생성 (보간된 고도 직접 지정)
+    static func makeCamera(
+        center: CLLocationCoordinate2D,
+        heading: CLLocationDirection,
+        altitude: CLLocationDistance,
+        mode: TransportMode
+    ) -> MKMapCamera {
         let camera = MKMapCamera()
         camera.centerCoordinate = center
         camera.heading = heading
-        camera.centerCoordinateDistance = altitude(for: speed, mode: mode)
+        camera.centerCoordinateDistance = altitude
         camera.pitch = pitch(for: mode)
         return camera
     }

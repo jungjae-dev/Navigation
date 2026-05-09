@@ -81,7 +81,7 @@ final class UserLocationPresenter {
         mapView.addAnnotation(annotation)
 
         // 캐시된 위치로 초기 시드 — (0,0) → 실제 위치 보간 회피
-        if let cached = locationService.cachedLocation, cached.isValidForDisplay {
+        if let cached = locationService.cachedLocation, cached.isValid {
             annotation.coordinate = cached.coordinate
             interpolator.resetTo(cached.coordinate, 0)
             hasReceivedFirstLocation = true

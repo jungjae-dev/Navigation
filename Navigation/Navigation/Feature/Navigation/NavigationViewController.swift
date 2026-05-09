@@ -111,7 +111,8 @@ final class NavigationViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if let guide = currentGuide {
-            interpolator.resetTo(guide.matchedPosition, guide.heading)
+            let alt = NavigationCameraHelper.altitude(for: guide.speed, mode: transportMode)
+            interpolator.resetTo(guide.matchedPosition, guide.heading, altitude: alt)
         }
     }
 
@@ -209,7 +210,8 @@ final class NavigationViewController: UIViewController {
     private func handleGuide(_ guide: NavigationGuide) {
         currentGuide = guide
         currentSpeed = guide.speed
-        interpolator.setTarget(guide.matchedPosition, heading: guide.heading)
+        let targetAltitude = NavigationCameraHelper.altitude(for: guide.speed, mode: transportMode)
+        interpolator.setTarget(guide.matchedPosition, heading: guide.heading, altitude: targetAltitude)
         updateVehicleColor(isMatched: guide.isMatched)
 
         updateBanner(guide)
@@ -293,7 +295,7 @@ final class NavigationViewController: UIViewController {
             } else {
                 initialHeading = 0
             }
-            interpolator.resetTo(first, initialHeading)
+            interpolator.resetTo(first, initialHeading, altitude: NavigationCameraHelper.altitude(for: 0, mode: transportMode))
         }
         vehicleAnnotation.title = "vehicle"
         mapView.addAnnotation(vehicleAnnotation)
@@ -688,7 +690,7 @@ final class NavigationViewController: UIViewController {
             mapView.camera = NavigationCameraHelper.makeCamera(
                 center: result.coordinate,
                 heading: result.heading,
-                speed: currentSpeed,
+                altitude: result.altitude,
                 mode: transportMode
             )
         }

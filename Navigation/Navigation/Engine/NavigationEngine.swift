@@ -63,6 +63,7 @@ final class NavigationEngine {
         self.stateManager = StateManager()
         self.voiceEngine = VoiceEngine(provider: route.provider)
 
+        logger.resetDisplayState()
         setupCallbacks()
     }
 
@@ -84,7 +85,7 @@ final class NavigationEngine {
     func tick(location: CLLocation) {
         logger.logGPS(location)
 
-        let isGPSValid = location.isValidForDisplay
+        let isGPSValid = location.isValid
         let speed = location.safeSpeed
 
         let matched = resolveMatchedState(location: location)
@@ -122,6 +123,8 @@ final class NavigationEngine {
             )
         }
 
+        logger.logDisplay(matchedPosition: matched.position, heading: matched.heading, isMatched: matched.isMatched, isGPSLoss: location.isGPSLoss)
+
         guidePublisher.send(NavigationGuide(
             state: state,
             currentManeuver: makeManeuverInfo(from: routeProgress.currentStep, distance: routeProgress.distanceToNextManeuver),
@@ -150,8 +153,9 @@ final class NavigationEngine {
     }
 
     private func resolveMatchedState(location: CLLocation) -> MatchedState {
-        // GPS 무효 또는 accuracy 불량 → 맵매칭 스킵 (터널과 동일 처리)
-        guard location.isValidForNavigation else {
+        // 실제 GPS 또는 GPS 손실 신호(isGPSLoss) → 맵매칭 실행
+        // accuracy < 0 인 완전 무효 GPS만 스킵
+        guard location.isValid || location.isGPSLoss else {
             if let lastPos = lastMatchedPosition {
                 return MatchedState(position: lastPos, heading: bearingAtSegment(mapMatcher.currentSegmentIndex), isMatched: false, isOffRoute: false)
             }

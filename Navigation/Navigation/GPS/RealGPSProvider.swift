@@ -50,7 +50,7 @@ final class RealGPSProvider: GPSProviding {
                 // accuracy 무관하게 타이머 리셋 — iPhone이 -1을 보내도 GPS가 살아있음을 의미
                 lastGPSReceivedTime = Date()
                 lastInvalidGPSTime = .distantPast
-                if location.isValidForDisplay {
+                if location.isValid {
                     handleLocationUpdate(location)
                 }
             }
@@ -95,13 +95,14 @@ final class RealGPSProvider: GPSProviding {
 
         lastInvalidGPSTime = now
 
+        // lastLocation 값을 최대한 보존 — 좌표·속도·방향은 마지막 유효값 유지, horizontalAccuracy만 교체
         let lossLocation = CLLocation(
             coordinate: lastLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0),
             altitude: lastLocation?.altitude ?? 0,
             horizontalAccuracy: CLLocation.gpsLossAccuracy,
-            verticalAccuracy: -1,
-            course: -1,
-            speed: 0,
+            verticalAccuracy: lastLocation?.verticalAccuracy ?? -1,
+            course: lastLocation?.course ?? -1,
+            speed: lastLocation?.speed ?? 0,
             timestamp: now
         )
         locationSubject.send(lossLocation)
