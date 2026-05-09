@@ -37,83 +37,46 @@ final class MapMatcher {
                 coordinate: coordinate,
                 segmentIndex: 0,
                 distanceFromRoute: .infinity,
-                headingDelta: 0
+                headingDelta: 0,
+                score: .infinity
             )
         }
 
         let segmentCount = polyline.count - 1
 
-        // 앞 방향: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
-        var fwdProjection = coordinate
-        var fwdDistance: CLLocationDistance = .infinity
-        var fwdSegmentIndex = currentSegmentIndex
-        var fwdHeading: CLLocationDirection = 0
+        // Forward only: currentSegmentIndex → 끝, 거리가 커지면 조기 종료
+        var bestProjection = coordinate
+        var bestDistance: CLLocationDistance = .infinity
+        var bestSegmentIndex = currentSegmentIndex
+        var bestSegmentHeading: CLLocationDirection = 0
         var prevDist: CLLocationDistance = .infinity
 
         for i in currentSegmentIndex..<segmentCount {
             let (projection, distance) = projectPointOnSegment(
                 point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
             )
-            if distance < fwdDistance {
-                fwdDistance = distance
-                fwdProjection = projection
-                fwdSegmentIndex = i
-                fwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+            if distance < bestDistance {
+                bestDistance = distance
+                bestProjection = projection
+                bestSegmentIndex = i
+                bestSegmentHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
             } else if distance > prevDist {
                 break
             }
             prevDist = distance
-        }
-
-        // 뒤 방향: currentSegmentIndex-1 → 처음, 거리가 커지면 조기 종료
-        var bwdProjection = coordinate
-        var bwdDistance: CLLocationDistance = .infinity
-        var bwdSegmentIndex = currentSegmentIndex
-        var bwdHeading: CLLocationDirection = 0
-        prevDist = .infinity
-
-        for i in stride(from: currentSegmentIndex - 1, through: 0, by: -1) {
-            let (projection, distance) = projectPointOnSegment(
-                point: coordinate, segStart: polyline[i], segEnd: polyline[i + 1]
-            )
-            if distance < bwdDistance {
-                bwdDistance = distance
-                bwdProjection = projection
-                bwdSegmentIndex = i
-                bwdHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
-            } else if distance > prevDist {
-                break
-            }
-            prevDist = distance
-        }
-
-        // 앞뒤 중 더 가까운 방향 선택
-        let bestProjection: CLLocationCoordinate2D
-        let bestDistance: CLLocationDistance
-        let bestSegmentIndex: Int
-        let bestSegmentHeading: CLLocationDirection
-
-        if fwdDistance <= bwdDistance {
-            bestProjection = fwdProjection
-            bestDistance = fwdDistance
-            bestSegmentIndex = fwdSegmentIndex
-            bestSegmentHeading = fwdHeading
-        } else {
-            bestProjection = bwdProjection
-            bestDistance = bwdDistance
-            bestSegmentIndex = bwdSegmentIndex
-            bestSegmentHeading = bwdHeading
         }
 
         // 거리 검증: 도로폭/폴리라인 오차 기준(20m) + 1초 이동거리
         let threshold = thresholdBase + speed * thresholdTimeFactor
         guard bestDistance <= threshold else {
+            let delta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
             return MatchResult(
                 isMatched: false,
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: abs(MapGeometry.angleDelta(course, bestSegmentHeading))
+                headingDelta: delta,
+                score: bestDistance
             )
         }
 
@@ -132,7 +95,8 @@ final class MapMatcher {
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: headingDelta
+                headingDelta: headingDelta,
+                score: bestDistance
             )
         }
 
@@ -144,7 +108,8 @@ final class MapMatcher {
             coordinate: bestProjection,
             segmentIndex: bestSegmentIndex,
             distanceFromRoute: bestDistance,
-            headingDelta: headingDelta
+            headingDelta: headingDelta,
+            score: bestDistance
         )
     }
 
