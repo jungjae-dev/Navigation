@@ -8,7 +8,8 @@ final class MapMatcher {
 
     private let thresholdBase: CLLocationDistance = 35       // 기본 매칭 거리 (m)
     private let thresholdTimeFactor: TimeInterval = 1.0      // 속도에 곱할 시간 계수
-    private let maxAngleDelta: CLLocationDirection = 90     // 방향 검증 각도 (°)
+    private let maxAngleDelta: CLLocationDirection = 90      // 방향 검증 각도 (°) — Phase 4에서 제거
+    private let headingWeight: Double = 30                   // heading 180° 불일치 = 가상 30m
 
     // MARK: - State
 
@@ -45,12 +46,22 @@ final class MapMatcher {
         let segmentCount = polyline.count - 1
         let threshold = thresholdBase + speed * thresholdTimeFactor
 
+        // heading score 적용 조건:
+        // - 도보 모드 / 저속(< 5km/h) / course 미확보 시 → 거리만 사용
+        let skipHeadingCheck = transportMode == .walking
+            || speed < 1.4
+            || course < 0
+        let effectiveHeadingWeight = skipHeadingCheck ? 0 : headingWeight
+
         // Forward only: currentSegmentIndex → 끝
+        // score = distance + (headingDelta / 180°) × headingWeight
         // threshold 초과 연속 3회 시 break (회전 구간 꼭짓점 세그먼트 건너뛰기 허용)
+        var bestScore: Double = .infinity
         var bestProjection = coordinate
         var bestDistance: CLLocationDistance = .infinity
         var bestSegmentIndex = currentSegmentIndex
         var bestSegmentHeading: CLLocationDirection = 0
+        var bestHeadingDelta: CLLocationDirection = 0
         var consecutiveOverThreshold = 0
 
         for i in currentSegmentIndex..<segmentCount {
@@ -63,44 +74,42 @@ final class MapMatcher {
                 continue
             }
             consecutiveOverThreshold = 0
-            if distance < bestDistance {
+
+            let segHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+            let delta = abs(MapGeometry.angleDelta(course, segHeading))
+            let score = distance + (delta / 180.0) * effectiveHeadingWeight
+
+            if score < bestScore {
+                bestScore = score
                 bestDistance = distance
                 bestProjection = projection
                 bestSegmentIndex = i
-                bestSegmentHeading = MapGeometry.bearing(from: polyline[i], to: polyline[i + 1])
+                bestSegmentHeading = segHeading
+                bestHeadingDelta = delta
             }
         }
 
         // 거리 검증
         guard bestDistance <= threshold else {
-            let delta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
             return MatchResult(
                 isMatched: false,
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: delta,
-                score: bestDistance
+                headingDelta: bestHeadingDelta,
+                score: bestScore
             )
         }
 
-        // 방향 검증 스킵 조건:
-        // - 도보 모드
-        // - 저속(< 5km/h): course 부정확
-        // - course < 0: GPS course 미확보 (첫 fix 전, 터널 등)
-        let headingDelta = abs(MapGeometry.angleDelta(course, bestSegmentHeading))
-        let skipHeadingCheck = transportMode == .walking
-            || speed < 1.4
-            || course < 0
-
-        if !skipHeadingCheck && headingDelta > maxAngleDelta {
+        // 방향 검증 (Phase 4에서 제거)
+        if !skipHeadingCheck && bestHeadingDelta > maxAngleDelta {
             return MatchResult(
                 isMatched: false,
                 coordinate: coordinate,
                 segmentIndex: bestSegmentIndex,
                 distanceFromRoute: bestDistance,
-                headingDelta: headingDelta,
-                score: bestDistance
+                headingDelta: bestHeadingDelta,
+                score: bestScore
             )
         }
 
@@ -112,8 +121,8 @@ final class MapMatcher {
             coordinate: bestProjection,
             segmentIndex: bestSegmentIndex,
             distanceFromRoute: bestDistance,
-            headingDelta: headingDelta,
-            score: bestDistance
+            headingDelta: bestHeadingDelta,
+            score: bestScore
         )
     }
 
