@@ -19,6 +19,8 @@ final class DevToolsViewModel {
     let debugOverlayEnabled = CurrentValueSubject<Bool, Never>(false)
     let locationType = CurrentValueSubject<DevToolsSettings.LocationType, Never>(.real)
     let selectedRecordingFileName = CurrentValueSubject<String?, Never>(nil)
+    let searchProvider = CurrentValueSubject<LBSProviderType, Never>(LBSServiceProvider.shared.searchProviderType)
+    let routeProvider = CurrentValueSubject<LBSProviderType, Never>(LBSServiceProvider.shared.routeProviderType)
 
     // MARK: - Dependencies
 
@@ -112,6 +114,16 @@ final class DevToolsViewModel {
             // 주행 중이면 사용자가 직접 정지할 수 있음 (옵션)
             stopAndSave()
         }
+    }
+
+    func setSearchProvider(_ type: LBSProviderType) {
+        LBSServiceProvider.shared.switchSearchProvider(to: type)
+        searchProvider.send(type)
+    }
+
+    func setRouteProvider(_ type: LBSProviderType) {
+        LBSServiceProvider.shared.switchRouteProvider(to: type)
+        routeProvider.send(type)
     }
 
     func setDebugOverlayEnabled(_ enabled: Bool) {

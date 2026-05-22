@@ -250,6 +250,12 @@ final class SearchViewController: UIViewController {
     }
 
     private func updateQueryChips(_ completions: [SearchCompletion]) {
+        let provider = LBSServiceProvider.shared.searchProviderType.rawValue
+        if completions.isEmpty {
+        } else {
+            let titles = completions.map { $0.title }.joined(separator: ", ")
+        }
+
         queryChipStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         let showChips = !completions.isEmpty
@@ -283,6 +289,7 @@ final class SearchViewController: UIViewController {
     }
 
     private func handleQueryChipTapped(_ completion: SearchCompletion) {
+        let provider = LBSServiceProvider.shared.searchProviderType.rawValue
         Task { [weak self] in
             guard let self else { return }
             if let results = await viewModel.selectCompletion(completion) {

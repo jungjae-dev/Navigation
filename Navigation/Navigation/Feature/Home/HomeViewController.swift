@@ -37,6 +37,7 @@ final class HomeViewController: UIViewController {
         setupDrawerContainer()
         bindViewModel()
         handleInitialPermission()
+        setupLBSNotifications()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -170,6 +171,49 @@ final class HomeViewController: UIViewController {
         case .notDetermined:
             break
         }
+    }
+
+    // MARK: - LBS Notifications
+
+    private func setupLBSNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSearchQuotaExceeded),
+            name: .lbsSearchQuotaExceeded,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteFallback),
+            name: .lbsRouteFallbackActivated,
+            object: nil
+        )
+    }
+
+    @objc private func handleSearchQuotaExceeded() {
+        DispatchQueue.main.async { [weak self] in
+            self?.showLBSAlert(
+                title: "검색 한도 초과",
+                message: "오늘 카카오 검색 한도에 도달했습니다.\n내일 자정에 자동으로 초기화됩니다."
+            )
+        }
+    }
+
+    @objc private func handleRouteFallback() {
+        guard LBSServiceProvider.shared.routeProviderType == .kakao else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.showLBSAlert(
+                title: "경로 서비스 일시 제한",
+                message: "카카오 경로 서비스가 일시적으로 제한됩니다.\n잠시 후 자동으로 복구됩니다."
+            )
+        }
+    }
+
+    private func showLBSAlert(title: String, message: String) {
+        guard presentedViewController == nil else { return }
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "확인", style: .default))
+        present(alert, animated: true)
     }
 
     private func showLocationDeniedAlert() {
