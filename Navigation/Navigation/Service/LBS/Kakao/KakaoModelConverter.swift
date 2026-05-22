@@ -18,6 +18,7 @@ enum KakaoModelConverter {
     }
 
     static func route(from kakaoRoute: KakaoRouteResponse.KakaoRoute, transportMode: TransportMode = .automobile) -> Route {
+        NavigationLogger.shared.logRawKakaoRoute(kakaoRoute)
         let sections = kakaoRoute.sections ?? []
 
         // 1. 전체 폴리라인 추출 (vertexes: [lng, lat, lng, lat, ...])

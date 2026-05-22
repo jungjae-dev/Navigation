@@ -23,11 +23,11 @@ struct ManeuverBannerView: View {
                             .font(Theme.Navigation.Fonts.maneuverDistance)
                             .foregroundStyle(Color(.label))
 
-                        // 안내문
+                        // 안내문 — 최대 2줄
                         Text(maneuver.instruction)
                             .font(Theme.Navigation.Fonts.maneuverInstruction)
                             .foregroundStyle(Color(.label))
-                            .lineLimit(1)
+                            .lineLimit(2)
 
                         // 도로명 (있으면)
                         if let roadName = maneuver.roadName {
@@ -43,7 +43,7 @@ struct ManeuverBannerView: View {
                 .padding(.vertical, 10)
             }
 
-            // Next maneuver (1st와 동일 레이아웃, 크기만 축소)
+            // Next maneuver — 아이콘 + 거리만 표시 (텍스트 없음)
             if let next = nextManeuver {
                 Divider()
                 HStack(spacing: 10) {
@@ -52,22 +52,9 @@ struct ManeuverBannerView: View {
                         .foregroundStyle(Theme.Navigation.Colors.secondaryText)
                         .frame(width: 30, height: 30)
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(formatDistance(next.distance))
-                            .font(.system(size: 20, weight: .bold).monospacedDigit())
-                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-
-                        Text(next.instruction)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                            .lineLimit(1)
-
-                        if let roadName = next.roadName {
-                            Text("\(roadName) 방면")
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(Theme.Navigation.Colors.secondaryText.opacity(0.7))
-                        }
-                    }
+                    Text(formatDistance(next.distance))
+                        .font(.system(size: 20, weight: .bold).monospacedDigit())
+                        .foregroundStyle(Theme.Navigation.Colors.secondaryText)
 
                     Spacer()
                 }

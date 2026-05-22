@@ -35,6 +35,7 @@ enum AppleModelConverter {
     // MARK: - Route ↔ MKRoute
 
     static func route(from mkRoute: MKRoute) -> Route {
+        NavigationLogger.shared.logRawAppleRoute(mkRoute)
         let steps = mkRoute.steps.map { routeStep(from: $0) }
         let polyline = mkRoute.polyline.coordinates
 

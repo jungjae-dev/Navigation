@@ -2,6 +2,9 @@ import UIKit
 import MapKit
 import SwiftUI
 import Combine
+import OSLog
+
+private let navLogger = Logger(subsystem: "nav.ui", category: "NavigationVC")
 
 /// 주행 화면 (지도 + 아바타 + 폴리라인 + 카메라 + 전체 UI)
 final class NavigationViewController: UIViewController {
@@ -81,6 +84,7 @@ final class NavigationViewController: UIViewController {
         self.transportMode = transportMode
         self.destinationName = destinationName
         super.init(nibName: nil, bundle: nil)
+        logRoute(route)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -183,9 +187,47 @@ final class NavigationViewController: UIViewController {
             .store(in: &cancellables)
     }
 
+    // MARK: - Debug Logging
+
+    private func logRoute(_ route: Route) {
+        navLogger.debug("━━━ [ROUTE] provider=\(String(describing: route.provider), privacy: .public) mode=\(String(describing: route.transportMode), privacy: .public) dist=\(String(format: "%.0f", route.distance), privacy: .public)m time=\(Int(route.expectedTravelTime / 60), privacy: .public)분 pts=\(route.polylineCoordinates.count, privacy: .public)")
+        for (i, step) in route.steps.enumerated() {
+            let road = step.roadName.map { "→\($0)" } ?? ""
+            let dur  = step.duration.map { "(\(Int($0))s)" } ?? ""
+            navLogger.debug("  step[\(i, privacy: .public)] \(String(describing: step.turnType), privacy: .public) \(String(format: "%.0f", step.distance), privacy: .public)m \(dur, privacy: .public) \(step.instructions, privacy: .public) \(road, privacy: .public)")
+        }
+    }
+
+    private var guideLogCounter = 0
+    private func logGuide(_ guide: NavigationGuide) {
+        guideLogCounter += 1
+        let maneuverChanged = guide.currentManeuver?.instruction != currentGuide?.currentManeuver?.instruction
+        guard guideLogCounter % 5 == 1 || maneuverChanged else { return }
+
+        navLogger.debug("── [GUIDE #\(self.guideLogCounter, privacy: .public)] state=\(String(describing: guide.state), privacy: .public) speed=\(String(format: "%.1f", guide.speed * 3.6), privacy: .public)km/h gps=\(guide.isGPSValid, privacy: .public) matched=\(guide.isMatched, privacy: .public)")
+        navLogger.debug("   remain dist=\(String(format: "%.0f", guide.remainingDistance), privacy: .public)m time=\(Int(guide.remainingTime / 60), privacy: .public)분 eta=\(guide.eta.formatted(date: .omitted, time: .shortened), privacy: .public)")
+        if let cur = guide.currentManeuver {
+            let road = cur.roadName.map { "[\($0)]" } ?? ""
+            navLogger.debug("   current \(String(describing: cur.turnType), privacy: .public) \(String(format: "%.0f", cur.distance), privacy: .public)m | \(cur.instruction, privacy: .public) \(road, privacy: .public)")
+        } else {
+            navLogger.debug("   current (없음)")
+        }
+        if let nxt = guide.nextManeuver {
+            let road = nxt.roadName.map { "[\($0)]" } ?? ""
+            navLogger.debug("   next    \(String(describing: nxt.turnType), privacy: .public) \(String(format: "%.0f", nxt.distance), privacy: .public)m | \(nxt.instruction, privacy: .public) \(road, privacy: .public)")
+        } else {
+            navLogger.debug("   next    (없음)")
+        }
+        if let voice = guide.voiceCommand {
+            navLogger.debug("   voice   \(String(describing: voice), privacy: .public)")
+        }
+    }
+
     // MARK: - Route Update (reroute 시)
 
     private func applyRouteUpdate(_ newRoute: Route) {
+        navLogger.debug("⚡ [REROUTE] 새 경로 적용")
+        logRoute(newRoute)
         route = newRoute
 
         // 기존 overlay 제거 후 새 polyline 추가
@@ -208,6 +250,7 @@ final class NavigationViewController: UIViewController {
     // MARK: - Handle Guide
 
     private func handleGuide(_ guide: NavigationGuide) {
+        logGuide(guide)
         currentGuide = guide
         currentSpeed = guide.speed
         let targetAltitude = NavigationCameraHelper.altitude(for: guide.speed, mode: transportMode)
