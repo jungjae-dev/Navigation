@@ -8,4 +8,5 @@ struct MatchResult: Sendable {
     let distanceFromRoute: CLLocationDistance  // 경로로부터 거리
     let headingDelta: CLLocationDirection     // GPS heading과 세그먼트 방향 차이
     let score: Double                         // 세그먼트 선택 스코어 (거리 + heading 패널티)
+    let threshold: CLLocationDistance         // 적용된 거리 임계값 (35m + speed×1.0)
 }
