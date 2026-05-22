@@ -35,10 +35,10 @@ struct NavigationBottomBar: View {
                     HStack(spacing: 4) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 13))
-                            .foregroundStyle(Color(.systemRed))
+                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
                         Text(name)
                             .font(Theme.Navigation.Fonts.etaLabel)
-                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
+                            .foregroundStyle(Color(.label))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -47,17 +47,15 @@ struct NavigationBottomBar: View {
 
             // 우측: 종료 버튼 — 전체 바 높이 기준 vertical center
             Button(action: onEndNavigation) {
-                Text("안내\n종료")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 52, height: 44)
-                    .background(Theme.Navigation.Colors.destructive)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(Theme.Navigation.Colors.endButton)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
     }
 }

@@ -6,66 +6,90 @@ struct ManeuverBannerView: View {
     let currentManeuver: ManeuverInfo?
     let nextManeuver: ManeuverInfo?
 
+    private let cardOverlap: CGFloat = 14
+    private let nextCardHeight: CGFloat = 64   // top padding(cardOverlap+8=22) + icon(32) + bottom padding(10)
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Current maneuver
-            if let maneuver = currentManeuver {
-                HStack(spacing: 12) {
-                    // 회전 아이콘
-                    turnIcon(maneuver.turnType, size: Theme.Navigation.Sizes.maneuverIconSize, weight: .bold)
-                        .foregroundStyle(Theme.Navigation.Colors.maneuverIcon)
-                        .frame(width: 44, height: 44)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        // 거리
-                        Text(formatDistance(maneuver.distance))
-                            .font(Theme.Navigation.Fonts.maneuverDistance)
-                            .foregroundStyle(Color(.label))
-
-                        // 안내문 — 최대 2줄
-                        Text(maneuver.instruction)
-                            .font(Theme.Navigation.Fonts.maneuverInstruction)
-                            .foregroundStyle(Color(.label))
-                            .lineLimit(2)
-
-                        // 도로명 (있으면)
-                        if let roadName = maneuver.roadName {
-                            Text("\(roadName) 방면")
-                                .font(Theme.Navigation.Fonts.roadName)
-                                .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                        }
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+        VStack(spacing: -cardOverlap) {
+            // 1번째 안내 — 앞 (zIndex 높음)
+            if let current = currentManeuver {
+                currentCard(current)
+                    .zIndex(1)
             }
 
-            // Next maneuver — 아이콘 + 거리만 표시 (텍스트 없음)
-            if let next = nextManeuver {
-                Divider()
-                HStack(spacing: 10) {
-                    turnIcon(next.turnType, size: 20, weight: .semibold)
-                        .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                        .frame(width: 30, height: 30)
-
-                    Text(formatDistance(next.distance))
-                        .font(.system(size: 20, weight: .bold).monospacedDigit())
-                        .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-
-                    Spacer()
+            // 2번째 안내 — 뒤 (zIndex 낮음, 70% 너비, 좌측 정렬)
+            if let next = nextManeuver, currentManeuver != nil {
+                GeometryReader { geo in
+                    nextCard(next)
+                        .frame(width: geo.size.width * 0.7)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .frame(height: nextCardHeight)
+                .zIndex(0)
             }
         }
-        .background(Theme.Navigation.Colors.bannerBackground)
+    }
+
+    // MARK: - Cards
+
+    @ViewBuilder
+    private func currentCard(_ maneuver: ManeuverInfo) -> some View {
+        HStack(spacing: 14) {
+            turnIcon(maneuver.turnType, size: Theme.Navigation.Sizes.maneuverIconSize, weight: Theme.Navigation.Sizes.maneuverIconWeight)
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(formatDistance(maneuver.distance))
+                    .font(Theme.Navigation.Fonts.maneuverDistance)
+                    .foregroundStyle(.white)
+
+                Text(maneuver.instruction)
+                    .font(Theme.Navigation.Fonts.maneuverInstruction)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+
+                if let roadName = maneuver.roadName {
+                    Text("\(roadName) 방면")
+                        .font(Theme.Navigation.Fonts.roadName)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Theme.Navigation.Colors.bannerPrimary)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+    }
+
+    @ViewBuilder
+    private func nextCard(_ maneuver: ManeuverInfo) -> some View {
+        HStack(spacing: 10) {
+            // 상단 카드에 가려지는 영역만큼 top padding 추가
+            Spacer().frame(width: 0)
+
+            turnIcon(maneuver.turnType, size: 28, weight: .semibold)
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 36, height: 36)
+
+            Text(formatDistance(maneuver.distance))
+                .font(.system(size: 18, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.85))
+
+            Spacer()
+        }
+        .padding(.horizontal, 0)
+        .padding(.top, cardOverlap + 8)
+        .padding(.bottom, 10)
+        .background(Theme.Navigation.Colors.bannerSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 3)
     }
 
     // MARK: - Helpers
 
-    /// rightMerge는 arrow.merge를 좌우 반전해서 오른쪽 합류 방향으로 표현
     @ViewBuilder
     private func turnIcon(_ turnType: TurnType, size: CGFloat, weight: Font.Weight) -> some View {
         Image(systemName: turnType.iconName)
@@ -77,20 +101,5 @@ struct ManeuverBannerView: View {
             return String(format: "%.1fkm", meters / 1000)
         }
         return "\(Int(meters))m"
-    }
-
-    private func directionText(_ turnType: TurnType) -> String {
-        switch turnType {
-        case .straight: return "직진"
-        case .leftTurn: return "좌회전"
-        case .rightTurn: return "우회전"
-        case .uTurn: return "유턴"
-        case .leftMerge: return "왼쪽 합류"
-        case .rightMerge: return "오른쪽 합류"
-        case .leftExit: return "왼쪽 출구"
-        case .rightExit: return "오른쪽 출구"
-        case .destination: return "도착"
-        case .unknown: return ""
-        }
     }
 }

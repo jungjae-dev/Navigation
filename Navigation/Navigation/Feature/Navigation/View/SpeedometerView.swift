@@ -16,7 +16,7 @@ struct SpeedometerView: View {
         }
         .frame(width: Theme.Navigation.Sizes.speedometerSize,
                height: Theme.Navigation.Sizes.speedometerSize)
-        .background(Theme.Navigation.Colors.bannerBackground)
+        .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
     }

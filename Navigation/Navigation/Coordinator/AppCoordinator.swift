@@ -757,9 +757,9 @@ final class AppCoordinator: NSObject, Coordinator {
 
         if forceSimul {
             // 가상 주행: 별도 driver 생성, lifecycle은 안내 종료까지
+            // start()는 sessionManager 구독 이후에 호출해야 첫 GPS tick을 엔진이 받음
             print("[NAV] GPS=Simul (가상 주행)")
             let driver = VirtualDriveDriver()
-            driver.start(polyline: route.polylineCoordinates, transportMode: transportMode)
             driver.loadSteps(route.steps)
             activeVirtualDriveDriver = driver
 
@@ -789,6 +789,14 @@ final class AppCoordinator: NSObject, Coordinator {
             locationPublisher: locationPublisher,
             source: .phone
         )
+
+        // 가상 주행: sessionManager 구독 완료 후 start → 첫 GPS tick 유실 없음
+        if forceSimul {
+            activeVirtualDriveDriver?.start(
+                polyline: route.polylineCoordinates,
+                transportMode: transportMode
+            )
+        }
 
         // 주행 화면 생성 + 엔진 바인딩
         dismissAllDrawers { [weak self] in

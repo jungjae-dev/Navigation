@@ -50,9 +50,7 @@ final class NavigationViewController: UIViewController {
     private var arrivalHostingController: UIHostingController<ArrivalPopupView>?
 
     // UI 요소
-    private let recenterButton = UIButton(type: .system)
-    private let muteButton = UIButton(type: .system)
-    private var isMuted = false
+    private var recenterHostingController: UIHostingController<RecenterButton>?
     private let gpsStatusIcon = UIImageView()
     private let rerouteBannerView = UIView()
     private let rerouteBannerLabel = UILabel()
@@ -63,9 +61,6 @@ final class NavigationViewController: UIViewController {
         f.dateFormat = "HH:mm"
         return f
     }()
-
-    // 재탐색 버튼
-    private let rerouteButton = UIButton(type: .system)
 
     // 가상 주행 컨트롤 (virtualDriveDriver != nil 일 때만 표시)
     private var virtualDriveDriver: VirtualDriveDriver?
@@ -109,9 +104,7 @@ final class NavigationViewController: UIViewController {
         setupBottomBar()
         setupSpeedometer()
         setupRecenterButton()
-        setupMuteButton()
         setupGPSStatusIcon()
-        setupRerouteButton()
         setupRerouteBanner()
         setupGestureDetection()
         if virtualDriveDriver != nil { setupVirtualDriveControls() }
@@ -191,6 +184,11 @@ final class NavigationViewController: UIViewController {
                 }
             }
             .store(in: &cancellables)
+
+        // 현재 guide 값이 있으면 즉시 동기 적용 — .receive(on: DispatchQueue.main)의 비동기 딜레이 보완
+        if let current = guide.value {
+            handleGuide(current)
+        }
     }
 
     // MARK: - Debug Logging
@@ -357,9 +355,9 @@ final class NavigationViewController: UIViewController {
 
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            hosting.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
         ])
         bannerHostingController = hosting
     }
@@ -386,8 +384,8 @@ final class NavigationViewController: UIViewController {
 
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             hosting.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
         bottomBarHostingController = hosting
@@ -412,7 +410,7 @@ final class NavigationViewController: UIViewController {
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            hosting.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -90),
+            hosting.view.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 100),
         ])
         speedometerHostingController = hosting
     }
@@ -424,56 +422,20 @@ final class NavigationViewController: UIViewController {
     // MARK: - Setup: Recenter Button
 
     private func setupRecenterButton() {
-        recenterButton.setImage(
-            UIImage(systemName: "location.fill")?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-            ), for: .normal
-        )
-        configureFloatingButton(recenterButton)
-        recenterButton.isHidden = true
-        recenterButton.addTarget(self, action: #selector(recenterTapped), for: .touchUpInside)
+        let hosting = makeHostingController(RecenterButton { [weak self] in
+            self?.enableAutoTracking()
+        })
+        hosting.view.isHidden = true
 
-        view.addSubview(recenterButton)
+        guard let bottomBarView = bottomBarHostingController?.view else { return }
+        view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            recenterButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            recenterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -150),
-            recenterButton.widthAnchor.constraint(equalToConstant: 44),
-            recenterButton.heightAnchor.constraint(equalToConstant: 44),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            hosting.view.bottomAnchor.constraint(equalTo: bottomBarView.topAnchor, constant: -16),
+            hosting.view.widthAnchor.constraint(equalToConstant: 44),
+            hosting.view.heightAnchor.constraint(equalToConstant: 44),
         ])
-    }
-
-    @objc private func recenterTapped() { enableAutoTracking() }
-
-    // MARK: - Setup: Mute Button
-
-    private func setupMuteButton() {
-        updateMuteButtonIcon()
-        configureFloatingButton(muteButton)
-        muteButton.addTarget(self, action: #selector(muteTapped), for: .touchUpInside)
-
-        view.addSubview(muteButton)
-        NSLayoutConstraint.activate([
-            muteButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            muteButton.bottomAnchor.constraint(equalTo: recenterButton.topAnchor, constant: -12),
-            muteButton.widthAnchor.constraint(equalToConstant: 44),
-            muteButton.heightAnchor.constraint(equalToConstant: 44),
-        ])
-    }
-
-    @objc private func muteTapped() {
-        isMuted.toggle()
-        updateMuteButtonIcon()
-        VoiceTTSPlayer.shared.setMuted(isMuted)
-    }
-
-    private func updateMuteButtonIcon() {
-        let iconName = isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
-        muteButton.setImage(
-            UIImage(systemName: iconName)?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            ), for: .normal
-        )
-        muteButton.tintColor = isMuted ? .systemGray : .systemBlue
+        recenterHostingController = hosting
     }
 
     // MARK: - Setup: GPS Status Icon
@@ -481,14 +443,15 @@ final class NavigationViewController: UIViewController {
     private func setupGPSStatusIcon() {
         gpsStatusIcon.image = UIImage(systemName: "antenna.radiowaves.left.and.right.slash")?
             .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium))
-        gpsStatusIcon.tintColor = .systemOrange
+        gpsStatusIcon.tintColor = UIColor(red: 0.10, green: 0.37, blue: 0.75, alpha: 1)
         gpsStatusIcon.translatesAutoresizingMaskIntoConstraints = false
         gpsStatusIcon.isHidden = true
 
+        guard let bannerView = bannerHostingController?.view else { return }
         view.addSubview(gpsStatusIcon)
         NSLayoutConstraint.activate([
             gpsStatusIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            gpsStatusIcon.bottomAnchor.constraint(equalTo: muteButton.topAnchor, constant: -12),
+            gpsStatusIcon.topAnchor.constraint(equalTo: bannerView.bottomAnchor, constant: 20),
             gpsStatusIcon.widthAnchor.constraint(equalToConstant: 24),
             gpsStatusIcon.heightAnchor.constraint(equalToConstant: 24),
         ])
@@ -545,30 +508,6 @@ final class NavigationViewController: UIViewController {
         gpsStatusIcon.isHidden = guide.isGPSValid
     }
 
-    // MARK: - Setup: Reroute Button
-
-    private func setupRerouteButton() {
-        rerouteButton.setImage(
-            UIImage(systemName: "arrow.triangle.2.circlepath")?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            ), for: .normal
-        )
-        configureFloatingButton(rerouteButton)
-        rerouteButton.addTarget(self, action: #selector(rerouteTapped), for: .touchUpInside)
-
-        view.addSubview(rerouteButton)
-        NSLayoutConstraint.activate([
-            rerouteButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            rerouteButton.bottomAnchor.constraint(equalTo: gpsStatusIcon.topAnchor, constant: -12),
-            rerouteButton.widthAnchor.constraint(equalToConstant: 44),
-            rerouteButton.heightAnchor.constraint(equalToConstant: 44),
-        ])
-    }
-
-    @objc private func rerouteTapped() {
-        onReroute?()
-    }
-
     // MARK: - Setup: Reroute Banner
 
     private func setupRerouteBanner() {
@@ -613,7 +552,7 @@ final class NavigationViewController: UIViewController {
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hosting.view.topAnchor.constraint(equalTo: bannerView.bottomAnchor),
+            hosting.view.topAnchor.constraint(equalTo: bannerView.bottomAnchor, constant: 4),
         ])
         vdControlHostingController = hosting
     }
@@ -715,14 +654,14 @@ final class NavigationViewController: UIViewController {
 
     private func disableAutoTracking() {
         isAutoTracking = false
-        recenterButton.isHidden = false
+        recenterHostingController?.view.isHidden = false
         resetAutoTrackTimer()
         vehicle3DView?.is3DVisible = false
     }
 
     private func enableAutoTracking() {
         isAutoTracking = true
-        recenterButton.isHidden = true
+        recenterHostingController?.view.isHidden = true
         autoTrackTimer?.invalidate()
         autoTrackTimer = nil
         let isModel3D = VehicleIconService.shared.iconSourcePublisher.value.isModel3D
@@ -787,7 +726,7 @@ final class NavigationViewController: UIViewController {
 
     /// 플로팅 버튼 공통 스타일
     private func configureFloatingButton(_ button: UIButton) {
-        button.backgroundColor = .systemBackground
+        button.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.95)
         button.tintColor = .systemBlue
         button.layer.cornerRadius = 22
         button.layer.shadowColor = UIColor.black.cgColor

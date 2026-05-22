@@ -8,17 +8,29 @@ extension Theme {
         // MARK: - Colors
 
         enum Colors {
-            static let bannerBackground = Color(.systemBackground).opacity(0.95)
+            static let bannerBackground = Color(.systemBackground)
+            static let bannerPrimary = Color(UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.05, green: 0.20, blue: 0.50, alpha: 1)
+                    : UIColor(red: 0.10, green: 0.37, blue: 0.75, alpha: 1)
+            })
+            static let bannerSecondary = Color(UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.10, green: 0.28, blue: 0.60, alpha: 1)
+                    : UIColor(red: 0.22, green: 0.49, blue: 0.87, alpha: 1)
+            })
             static let bottomBarBackground = Color(.systemBackground)
             static let routePolyline = Color.blue
             static let maneuverIcon = Color.blue
+            static let maneuverDistance = Color.blue
             static let speedText = Color(.label)
             static let etaText = Color(.label)
             static let secondaryText = Color(.secondaryLabel)
+            static let endButton = Color(.systemGray2)
             static let destructive = Color(.systemRed)
             static let gpsWarning = Color(.systemOrange)
             static let rerouteBanner = Color(.systemYellow).opacity(0.9)
-            static let arrivalBackground = Color(.systemBackground).opacity(0.95)
+            static let arrivalBackground = Color(.systemBackground)
         }
 
         // MARK: - Fonts (SwiftUI)
@@ -30,7 +42,7 @@ extension Theme {
             static let roadName = Font.system(size: 14, weight: .medium)
             static let speedValue = Font.system(size: 28, weight: .bold).monospacedDigit()
             static let speedUnit = Font.system(size: 12, weight: .regular)
-            static let etaValue = Font.system(size: 17, weight: .medium).monospacedDigit()
+            static let etaValue = Font.system(size: 17, weight: .semibold).monospacedDigit()
             static let etaLabel = Font.system(size: 13, weight: .regular)
             static let arrivalTitle = Font.system(size: 22, weight: .bold)
             static let countdownText = Font.system(size: 17, weight: .medium)
@@ -41,7 +53,8 @@ extension Theme {
         enum Sizes {
             static let bannerHeight: CGFloat = 110
             static let bottomBarHeight: CGFloat = 80
-            static let maneuverIconSize: CGFloat = 32
+            static let maneuverIconSize: CGFloat = 44
+            static let maneuverIconWeight: Font.Weight = .black
             static let speedometerSize: CGFloat = 70
             static let buttonSize: CGFloat = 44
         }
