@@ -9,55 +9,43 @@ struct NavigationBottomBar: View {
     let onEndNavigation: () -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 목적지명
-            if let name = destinationName, !name.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color(.systemRed))
-                    Text(name)
-                        .font(Theme.Navigation.Fonts.etaLabel)
-                        .foregroundStyle(Color(.label))
-                        .lineLimit(1)
+        HStack(alignment: .center, spacing: 12) {
+            // 좌측: 수치 + 목적지명
+            VStack(spacing: 6) {
+                // 1행: 수치 정보
+                HStack(spacing: 0) {
+                    Text(remainingDistance)
+                        .font(Theme.Navigation.Fonts.etaValue)
+                        .foregroundStyle(Theme.Navigation.Colors.etaText)
+                        .frame(maxWidth: .infinity)
+
+                    Text(remainingTime)
+                        .font(Theme.Navigation.Fonts.etaValue)
+                        .foregroundStyle(Theme.Navigation.Colors.etaText)
+                        .frame(maxWidth: .infinity)
+
+                    Text(eta)
+                        .font(Theme.Navigation.Fonts.etaValue)
+                        .foregroundStyle(Theme.Navigation.Colors.etaText)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // 2행: 목적지명
+                if let name = destinationName, !name.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(.systemRed))
+                        Text(name)
+                            .font(Theme.Navigation.Fonts.etaLabel)
+                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
 
-            // 남은 거리
-            VStack(spacing: 2) {
-                Text(remainingDistance)
-                    .font(Theme.Navigation.Fonts.etaValue)
-                    .foregroundStyle(Theme.Navigation.Colors.etaText)
-                Text("남은 거리")
-                    .font(Theme.Navigation.Fonts.etaLabel)
-                    .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-            }
-            .frame(maxWidth: .infinity)
-
-            // 남은 시간
-            VStack(spacing: 2) {
-                Text(remainingTime)
-                    .font(Theme.Navigation.Fonts.etaValue)
-                    .foregroundStyle(Theme.Navigation.Colors.etaText)
-                Text("남은 시간")
-                    .font(Theme.Navigation.Fonts.etaLabel)
-                    .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-            }
-            .frame(maxWidth: .infinity)
-
-            // 도착 예정
-            VStack(spacing: 2) {
-                Text(eta)
-                    .font(Theme.Navigation.Fonts.etaValue)
-                    .foregroundStyle(Theme.Navigation.Colors.etaText)
-                Text("도착")
-                    .font(Theme.Navigation.Fonts.etaLabel)
-                    .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-            }
-            .frame(maxWidth: .infinity)
-
-            // 종료 버튼
+            // 우측: 종료 버튼 — 전체 바 높이 기준 vertical center
             Button(action: onEndNavigation) {
                 Text("안내\n종료")
                     .font(.system(size: 13, weight: .semibold))
@@ -69,7 +57,7 @@ struct NavigationBottomBar: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(Theme.Navigation.Colors.bottomBarBackground)
     }
 }

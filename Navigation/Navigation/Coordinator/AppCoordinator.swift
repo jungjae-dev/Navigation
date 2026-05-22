@@ -710,7 +710,7 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         drawerVC.onStartVirtualDrive = { [weak self] route, transportMode in
-            self?.startVirtualDrive(with: route, transportMode: transportMode)
+            self?.startVirtualDrive(with: route, destinationName: destinationName, transportMode: transportMode)
         }
 
         // Clear intermediate state and replace stack
@@ -880,9 +880,11 @@ final class AppCoordinator: NSObject, Coordinator {
 
     // MARK: - Virtual Drive Flow
 
-    private func startVirtualDrive(with route: Route, transportMode: TransportMode = .automobile) {
-        // 가상 주행은 Location Type 설정 무시 — 항상 SimulGPS
-        startNavigation(with: route, transportMode: transportMode, forceSimul: true)
+    private func startVirtualDrive(with route: Route, destinationName: String? = nil, transportMode: TransportMode = .automobile) {
+        let destination = destinationName.map {
+            Place(name: $0, coordinate: route.polylineCoordinates.last ?? CLLocationCoordinate2D(), address: nil, phoneNumber: nil, url: nil, category: nil, providerRawData: nil)
+        }
+        startNavigation(with: route, destination: destination, transportMode: transportMode, forceSimul: true)
     }
 
     private func cleanUpNavigationUI() {
