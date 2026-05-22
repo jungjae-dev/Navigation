@@ -6,99 +6,97 @@ struct ManeuverBannerView: View {
     let currentManeuver: ManeuverInfo?
     let nextManeuver: ManeuverInfo?
 
+    private let cardOverlap: CGFloat = 14
+    private var nextCardHeight: CGFloat { cardOverlap + 8 + 36 + 10 } // top padding + icon + bottom padding
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Current maneuver
-            if let maneuver = currentManeuver {
-                HStack(spacing: 12) {
-                    // 회전 아이콘
-                    Image(systemName: maneuver.turnType.iconName)
-                        .font(.system(size: Theme.Navigation.Sizes.maneuverIconSize, weight: .bold))
-                        .foregroundStyle(Theme.Navigation.Colors.maneuverIcon)
-                        .frame(width: 44, height: 44)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        // 거리
-                        Text(formatDistance(maneuver.distance))
-                            .font(Theme.Navigation.Fonts.maneuverDistance)
-                            .foregroundStyle(Color(.label))
-
-                        // 안내문
-                        Text(maneuver.instruction)
-                            .font(Theme.Navigation.Fonts.maneuverInstruction)
-                            .foregroundStyle(Color(.label))
-                            .lineLimit(1)
-
-                        // 도로명 (있으면)
-                        if let roadName = maneuver.roadName {
-                            Text("\(roadName) 방면")
-                                .font(Theme.Navigation.Fonts.roadName)
-                                .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                        }
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+        VStack(spacing: -cardOverlap) {
+            // 1번째 안내 — 앞 (zIndex 높음)
+            if let current = currentManeuver {
+                currentCard(current)
+                    .zIndex(1)
             }
 
-            // Next maneuver (1st와 동일 레이아웃, 크기만 축소)
-            if let next = nextManeuver {
-                Divider()
-                HStack(spacing: 10) {
-                    Image(systemName: next.turnType.iconName)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                        .frame(width: 30, height: 30)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(formatDistance(next.distance))
-                            .font(.system(size: 20, weight: .bold).monospacedDigit())
-                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-
-                        Text(next.instruction)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.Navigation.Colors.secondaryText)
-                            .lineLimit(1)
-
-                        if let roadName = next.roadName {
-                            Text("\(roadName) 방면")
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(Theme.Navigation.Colors.secondaryText.opacity(0.7))
-                        }
-                    }
-
-                    Spacer()
+            // 2번째 안내 — 뒤 (zIndex 낮음, 70% 너비, 좌측 정렬)
+            if let next = nextManeuver, currentManeuver != nil {
+                GeometryReader { geo in
+                    nextCard(next)
+                        .frame(width: geo.size.width * 0.7)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .frame(height: nextCardHeight)
+                .zIndex(0)
             }
         }
-        .background(Theme.Navigation.Colors.bannerBackground)
+    }
+
+    // MARK: - Cards
+
+    @ViewBuilder
+    private func currentCard(_ maneuver: ManeuverInfo) -> some View {
+        HStack(spacing: 14) {
+            turnIcon(maneuver.turnType, size: Theme.Navigation.Sizes.maneuverIconSize, weight: Theme.Navigation.Sizes.maneuverIconWeight)
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(formatDistance(maneuver.distance))
+                    .font(Theme.Navigation.Fonts.maneuverDistance)
+                    .foregroundStyle(.white)
+
+                Text(maneuver.instruction)
+                    .font(Theme.Navigation.Fonts.maneuverInstruction)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+
+                if let roadName = maneuver.roadName {
+                    Text("\(roadName) 방면")
+                        .font(Theme.Navigation.Fonts.roadName)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Theme.Navigation.Colors.bannerPrimary)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+    }
+
+    @ViewBuilder
+    private func nextCard(_ maneuver: ManeuverInfo) -> some View {
+        HStack(spacing: 10) {
+            turnIcon(maneuver.turnType, size: 28, weight: .semibold)
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 36, height: 36)
+
+            Text(formatDistance(maneuver.distance))
+                .font(.system(size: 18, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.85))
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, cardOverlap + 8)
+        .padding(.bottom, 10)
+        .background(Theme.Navigation.Colors.bannerSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 3)
     }
 
     // MARK: - Helpers
+
+    @ViewBuilder
+    private func turnIcon(_ turnType: TurnType, size: CGFloat, weight: Font.Weight) -> some View {
+        Image(systemName: turnType.iconName)
+            .font(.system(size: size, weight: weight))
+    }
 
     private func formatDistance(_ meters: CLLocationDistance) -> String {
         if meters >= 1000 {
             return String(format: "%.1fkm", meters / 1000)
         }
         return "\(Int(meters))m"
-    }
-
-    private func directionText(_ turnType: TurnType) -> String {
-        switch turnType {
-        case .straight: return "직진"
-        case .leftTurn: return "좌회전"
-        case .rightTurn: return "우회전"
-        case .uTurn: return "유턴"
-        case .leftMerge: return "왼쪽 합류"
-        case .rightMerge: return "오른쪽 합류"
-        case .leftExit: return "왼쪽 출구"
-        case .rightExit: return "오른쪽 출구"
-        case .destination: return "도착"
-        case .unknown: return ""
-        }
     }
 }

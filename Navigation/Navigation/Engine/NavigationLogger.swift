@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 import os
 
 /// 네비게이션 엔진 디버그 로그 시스템
@@ -154,6 +155,41 @@ final class NavigationLogger {
     func logRerouteMisaligned(routeBearing: CLLocationDirection, userHeading: CLLocationDirection, delta: Double) {
         guard level >= .stateChangesOnly else { return }
         logger.warning("[Reroute] ⚠️ misaligned route — heading=\(String(format: "%.0f", userHeading))° routeBearing=\(String(format: "%.0f", routeBearing))° Δ=\(String(format: "%.0f", delta))°")
+    }
+
+    // MARK: - Raw Route (API 응답 원본)
+
+    private let rawLogger = Logger(subsystem: "com.routin.navigation", category: "RawRoute")
+
+    func logRawKakaoRoute(_ kakaoRoute: KakaoRouteResponse.KakaoRoute) {
+        let dist = kakaoRoute.summary?.distance ?? 0
+        let dur  = kakaoRoute.summary?.duration ?? 0
+        rawLogger.debug("━━━ [RAW Kakao] dist=\(dist)m dur=\(dur)s resultCode=\(kakaoRoute.resultCode)")
+        let sections = kakaoRoute.sections ?? []
+        rawLogger.debug("  sections=\(sections.count) totalRoads=\(sections.reduce(0) { $0 + $1.roads.count }) totalGuides=\(sections.reduce(0) { $0 + $1.guides.count })")
+        for (si, section) in sections.enumerated() {
+            let vertexCount = section.roads.reduce(0) { $0 + $1.vertexes.count / 2 }
+            rawLogger.debug("  section[\(si)] dist=\(section.distance)m dur=\(section.duration)s vertices=\(vertexCount)pts guides=\(section.guides.count)")
+            for (gi, guide) in section.guides.enumerated() {
+                rawLogger.debug("    guide[\(gi)] type=\(guide.type) dist=\(guide.distance)m dur=\(guide.duration)s name='\(guide.name)' guidance='\(guide.guidance)' xy=(\(String(format: "%.6f", guide.y)),\(String(format: "%.6f", guide.x)))")
+            }
+        }
+        rawLogger.debug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    }
+
+    func logRawAppleRoute(_ mkRoute: MKRoute) {
+        rawLogger.debug("━━━ [RAW Apple] name='\(mkRoute.name)' dist=\(String(format: "%.0f", mkRoute.distance))m time=\(Int(mkRoute.expectedTravelTime))s")
+        rawLogger.debug("  transportType=\(mkRoute.transportType.rawValue) hasHighways=\(mkRoute.hasHighways) hasTolls=\(mkRoute.hasTolls)")
+        rawLogger.debug("  polylinePts=\(mkRoute.polyline.pointCount) steps=\(mkRoute.steps.count)")
+        if !mkRoute.advisoryNotices.isEmpty {
+            rawLogger.debug("  advisoryNotices=\(mkRoute.advisoryNotices.joined(separator: " | "))")
+        }
+        for (i, step) in mkRoute.steps.enumerated() {
+            let notice = step.notice.map { " notice='\($0)'" } ?? ""
+            rawLogger.debug("  step[\(i)] dist=\(String(format: "%.0f", step.distance))m polylinePts=\(step.polyline.pointCount) transportType=\(step.transportType.rawValue)\(notice)")
+            rawLogger.debug("    instructions='\(step.instructions)'")
+        }
+        rawLogger.debug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
 
     // MARK: - Route

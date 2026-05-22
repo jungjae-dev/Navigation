@@ -2,6 +2,9 @@ import UIKit
 import MapKit
 import SwiftUI
 import Combine
+import OSLog
+
+private let navLogger = Logger(subsystem: "nav.ui", category: "NavigationVC")
 
 /// 주행 화면 (지도 + 아바타 + 폴리라인 + 카메라 + 전체 UI)
 final class NavigationViewController: UIViewController {
@@ -47,9 +50,7 @@ final class NavigationViewController: UIViewController {
     private var arrivalHostingController: UIHostingController<ArrivalPopupView>?
 
     // UI 요소
-    private let recenterButton = UIButton(type: .system)
-    private let muteButton = UIButton(type: .system)
-    private var isMuted = false
+    private var recenterHostingController: UIHostingController<RecenterButton>?
     private let gpsStatusIcon = UIImageView()
     private let rerouteBannerView = UIView()
     private let rerouteBannerLabel = UILabel()
@@ -61,8 +62,10 @@ final class NavigationViewController: UIViewController {
         return f
     }()
 
-    // 재탐색 버튼
-    private let rerouteButton = UIButton(type: .system)
+    // 가상 주행 컨트롤 (virtualDriveDriver != nil 일 때만 표시)
+    private var virtualDriveDriver: VirtualDriveDriver?
+    private var vdControlHostingController: UIHostingController<VirtualDriveControlPanel>?
+    private var vdControlViewModel: VirtualDriveControlViewModel?
 
     /// 주행 종료 콜백
     var onDismiss: (() -> Void)?
@@ -76,11 +79,13 @@ final class NavigationViewController: UIViewController {
 
     // MARK: - Init
 
-    init(route: Route, transportMode: TransportMode, destinationName: String? = nil) {
+    init(route: Route, transportMode: TransportMode, destinationName: String? = nil, virtualDriveDriver: VirtualDriveDriver? = nil) {
         self.route = route
         self.transportMode = transportMode
         self.destinationName = destinationName
+        self.virtualDriveDriver = virtualDriveDriver
         super.init(nibName: nil, bundle: nil)
+        logRoute(route)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -100,11 +105,10 @@ final class NavigationViewController: UIViewController {
         setupBottomBar()
         setupSpeedometer()
         setupRecenterButton()
-        setupMuteButton()
         setupGPSStatusIcon()
-        setupRerouteButton()
         setupRerouteBanner()
         setupGestureDetection()
+        if virtualDriveDriver != nil { setupVirtualDriveControls() }
         startDisplayLink()
     }
 
@@ -128,6 +132,7 @@ final class NavigationViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopDisplayLink()
+        vdControlViewModel?.cancel()
     }
 
     // MARK: - Bind Engine
@@ -181,11 +186,54 @@ final class NavigationViewController: UIViewController {
                 }
             }
             .store(in: &cancellables)
+
+        // 현재 guide 값이 있으면 즉시 동기 적용 — .receive(on: DispatchQueue.main)의 비동기 딜레이 보완
+        if let current = guide.value {
+            handleGuide(current)
+        }
+    }
+
+    // MARK: - Debug Logging
+
+    private func logRoute(_ route: Route) {
+        navLogger.debug("━━━ [ROUTE] provider=\(String(describing: route.provider), privacy: .public) mode=\(String(describing: route.transportMode), privacy: .public) dist=\(String(format: "%.0f", route.distance), privacy: .public)m time=\(Int(route.expectedTravelTime / 60), privacy: .public)분 pts=\(route.polylineCoordinates.count, privacy: .public)")
+        for (i, step) in route.steps.enumerated() {
+            let road = step.roadName.map { "→\($0)" } ?? ""
+            let dur  = step.duration.map { "(\(Int($0))s)" } ?? ""
+            navLogger.debug("  step[\(i, privacy: .public)] \(String(describing: step.turnType), privacy: .public) \(String(format: "%.0f", step.distance), privacy: .public)m \(dur, privacy: .public) \(step.instructions, privacy: .public) \(road, privacy: .public)")
+        }
+    }
+
+    private var guideLogCounter = 0
+    private func logGuide(_ guide: NavigationGuide) {
+        guideLogCounter += 1
+        let maneuverChanged = guide.currentManeuver?.instruction != currentGuide?.currentManeuver?.instruction
+        guard guideLogCounter % 5 == 1 || maneuverChanged else { return }
+
+        navLogger.debug("── [GUIDE #\(self.guideLogCounter, privacy: .public)] state=\(String(describing: guide.state), privacy: .public) speed=\(String(format: "%.1f", guide.speed * 3.6), privacy: .public)km/h gps=\(guide.isGPSValid, privacy: .public) matched=\(guide.isMatched, privacy: .public)")
+        navLogger.debug("   remain dist=\(String(format: "%.0f", guide.remainingDistance), privacy: .public)m time=\(Int(guide.remainingTime / 60), privacy: .public)분 eta=\(guide.eta.formatted(date: .omitted, time: .shortened), privacy: .public)")
+        if let cur = guide.currentManeuver {
+            let road = cur.roadName.map { "[\($0)]" } ?? ""
+            navLogger.debug("   current \(String(describing: cur.turnType), privacy: .public) \(String(format: "%.0f", cur.distance), privacy: .public)m | \(cur.instruction, privacy: .public) \(road, privacy: .public)")
+        } else {
+            navLogger.debug("   current (없음)")
+        }
+        if let nxt = guide.nextManeuver {
+            let road = nxt.roadName.map { "[\($0)]" } ?? ""
+            navLogger.debug("   next    \(String(describing: nxt.turnType), privacy: .public) \(String(format: "%.0f", nxt.distance), privacy: .public)m | \(nxt.instruction, privacy: .public) \(road, privacy: .public)")
+        } else {
+            navLogger.debug("   next    (없음)")
+        }
+        if let voice = guide.voiceCommand {
+            navLogger.debug("   voice   \(String(describing: voice), privacy: .public)")
+        }
     }
 
     // MARK: - Route Update (reroute 시)
 
     private func applyRouteUpdate(_ newRoute: Route) {
+        navLogger.debug("⚡ [REROUTE] 새 경로 적용")
+        logRoute(newRoute)
         route = newRoute
 
         // 기존 overlay 제거 후 새 polyline 추가
@@ -208,6 +256,7 @@ final class NavigationViewController: UIViewController {
     // MARK: - Handle Guide
 
     private func handleGuide(_ guide: NavigationGuide) {
+        logGuide(guide)
         currentGuide = guide
         currentSpeed = guide.speed
         let targetAltitude = NavigationCameraHelper.altitude(for: guide.speed, mode: transportMode)
@@ -308,9 +357,9 @@ final class NavigationViewController: UIViewController {
 
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            hosting.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
         ])
         bannerHostingController = hosting
     }
@@ -337,8 +386,8 @@ final class NavigationViewController: UIViewController {
 
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             hosting.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
         bottomBarHostingController = hosting
@@ -363,7 +412,7 @@ final class NavigationViewController: UIViewController {
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            hosting.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -90),
+            hosting.view.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 100),
         ])
         speedometerHostingController = hosting
     }
@@ -375,56 +424,20 @@ final class NavigationViewController: UIViewController {
     // MARK: - Setup: Recenter Button
 
     private func setupRecenterButton() {
-        recenterButton.setImage(
-            UIImage(systemName: "location.fill")?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-            ), for: .normal
-        )
-        configureFloatingButton(recenterButton)
-        recenterButton.isHidden = true
-        recenterButton.addTarget(self, action: #selector(recenterTapped), for: .touchUpInside)
+        let hosting = makeHostingController(RecenterButton { [weak self] in
+            self?.enableAutoTracking()
+        })
+        hosting.view.isHidden = true
 
-        view.addSubview(recenterButton)
+        guard let bottomBarView = bottomBarHostingController?.view else { assertionFailure("bottomBarHostingController must be set before setupRecenterButton"); return }
+        view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
-            recenterButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            recenterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -150),
-            recenterButton.widthAnchor.constraint(equalToConstant: 44),
-            recenterButton.heightAnchor.constraint(equalToConstant: 44),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            hosting.view.bottomAnchor.constraint(equalTo: bottomBarView.topAnchor, constant: -16),
+            hosting.view.widthAnchor.constraint(equalToConstant: 44),
+            hosting.view.heightAnchor.constraint(equalToConstant: 44),
         ])
-    }
-
-    @objc private func recenterTapped() { enableAutoTracking() }
-
-    // MARK: - Setup: Mute Button
-
-    private func setupMuteButton() {
-        updateMuteButtonIcon()
-        configureFloatingButton(muteButton)
-        muteButton.addTarget(self, action: #selector(muteTapped), for: .touchUpInside)
-
-        view.addSubview(muteButton)
-        NSLayoutConstraint.activate([
-            muteButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            muteButton.bottomAnchor.constraint(equalTo: recenterButton.topAnchor, constant: -12),
-            muteButton.widthAnchor.constraint(equalToConstant: 44),
-            muteButton.heightAnchor.constraint(equalToConstant: 44),
-        ])
-    }
-
-    @objc private func muteTapped() {
-        isMuted.toggle()
-        updateMuteButtonIcon()
-        VoiceTTSPlayer.shared.setMuted(isMuted)
-    }
-
-    private func updateMuteButtonIcon() {
-        let iconName = isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
-        muteButton.setImage(
-            UIImage(systemName: iconName)?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            ), for: .normal
-        )
-        muteButton.tintColor = isMuted ? .systemGray : .systemBlue
+        recenterHostingController = hosting
     }
 
     // MARK: - Setup: GPS Status Icon
@@ -432,14 +445,15 @@ final class NavigationViewController: UIViewController {
     private func setupGPSStatusIcon() {
         gpsStatusIcon.image = UIImage(systemName: "antenna.radiowaves.left.and.right.slash")?
             .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium))
-        gpsStatusIcon.tintColor = .systemOrange
+        gpsStatusIcon.tintColor = Theme.Navigation.Colors.gpsIcon
         gpsStatusIcon.translatesAutoresizingMaskIntoConstraints = false
         gpsStatusIcon.isHidden = true
 
+        guard let bannerView = bannerHostingController?.view else { assertionFailure("bannerHostingController must be set before this setup"); return }
         view.addSubview(gpsStatusIcon)
         NSLayoutConstraint.activate([
             gpsStatusIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            gpsStatusIcon.bottomAnchor.constraint(equalTo: muteButton.topAnchor, constant: -12),
+            gpsStatusIcon.topAnchor.constraint(equalTo: bannerView.bottomAnchor, constant: 20),
             gpsStatusIcon.widthAnchor.constraint(equalToConstant: 24),
             gpsStatusIcon.heightAnchor.constraint(equalToConstant: 24),
         ])
@@ -496,30 +510,6 @@ final class NavigationViewController: UIViewController {
         gpsStatusIcon.isHidden = guide.isGPSValid
     }
 
-    // MARK: - Setup: Reroute Button
-
-    private func setupRerouteButton() {
-        rerouteButton.setImage(
-            UIImage(systemName: "arrow.triangle.2.circlepath")?.withConfiguration(
-                UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            ), for: .normal
-        )
-        configureFloatingButton(rerouteButton)
-        rerouteButton.addTarget(self, action: #selector(rerouteTapped), for: .touchUpInside)
-
-        view.addSubview(rerouteButton)
-        NSLayoutConstraint.activate([
-            rerouteButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            rerouteButton.bottomAnchor.constraint(equalTo: gpsStatusIcon.topAnchor, constant: -12),
-            rerouteButton.widthAnchor.constraint(equalToConstant: 44),
-            rerouteButton.heightAnchor.constraint(equalToConstant: 44),
-        ])
-    }
-
-    @objc private func rerouteTapped() {
-        onReroute?()
-    }
-
     // MARK: - Setup: Reroute Banner
 
     private func setupRerouteBanner() {
@@ -548,6 +538,26 @@ final class NavigationViewController: UIViewController {
 
     private func updateRerouteBanner(_ guide: NavigationGuide) {
         rerouteBannerView.isHidden = guide.state != .rerouting
+    }
+
+    // MARK: - Setup: Virtual Drive Controls
+
+    private func setupVirtualDriveControls() {
+        guard let driver = virtualDriveDriver else { return }
+
+        let viewModel = VirtualDriveControlViewModel(driver: driver)
+        let panel = VirtualDriveControlPanel(viewModel: viewModel)
+        let hosting = makeHostingController(panel)
+
+        guard let bannerView = bannerHostingController?.view else { assertionFailure("bannerHostingController must be set before this setup"); return }
+        view.addSubview(hosting.view)
+        NSLayoutConstraint.activate([
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.topAnchor.constraint(equalTo: bannerView.bottomAnchor, constant: 4),
+        ])
+        vdControlHostingController = hosting
+        vdControlViewModel = viewModel
     }
 
     // MARK: - Map Match Debug Visualization
@@ -647,14 +657,14 @@ final class NavigationViewController: UIViewController {
 
     private func disableAutoTracking() {
         isAutoTracking = false
-        recenterButton.isHidden = false
+        recenterHostingController?.view.isHidden = false
         resetAutoTrackTimer()
         vehicle3DView?.is3DVisible = false
     }
 
     private func enableAutoTracking() {
         isAutoTracking = true
-        recenterButton.isHidden = true
+        recenterHostingController?.view.isHidden = true
         autoTrackTimer?.invalidate()
         autoTrackTimer = nil
         let isModel3D = VehicleIconService.shared.iconSourcePublisher.value.isModel3D
@@ -719,7 +729,7 @@ final class NavigationViewController: UIViewController {
 
     /// 플로팅 버튼 공통 스타일
     private func configureFloatingButton(_ button: UIButton) {
-        button.backgroundColor = .systemBackground
+        button.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.95)
         button.tintColor = .systemBlue
         button.layer.cornerRadius = 22
         button.layer.shadowColor = UIColor.black.cgColor

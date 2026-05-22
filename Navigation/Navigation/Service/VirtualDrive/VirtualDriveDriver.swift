@@ -80,4 +80,33 @@ final class VirtualDriveDriver {
     func setSpeedMultiplier(_ multiplier: Double) {
         simulator.speedMultiplier = max(0.1, min(10.0, multiplier))
     }
+
+    // MARK: - Seek
+
+    func seek(to progress: Double) {
+        simulator.seek(to: progress)
+    }
+
+    func seekToNextStep() {
+        simulator.seekToNextBreakpoint()
+    }
+
+    func seekToPreviousStep() {
+        simulator.seekToPreviousBreakpoint()
+    }
+
+    /// Route steps 기반으로 스텝 브레이크포인트 계산 후 로드
+    func loadSteps(_ steps: [RouteStep]) {
+        guard !steps.isEmpty else { return }
+        let totalDistance = steps.reduce(0) { $0 + $1.distance }
+        guard totalDistance > 0 else { return }
+
+        var accumulated: CLLocationDistance = 0
+        var breakpoints: [Double] = []
+        for step in steps {
+            breakpoints.append(accumulated / totalDistance)
+            accumulated += step.distance
+        }
+        simulator.loadBreakpoints(breakpoints)
+    }
 }
