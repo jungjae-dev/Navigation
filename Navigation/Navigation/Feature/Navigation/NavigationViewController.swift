@@ -67,6 +67,10 @@ final class NavigationViewController: UIViewController {
     // 재탐색 버튼
     private let rerouteButton = UIButton(type: .system)
 
+    // 가상 주행 컨트롤 (virtualDriveDriver != nil 일 때만 표시)
+    private var virtualDriveDriver: VirtualDriveDriver?
+    private var vdControlHostingController: UIHostingController<VirtualDriveControlPanel>?
+
     /// 주행 종료 콜백
     var onDismiss: (() -> Void)?
 
@@ -79,10 +83,11 @@ final class NavigationViewController: UIViewController {
 
     // MARK: - Init
 
-    init(route: Route, transportMode: TransportMode, destinationName: String? = nil) {
+    init(route: Route, transportMode: TransportMode, destinationName: String? = nil, virtualDriveDriver: VirtualDriveDriver? = nil) {
         self.route = route
         self.transportMode = transportMode
         self.destinationName = destinationName
+        self.virtualDriveDriver = virtualDriveDriver
         super.init(nibName: nil, bundle: nil)
         logRoute(route)
     }
@@ -109,6 +114,7 @@ final class NavigationViewController: UIViewController {
         setupRerouteButton()
         setupRerouteBanner()
         setupGestureDetection()
+        if virtualDriveDriver != nil { setupVirtualDriveControls() }
         startDisplayLink()
     }
 
@@ -591,6 +597,25 @@ final class NavigationViewController: UIViewController {
 
     private func updateRerouteBanner(_ guide: NavigationGuide) {
         rerouteBannerView.isHidden = guide.state != .rerouting
+    }
+
+    // MARK: - Setup: Virtual Drive Controls
+
+    private func setupVirtualDriveControls() {
+        guard let driver = virtualDriveDriver else { return }
+
+        let viewModel = VirtualDriveControlViewModel(driver: driver)
+        let panel = VirtualDriveControlPanel(viewModel: viewModel)
+        let hosting = makeHostingController(panel)
+
+        guard let bannerView = bannerHostingController?.view else { return }
+        view.addSubview(hosting.view)
+        NSLayoutConstraint.activate([
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.view.topAnchor.constraint(equalTo: bannerView.bottomAnchor),
+        ])
+        vdControlHostingController = hosting
     }
 
     // MARK: - Map Match Debug Visualization

@@ -92,6 +92,44 @@ final class LocationSimulator {
         speedMultiplier = speeds[(idx + 1) % speeds.count]
     }
 
+    // MARK: - Public: Seek
+
+    func seek(to progress: Double) {
+        let wasPlaying = isPlayingPublisher.value
+        timer?.invalidate()
+        timer = nil
+
+        currentIndex = Int(progress * Double(max(1, locations.count - 1)))
+        currentIndex = max(0, min(currentIndex, locations.count - 1))
+        progressPublisher.send(Double(currentIndex) / Double(max(1, locations.count - 1)))
+
+        if wasPlaying { scheduleNext() }
+    }
+
+    // MARK: - Public: Step Breakpoints
+
+    private var stepBreakpoints: [Double] = []
+
+    func loadBreakpoints(_ breakpoints: [Double]) {
+        stepBreakpoints = breakpoints.sorted()
+    }
+
+    func seekToNextBreakpoint() {
+        let current = progressPublisher.value
+        if let next = stepBreakpoints.first(where: { $0 > current + 0.01 }) {
+            seek(to: next)
+        }
+    }
+
+    func seekToPreviousBreakpoint() {
+        let current = progressPublisher.value
+        if let prev = stepBreakpoints.last(where: { $0 < current - 0.01 }) {
+            seek(to: prev)
+        } else {
+            seek(to: 0)
+        }
+    }
+
     // MARK: - Private: Schedule
 
     private func scheduleNext() {

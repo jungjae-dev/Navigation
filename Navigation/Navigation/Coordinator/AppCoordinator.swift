@@ -760,6 +760,7 @@ final class AppCoordinator: NSObject, Coordinator {
             print("[NAV] GPS=Simul (가상 주행)")
             let driver = VirtualDriveDriver()
             driver.start(polyline: route.polylineCoordinates, transportMode: transportMode)
+            driver.loadSteps(route.steps)
             activeVirtualDriveDriver = driver
 
             locationPublisher = driver.locationPublisher
@@ -793,7 +794,12 @@ final class AppCoordinator: NSObject, Coordinator {
         dismissAllDrawers { [weak self] in
             guard let self else { return }
 
-            let navVC = NavigationViewController(route: route, transportMode: transportMode, destinationName: resolvedDestination.name)
+            let navVC = NavigationViewController(
+                route: route,
+                transportMode: transportMode,
+                destinationName: resolvedDestination.name,
+                virtualDriveDriver: self.activeVirtualDriveDriver
+            )
             navVC.bind(
                 guide: self.sessionManager.guidePublisher,
                 route: self.sessionManager.routePublisher

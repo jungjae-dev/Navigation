@@ -68,10 +68,8 @@ struct ManeuverBannerView: View {
     /// rightMerge는 arrow.merge를 좌우 반전해서 오른쪽 합류 방향으로 표현
     @ViewBuilder
     private func turnIcon(_ turnType: TurnType, size: CGFloat, weight: Font.Weight) -> some View {
-        let mirrored = turnType == .leftMerge
         Image(systemName: turnType.iconName)
             .font(.system(size: size, weight: weight))
-            .scaleEffect(x: mirrored ? -1 : 1, y: 1)
     }
 
     private func formatDistance(_ meters: CLLocationDistance) -> String {
