@@ -104,12 +104,25 @@ enum TurnType: Sendable, Equatable {
         // 3. 진입/합류
         if text.contains("진입") || text.contains("합류") { return .rightMerge }
 
-        // 4. 회전
+        // 4. 차선 유지 (merge) — "오른쪽/왼쪽" 단순 매핑보다 먼저 체크
+        if text.contains("차선 유지") || text.contains("차선을 유지") {
+            if text.contains("오른쪽") { return .rightMerge }
+            if text.contains("왼쪽") { return .leftMerge }
+            return .rightMerge
+        }
+
+        // 5. 완만한 회전 (merge)
+        if text.contains("완만히") || text.contains("완만하게") {
+            if text.contains("좌회전") { return .leftMerge }
+            return .rightMerge
+        }
+
+        // 6. 회전
         if text.contains("우회전") { return .rightTurn }
         if text.contains("좌회전") { return .leftTurn }
         if text.contains("유턴") || text.contains("u턴") { return .uTurn }
 
-        // 5. 방향 유지 / 완만한 회전 (Apple: "오른쪽 차선 유지", "완만히 우회전")
+        // 7. 방향 키워드 (위 패턴에서 걸러지지 않은 경우)
         if text.contains("오른쪽") { return .rightTurn }
         if text.contains("왼쪽") { return .leftTurn }
 
@@ -120,8 +133,11 @@ enum TurnType: Sendable, Equatable {
         if text.contains("destination") || text.contains("arrive") { return .destination }
         if text.contains("exit") { return .rightExit }
         if text.contains("merge") { return .rightMerge }
+        // keep/slight — "right"/"left" 단순 매핑보다 먼저 체크
+        if text.contains("keep right") || text.contains("slight right") { return .rightMerge }
+        if text.contains("keep left")  || text.contains("slight left")  { return .leftMerge }
         if text.contains("turn right") || text.contains("right turn") { return .rightTurn }
-        if text.contains("turn left") || text.contains("left turn") { return .leftTurn }
+        if text.contains("turn left")  || text.contains("left turn")  { return .leftTurn }
         if text.contains("u-turn") || text.contains("u turn") { return .uTurn }
         if text.contains("right") { return .rightTurn }
         if text.contains("left") { return .leftTurn }
