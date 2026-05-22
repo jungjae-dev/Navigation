@@ -9,12 +9,10 @@ final class FallbackSearchService: SearchProviding {
     let errorPublisher = PassthroughSubject<Error, Never>()
 
     private let primary: SearchProviding
-    private let fallback: SearchProviding
     private var cancellables = Set<AnyCancellable>()
 
-    init(primary: SearchProviding, fallback: SearchProviding) {
+    init(primary: SearchProviding) {
         self.primary = primary
-        self.fallback = fallback
         bindPrimary()
     }
 
@@ -24,7 +22,6 @@ final class FallbackSearchService: SearchProviding {
 
     func updateRegion(_ region: MKCoordinateRegion) {
         primary.updateRegion(region)
-        fallback.updateRegion(region)
     }
 
     func updateQuery(_ fragment: String) {
@@ -35,7 +32,8 @@ final class FallbackSearchService: SearchProviding {
         do {
             return try await primary.search(for: completion)
         } catch let error as LBSError where error == .quotaExceeded {
-            return try await fallback.search(query: completion.title, region: nil)
+            NotificationCenter.default.post(name: .lbsSearchQuotaExceeded, object: nil)
+            throw error
         }
     }
 
@@ -43,7 +41,8 @@ final class FallbackSearchService: SearchProviding {
         do {
             return try await primary.search(query: query, region: region, regionMode: regionMode)
         } catch let error as LBSError where error == .quotaExceeded {
-            return try await fallback.search(query: query, region: region, regionMode: regionMode)
+            NotificationCenter.default.post(name: .lbsSearchQuotaExceeded, object: nil)
+            throw error
         }
     }
 
@@ -51,7 +50,8 @@ final class FallbackSearchService: SearchProviding {
         do {
             return try await primary.searchCategory(category, region: region, regionMode: regionMode)
         } catch let error as LBSError where error == .quotaExceeded {
-            return try await fallback.search(query: category.query, region: region, regionMode: regionMode)
+            NotificationCenter.default.post(name: .lbsSearchQuotaExceeded, object: nil)
+            throw error
         }
     }
 
@@ -63,7 +63,6 @@ final class FallbackSearchService: SearchProviding {
 
     func cancelCurrentSearch() {
         primary.cancelCurrentSearch()
-        fallback.cancelCurrentSearch()
     }
 
     // MARK: - Private

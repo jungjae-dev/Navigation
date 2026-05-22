@@ -6,35 +6,27 @@ final class SearchViewModel {
 
     // MARK: - Publishers
 
-    let completions: CurrentValueSubject<[SearchCompletion], Never>
-    let queryCompletions: CurrentValueSubject<[SearchCompletion], Never>
-    let isLoading: CurrentValueSubject<Bool, Never>
-    let hasMoreResults: CurrentValueSubject<Bool, Never>
+    let completions = CurrentValueSubject<[SearchCompletion], Never>([])
+    let queryCompletions = CurrentValueSubject<[SearchCompletion], Never>([])
+    let isLoading = CurrentValueSubject<Bool, Never>(false)
+    let hasMoreResults = CurrentValueSubject<Bool, Never>(false)
     let errorMessage = CurrentValueSubject<String?, Never>(nil)
     let recentSearches = CurrentValueSubject<[SearchHistory], Never>([])
 
     // MARK: - Private
 
-    private let searchService: SearchProviding
+    private var searchService: SearchProviding
     private let dataService: DataService
     private var cancellables = Set<AnyCancellable>()
+    private var serviceCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
     init(searchService: SearchProviding, dataService: DataService = .shared) {
         self.searchService = searchService
         self.dataService = dataService
-        self.completions = searchService.completionsPublisher
-        self.queryCompletions = searchService.queryCompletionsPublisher
-        self.isLoading = searchService.isSearchingPublisher
-        self.hasMoreResults = searchService.hasMoreResults
-
-        searchService.errorPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] error in
-                self?.errorMessage.send("검색 오류: \(error.localizedDescription)")
-            }
-            .store(in: &cancellables)
+        bindSearchService()
+        observeProviderChange()
     }
 
     // MARK: - Actions
@@ -110,5 +102,53 @@ final class SearchViewModel {
     func clearSearch() {
         searchService.updateQuery("")
         errorMessage.send(nil)
+    }
+
+    // MARK: - Private
+
+    private func bindSearchService() {
+        serviceCancellables.removeAll()
+
+        searchService.completionsPublisher
+            .sink { [weak self] in self?.completions.send($0) }
+            .store(in: &serviceCancellables)
+
+        searchService.queryCompletionsPublisher
+            .sink { [weak self] in self?.queryCompletions.send($0) }
+            .store(in: &serviceCancellables)
+
+        searchService.isSearchingPublisher
+            .sink { [weak self] in self?.isLoading.send($0) }
+            .store(in: &serviceCancellables)
+
+        searchService.hasMoreResults
+            .sink { [weak self] in self?.hasMoreResults.send($0) }
+            .store(in: &serviceCancellables)
+
+        searchService.errorPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.errorMessage.send("검색 오류: \(error.localizedDescription)")
+            }
+            .store(in: &serviceCancellables)
+    }
+
+    private func observeProviderChange() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleProviderChanged),
+            name: .lbsSearchProviderChanged,
+            object: nil
+        )
+    }
+
+    @objc private func handleProviderChanged() {
+        DispatchQueue.main.async { [weak self] in
+            self?.searchService.cancelCurrentSearch()
+            self?.searchService = LBSServiceProvider.shared.search
+            self?.bindSearchService()
+            self?.completions.send([])
+            self?.queryCompletions.send([])
+        }
     }
 }

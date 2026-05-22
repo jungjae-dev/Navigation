@@ -73,8 +73,11 @@ final class SettingsViewModel {
     let hapticEnabled = CurrentValueSubject<Bool, Never>(true)
     let vehiclePreset = CurrentValueSubject<VehiclePreset, Never>(.sedan)
     let vehicle3DEnabled = CurrentValueSubject<Bool, Never>(false)
-    let lbsProvider = CurrentValueSubject<LBSProviderType, Never>(
-        LBSServiceProvider.shared.providerType
+    let searchProvider = CurrentValueSubject<LBSProviderType, Never>(
+        LBSServiceProvider.shared.searchProviderType
+    )
+    let routeProvider = CurrentValueSubject<LBSProviderType, Never>(
+        LBSServiceProvider.shared.routeProviderType
     )
     let favoriteCount = CurrentValueSubject<Int, Never>(0)
     let searchHistoryCount = CurrentValueSubject<Int, Never>(0)
@@ -168,9 +171,14 @@ final class SettingsViewModel {
         VehicleIconService.shared.selectPreset(preset)
     }
 
-    func setLBSProvider(_ type: LBSProviderType) {
-        LBSServiceProvider.shared.switchProvider(to: type)
-        lbsProvider.send(type)
+    func setSearchProvider(_ type: LBSProviderType) {
+        LBSServiceProvider.shared.switchSearchProvider(to: type)
+        searchProvider.send(type)
+    }
+
+    func setRouteProvider(_ type: LBSProviderType) {
+        LBSServiceProvider.shared.switchRouteProvider(to: type)
+        routeProvider.send(type)
     }
 
     func setVehicle3DEnabled(_ enabled: Bool) {

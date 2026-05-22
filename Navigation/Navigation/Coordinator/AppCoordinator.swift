@@ -469,6 +469,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func searchCategory(_ category: SearchCategory) {
         let region = mapViewController.mapView.region
+        let provider = LBSServiceProvider.shared.searchProviderType.rawValue
 
         Task {
             do {
@@ -479,7 +480,6 @@ final class AppCoordinator: NSObject, Coordinator {
                 )
                 showSearchResults(results, query: category.name)
             } catch {
-                print("[AppCoordinator] Category search failed: \(error.localizedDescription)")
             }
         }
     }
@@ -620,6 +620,7 @@ final class AppCoordinator: NSObject, Coordinator {
         let query = lastSearchQuery
         guard !query.isEmpty else { return }
         let region = mapViewController.mapView.region
+        let provider = LBSServiceProvider.shared.searchProviderType.rawValue
 
         Task {
             do {
@@ -632,7 +633,6 @@ final class AppCoordinator: NSObject, Coordinator {
                 mapViewController.showSearchResults(results)
                 currentDrawer?.updateResults(results)
             } catch {
-                print("[AppCoordinator] Research failed: \(error.localizedDescription)")
             }
         }
     }

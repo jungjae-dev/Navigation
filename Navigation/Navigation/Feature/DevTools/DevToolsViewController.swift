@@ -10,6 +10,12 @@ final class DevToolsViewController: UIViewController {
         case recording = 1
         case files = 2
         case debug = 3
+        case lbsProvider = 4
+    }
+
+    private enum LBSProviderRow: Int, CaseIterable {
+        case searchProvider = 0
+        case routeProvider = 1
     }
 
     private enum GPSRow: Int, CaseIterable {
@@ -140,6 +146,13 @@ final class DevToolsViewController: UIViewController {
             }
             .store(in: &cancellables)
 
+        Publishers.CombineLatest(viewModel.searchProvider, viewModel.routeProvider)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _, _ in
+                self?.tableView.reloadSections(IndexSet(integer: Section.lbsProvider.rawValue), with: .none)
+            }
+            .store(in: &cancellables)
+
         Publishers.CombineLatest(
             viewModel.locationType,
             viewModel.selectedRecordingFileName
@@ -227,6 +240,7 @@ extension DevToolsViewController: UITableViewDataSource {
         case .recording: return RecordingRow.allCases.count
         case .files: return FilesRow.allCases.count
         case .debug: return DebugRow.allCases.count
+        case .lbsProvider: return LBSProviderRow.allCases.count
         }
     }
 
@@ -237,6 +251,7 @@ extension DevToolsViewController: UITableViewDataSource {
         case .recording: return "녹화"
         case .files: return "파일 관리"
         case .debug: return "디버그"
+        case .lbsProvider: return "위치 서비스"
         }
     }
 
@@ -341,6 +356,23 @@ extension DevToolsViewController: UITableViewDataSource {
                 cell.accessoryType = .disclosureIndicator
             }
 
+        case .lbsProvider:
+            guard let row = LBSProviderRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .searchProvider:
+                config.text = "검색 제공자"
+                config.secondaryText = viewModel.searchProvider.value.displayName
+                config.image = UIImage(systemName: "magnifyingglass")
+                config.imageProperties.tintColor = Theme.Colors.primary
+                cell.accessoryType = .disclosureIndicator
+            case .routeProvider:
+                config.text = "경로 제공자"
+                config.secondaryText = viewModel.routeProvider.value.displayName
+                config.image = UIImage(systemName: "car.fill")
+                config.imageProperties.tintColor = Theme.Colors.primary
+                cell.accessoryType = .disclosureIndicator
+            }
+
         case .debug:
             guard let row = DebugRow(rawValue: indexPath.row) else { return cell }
             switch row {
@@ -423,6 +455,48 @@ extension DevToolsViewController: UITableViewDelegate {
 
         case .debug:
             break
+
+        case .lbsProvider:
+            guard let row = LBSProviderRow(rawValue: indexPath.row) else { return }
+            switch row {
+            case .searchProvider: showSearchProviderPicker()
+            case .routeProvider: showRouteProviderPicker()
+            }
         }
+    }
+}
+
+// MARK: - LBS Provider Pickers
+
+private extension DevToolsViewController {
+
+    func showSearchProviderPicker() {
+        let alert = UIAlertController(title: "검색 제공자", message: nil, preferredStyle: .actionSheet)
+        for provider in LBSProviderType.allCases {
+            let action = UIAlertAction(title: provider.displayName, style: .default) { [weak self] _ in
+                self?.viewModel.setSearchProvider(provider)
+            }
+            if provider == viewModel.searchProvider.value {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    func showRouteProviderPicker() {
+        let alert = UIAlertController(title: "경로 제공자", message: nil, preferredStyle: .actionSheet)
+        for provider in LBSProviderType.allCases {
+            let action = UIAlertAction(title: provider.displayName, style: .default) { [weak self] _ in
+                self?.viewModel.setRouteProvider(provider)
+            }
+            if provider == viewModel.routeProvider.value {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        present(alert, animated: true)
     }
 }

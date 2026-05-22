@@ -29,24 +29,32 @@ final class FallbackRouteService: RouteProviding {
 
         if isPrimaryAvailable {
             do {
-                return try await primary.calculateRoutes(
+                let routes = try await primary.calculateRoutes(
                     from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
+                logRouteResult(routes, label: "primary")
+                return routes
             } catch let error as LBSError where error == .quotaExceeded {
                 markPrimaryUnavailable()
-                return try await fallback.calculateRoutes(
+                let routes = try await fallback.calculateRoutes(
                     from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
+                logRouteResult(routes, label: "fallback/quota")
+                return routes
             } catch let error as LBSError where error == .noRoutesFound {
-                return try await fallback.calculateRoutes(
+                let routes = try await fallback.calculateRoutes(
                     from: origin, to: destination, heading: heading, transportMode: transportMode
                 )
+                logRouteResult(routes, label: "fallback/noRoute")
+                return routes
             }
         }
 
-        return try await fallback.calculateRoutes(
+        let routes = try await fallback.calculateRoutes(
             from: origin, to: destination, heading: heading, transportMode: transportMode
         )
+        logRouteResult(routes, label: "fallback")
+        return routes
     }
 
     func calculateETA(
@@ -78,8 +86,11 @@ final class FallbackRouteService: RouteProviding {
         isPrimaryAvailable = false
         lastQuotaExceededDate = Date()
         NotificationCenter.default.post(
-            name: .lbsProviderFallbackActivated, object: nil
+            name: .lbsRouteFallbackActivated, object: nil
         )
+    }
+
+    private func logRouteResult(_ result: [Route], label: String) {
     }
 
     private func checkRecovery() {
@@ -90,6 +101,3 @@ final class FallbackRouteService: RouteProviding {
     }
 }
 
-extension Notification.Name {
-    static let lbsProviderFallbackActivated = Notification.Name("lbsProviderFallbackActivated")
-}

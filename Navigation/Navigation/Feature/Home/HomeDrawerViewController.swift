@@ -122,6 +122,18 @@ final class HomeDrawerViewController: UIViewController {
                 self?.collectionView.reloadData()
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reloadCategories),
+            name: .lbsSearchProviderChanged,
+            object: nil
+        )
+    }
+
+    @objc private func reloadCategories() {
+        let count = LBSServiceProvider.shared.search.supportedCategories.count
+        collectionView.reloadSections(IndexSet(integer: HomeSection.categories.rawValue))
     }
 
     // MARK: - Compositional Layout
