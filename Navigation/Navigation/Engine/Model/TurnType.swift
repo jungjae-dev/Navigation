@@ -20,8 +20,8 @@ enum TurnType: Sendable, Equatable {
         case .leftTurn:     return "arrow.turn.up.left"
         case .rightTurn:    return "arrow.turn.up.right"
         case .uTurn:        return "arrow.uturn.left"
-        case .leftMerge:    return "arrow.merge"
-        case .rightMerge:   return "arrow.merge"
+        case .leftMerge:    return "arrow.trianglehead.pull"
+        case .rightMerge:   return "arrow.trianglehead.pull"
         case .leftExit:     return "arrow.turn.up.left"
         case .rightExit:    return "arrow.turn.up.right"
         case .destination:  return "mappin.circle.fill"
@@ -111,13 +111,7 @@ enum TurnType: Sendable, Equatable {
             return .rightMerge
         }
 
-        // 5. 완만한 회전 (merge)
-        if text.contains("완만히") || text.contains("완만하게") {
-            if text.contains("좌회전") { return .leftMerge }
-            return .rightMerge
-        }
-
-        // 6. 회전
+        // 5. 회전
         if text.contains("우회전") { return .rightTurn }
         if text.contains("좌회전") { return .leftTurn }
         if text.contains("유턴") || text.contains("u턴") { return .uTurn }

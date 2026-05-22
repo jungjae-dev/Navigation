@@ -12,8 +12,7 @@ struct ManeuverBannerView: View {
             if let maneuver = currentManeuver {
                 HStack(spacing: 12) {
                     // 회전 아이콘
-                    Image(systemName: maneuver.turnType.iconName)
-                        .font(.system(size: Theme.Navigation.Sizes.maneuverIconSize, weight: .bold))
+                    turnIcon(maneuver.turnType, size: Theme.Navigation.Sizes.maneuverIconSize, weight: .bold)
                         .foregroundStyle(Theme.Navigation.Colors.maneuverIcon)
                         .frame(width: 44, height: 44)
 
@@ -47,8 +46,7 @@ struct ManeuverBannerView: View {
             if let next = nextManeuver {
                 Divider()
                 HStack(spacing: 10) {
-                    Image(systemName: next.turnType.iconName)
-                        .font(.system(size: 20, weight: .semibold))
+                    turnIcon(next.turnType, size: 20, weight: .semibold)
                         .foregroundStyle(Theme.Navigation.Colors.secondaryText)
                         .frame(width: 30, height: 30)
 
@@ -66,6 +64,15 @@ struct ManeuverBannerView: View {
     }
 
     // MARK: - Helpers
+
+    /// rightMerge는 arrow.merge를 좌우 반전해서 오른쪽 합류 방향으로 표현
+    @ViewBuilder
+    private func turnIcon(_ turnType: TurnType, size: CGFloat, weight: Font.Weight) -> some View {
+        let mirrored = turnType == .leftMerge
+        Image(systemName: turnType.iconName)
+            .font(.system(size: size, weight: weight))
+            .scaleEffect(x: mirrored ? -1 : 1, y: 1)
+    }
 
     private func formatDistance(_ meters: CLLocationDistance) -> String {
         if meters >= 1000 {
