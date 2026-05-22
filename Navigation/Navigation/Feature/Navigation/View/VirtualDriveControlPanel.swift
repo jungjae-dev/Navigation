@@ -33,6 +33,10 @@ final class VirtualDriveControlViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    func cancel() {
+        cancellables.removeAll()
+    }
+
     func playPause() {
         guard let driver else { return }
         isPlaying ? driver.pause() : driver.play()
@@ -41,10 +45,6 @@ final class VirtualDriveControlViewModel: ObservableObject {
     func prevStep() { driver?.seekToPreviousStep() }
     func nextStep() { driver?.seekToNextStep() }
     func cycleSpeed() { driver?.cycleSpeed() }
-
-    func onSliderChanged(_ value: Double) {
-        progress = value
-    }
 
     func onSliderCommitted() {
         isDragging = false
@@ -92,7 +92,10 @@ struct VirtualDriveControlPanel: View {
     }
 
     private var speedLabel: String {
-        viewModel.speedMultiplier == 0.5 ? "0.5x" : "\(Int(viewModel.speedMultiplier))x"
+        let v = viewModel.speedMultiplier
+        return v.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(v))x"
+            : String(format: "%.1gx", v)
     }
 
     private func controlButton(icon: String, action: @escaping () -> Void) -> some View {

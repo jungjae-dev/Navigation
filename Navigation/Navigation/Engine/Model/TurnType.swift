@@ -116,11 +116,11 @@ enum TurnType: Sendable, Equatable {
         if text.contains("좌회전") { return .leftTurn }
         if text.contains("유턴") || text.contains("u턴") { return .uTurn }
 
-        // 7. 방향 키워드 (위 패턴에서 걸러지지 않은 경우)
+        // 6. 방향 키워드 (위 패턴에서 걸러지지 않은 경우)
         if text.contains("오른쪽") { return .rightTurn }
         if text.contains("왼쪽") { return .leftTurn }
 
-        // 6. 직진 / 계속 이동
+        // 7. 직진 / 계속 이동
         if text.contains("직진") || text.contains("계속") { return .straight }
 
         // 영어 키워드 (영어 기기 fallback)

@@ -22,12 +22,17 @@ extension Theme {
             static let bottomBarBackground = Color(.systemBackground)
             static let routePolyline = Color.blue
             static let maneuverIcon = Color.blue
-            static let maneuverDistance = Color.blue
+
             static let speedText = Color(.label)
             static let etaText = Color(.label)
             static let secondaryText = Color(.secondaryLabel)
             static let endButton = Color(.systemGray2)
             static let destructive = Color(.systemRed)
+            static let gpsIcon = UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.35, green: 0.60, blue: 1.00, alpha: 1)
+                    : UIColor(red: 0.10, green: 0.37, blue: 0.75, alpha: 1)
+            }
             static let gpsWarning = Color(.systemOrange)
             static let rerouteBanner = Color(.systemYellow).opacity(0.9)
             static let arrivalBackground = Color(.systemBackground)

@@ -4,6 +4,8 @@ import Combine
 
 /// CLLocation 배열을 타이밍에 맞게 재생하는 공통 시뮬레이터
 /// SimulGPSProvider, FileGPSProvider 모두 이 클래스를 사용
+/// Timer와 모든 상태 변경이 메인 스레드에서 동작하므로 @MainActor 격리
+@MainActor
 final class LocationSimulator {
 
     // MARK: - Publishers
@@ -190,7 +192,7 @@ final class LocationSimulator {
 
     /// 폴리라인 + 속도 → 1초 간격의 CLLocation 배열 생성
     /// 각 위치는 속도/heading/timestamp가 계산됨
-    static func generateLocations(
+    nonisolated static func generateLocations(
         polyline: [CLLocationCoordinate2D],
         speedMPS: Double
     ) -> [CLLocation] {
@@ -243,7 +245,7 @@ final class LocationSimulator {
         return locations
     }
 
-    private static func positionAt(
+    nonisolated private static func positionAt(
         distance: CLLocationDistance,
         polyline: [CLLocationCoordinate2D],
         segmentDistances: [CLLocationDistance]
@@ -264,7 +266,7 @@ final class LocationSimulator {
         return (polyline[polyline.count - 1], max(0, segmentDistances.count - 1))
     }
 
-    private static func bearing(
+    nonisolated private static func bearing(
         from: CLLocationCoordinate2D,
         to: CLLocationCoordinate2D
     ) -> CLLocationDirection {

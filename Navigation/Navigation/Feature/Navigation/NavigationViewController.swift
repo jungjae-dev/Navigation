@@ -65,6 +65,7 @@ final class NavigationViewController: UIViewController {
     // 가상 주행 컨트롤 (virtualDriveDriver != nil 일 때만 표시)
     private var virtualDriveDriver: VirtualDriveDriver?
     private var vdControlHostingController: UIHostingController<VirtualDriveControlPanel>?
+    private var vdControlViewModel: VirtualDriveControlViewModel?
 
     /// 주행 종료 콜백
     var onDismiss: (() -> Void)?
@@ -131,6 +132,7 @@ final class NavigationViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopDisplayLink()
+        vdControlViewModel?.cancel()
     }
 
     // MARK: - Bind Engine
@@ -427,7 +429,7 @@ final class NavigationViewController: UIViewController {
         })
         hosting.view.isHidden = true
 
-        guard let bottomBarView = bottomBarHostingController?.view else { return }
+        guard let bottomBarView = bottomBarHostingController?.view else { assertionFailure("bottomBarHostingController must be set before setupRecenterButton"); return }
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
             hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
@@ -443,11 +445,11 @@ final class NavigationViewController: UIViewController {
     private func setupGPSStatusIcon() {
         gpsStatusIcon.image = UIImage(systemName: "antenna.radiowaves.left.and.right.slash")?
             .withConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .medium))
-        gpsStatusIcon.tintColor = UIColor(red: 0.10, green: 0.37, blue: 0.75, alpha: 1)
+        gpsStatusIcon.tintColor = Theme.Navigation.Colors.gpsIcon
         gpsStatusIcon.translatesAutoresizingMaskIntoConstraints = false
         gpsStatusIcon.isHidden = true
 
-        guard let bannerView = bannerHostingController?.view else { return }
+        guard let bannerView = bannerHostingController?.view else { assertionFailure("bannerHostingController must be set before this setup"); return }
         view.addSubview(gpsStatusIcon)
         NSLayoutConstraint.activate([
             gpsStatusIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
@@ -547,7 +549,7 @@ final class NavigationViewController: UIViewController {
         let panel = VirtualDriveControlPanel(viewModel: viewModel)
         let hosting = makeHostingController(panel)
 
-        guard let bannerView = bannerHostingController?.view else { return }
+        guard let bannerView = bannerHostingController?.view else { assertionFailure("bannerHostingController must be set before this setup"); return }
         view.addSubview(hosting.view)
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -555,6 +557,7 @@ final class NavigationViewController: UIViewController {
             hosting.view.topAnchor.constraint(equalTo: bannerView.bottomAnchor, constant: 4),
         ])
         vdControlHostingController = hosting
+        vdControlViewModel = viewModel
     }
 
     // MARK: - Map Match Debug Visualization

@@ -2,6 +2,9 @@ import UIKit
 import MapKit
 import Combine
 import CoreLocation
+import OSLog
+
+private let coordLogger = Logger(subsystem: "nav.ui", category: "AppCoordinator")
 
 final class AppCoordinator: NSObject, Coordinator {
 
@@ -74,17 +77,17 @@ final class AppCoordinator: NSObject, Coordinator {
     private func applyLocationType(_ type: DevToolsSettings.LocationType) {
         switch type {
         case .real:
-            print("[NAV] applyLocationType=Real")
+            coordLogger.debug("[NAV] applyLocationType=Real")
             LocationService.shared.setProvider(RealGPSProvider(locationService: locationService))
         case .file:
             guard let url = DevToolsSettings.shared.selectedRecordingFileURL else {
                 // 모순 상태 — Real로 fallback
-                print("[NAV] applyLocationType=File but no file → Real로 fallback")
+                coordLogger.debug("[NAV] applyLocationType=File but no file → Real로 fallback")
                 DevToolsSettings.shared.validateSelection()
                 LocationService.shared.setProvider(RealGPSProvider(locationService: locationService))
                 return
             }
-            print("[NAV] applyLocationType=File (\(url.lastPathComponent))")
+            coordLogger.debug("[NAV] applyLocationType=File \(url.lastPathComponent, privacy: .public)")
             LocationService.shared.setProvider(FileGPSProvider(fileURL: url))
         }
     }
@@ -758,7 +761,7 @@ final class AppCoordinator: NSObject, Coordinator {
         if forceSimul {
             // 가상 주행: 별도 driver 생성, lifecycle은 안내 종료까지
             // start()는 sessionManager 구독 이후에 호출해야 첫 GPS tick을 엔진이 받음
-            print("[NAV] GPS=Simul (가상 주행)")
+            coordLogger.debug("[NAV] GPS=Simul")
             let driver = VirtualDriveDriver()
             driver.loadSteps(route.steps)
             activeVirtualDriveDriver = driver
@@ -768,7 +771,7 @@ final class AppCoordinator: NSObject, Coordinator {
         } else {
             // 일반 안내: LocationService.activeProvider (Real or File)가 이미 흐름
             let type = DevToolsSettings.shared.locationType.value
-            print("[NAV] GPS=\(type.rawValue)")
+            coordLogger.debug("[NAV] GPS=\(type.rawValue, privacy: .public)")
             locationPublisher = LocationService.shared.locationPublisher.compactMap { $0 }.eraseToAnyPublisher()
             recordingMode = (type == .real) ? .real : .simul
         }

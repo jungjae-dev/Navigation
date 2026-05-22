@@ -7,7 +7,7 @@ struct ManeuverBannerView: View {
     let nextManeuver: ManeuverInfo?
 
     private let cardOverlap: CGFloat = 14
-    private let nextCardHeight: CGFloat = 64   // top padding(cardOverlap+8=22) + icon(32) + bottom padding(10)
+    private var nextCardHeight: CGFloat { cardOverlap + 8 + 36 + 10 } // top padding + icon + bottom padding
 
     var body: some View {
         VStack(spacing: -cardOverlap) {
@@ -67,9 +67,6 @@ struct ManeuverBannerView: View {
     @ViewBuilder
     private func nextCard(_ maneuver: ManeuverInfo) -> some View {
         HStack(spacing: 10) {
-            // 상단 카드에 가려지는 영역만큼 top padding 추가
-            Spacer().frame(width: 0)
-
             turnIcon(maneuver.turnType, size: 28, weight: .semibold)
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(width: 36, height: 36)
@@ -80,7 +77,7 @@ struct ManeuverBannerView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 0)
+        .padding(.horizontal, 14)
         .padding(.top, cardOverlap + 8)
         .padding(.bottom, 10)
         .background(Theme.Navigation.Colors.bannerSecondary)
