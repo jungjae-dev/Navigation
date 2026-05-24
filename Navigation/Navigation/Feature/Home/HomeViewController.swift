@@ -94,13 +94,31 @@ final class HomeViewController: UIViewController {
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
         }
 
-        // 따릉이 레이어 ON/OFF → 버튼 시각 상태 갱신
+        // 따릉이 레이어 ON/OFF → 버튼 시각 상태 갱신 + 지도 마커 동기화
         bikeViewModel.$isLayerOn
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isOn in
-                self?.mapControlButtons.updateBikeLayerState(isOn: isOn)
+                guard let self else { return }
+                self.mapControlButtons.updateBikeLayerState(isOn: isOn)
+                if !isOn {
+                    self.mapViewController.clearBikeStations()
+                }
             }
             .store(in: &cancellables)
+
+        // 캐시 변경 시 마커 동기화 (단, 레이어 ON 일 때만)
+        BikeStationCache.shared.stations
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] stations in
+                guard let self, self.bikeViewModel.isLayerOn else { return }
+                self.mapViewController.setBikeStations(stations)
+            }
+            .store(in: &cancellables)
+
+        // 따릉이 정류소 마커 탭 → (Phase 6 에서 상세 시트 처리)
+        mapViewController.onBikeStationSelected = { station in
+            print("[Bike] selected: \(station.stationId) \(station.stationName) avail=\(station.availableBikes)/\(station.totalRacks)")
+        }
     }
 
     private func handleBikeLayerTapped() {

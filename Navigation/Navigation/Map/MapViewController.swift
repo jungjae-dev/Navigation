@@ -1,6 +1,9 @@
 import UIKit
 import MapKit
 import Combine
+import OSLog
+
+private let bikeMapLogger = Logger(subsystem: "nav.bike", category: "Map")
 
 final class MapViewController: UIViewController {
 
@@ -28,6 +31,17 @@ final class MapViewController: UIViewController {
 
     /// Callback when a built-in POI is tapped.
     var onPOISelected: ((Place) -> Void)?
+
+    /// Callback when a 따릉이 station marker is tapped.
+    var onBikeStationSelected: ((BikeStation) -> Void)?
+
+    /// 현재 표시 중인 따릉이 정류소 annotations
+    private var bikeAnnotations: [BikeAnnotation] = []
+    /// 따릉이 표시 ON/OFF (외부에서 설정)
+    private var bikeLayerEnabled: Bool = false
+    /// 따릉이 마커를 표시하는 최대 latitudeDelta 임계값
+    /// 이 값보다 크면 (= 더 줌 아웃이면) 마커를 숨김
+    private let bikeMaxLatitudeDelta: Double = 0.05
 
     // MARK: - Navigation Mode State
 
@@ -435,6 +449,51 @@ final class MapViewController: UIViewController {
         }
     }
 
+    // MARK: - Bike Stations
+
+    /// 따릉이 정류소 데이터 설정 (실제 표시는 줌 레벨에 따라 결정)
+    /// - 빈 배열을 전달하면 모두 제거
+    func setBikeStations(_ stations: [BikeStation]) {
+        // 캐시된 annotation 모두 제거 후 새 인스턴스 생성
+        if !bikeAnnotations.isEmpty {
+            mapView.removeAnnotations(bikeAnnotations)
+        }
+        bikeAnnotations = stations.map { BikeAnnotation(station: $0) }
+        bikeLayerEnabled = !stations.isEmpty
+        bikeMapLogger.info("setBikeStations: \(self.bikeAnnotations.count, privacy: .public)개 정류소 로드")
+        // 현재 줌에 맞게 표시 결정
+        updateBikeAnnotationsVisibility()
+    }
+
+    /// 따릉이 정류소 annotations 모두 제거
+    func clearBikeStations() {
+        bikeLayerEnabled = false
+        guard !bikeAnnotations.isEmpty else { return }
+        let displayed = mapView.annotations.filter { $0 is BikeAnnotation }
+        mapView.removeAnnotations(displayed)
+        bikeAnnotations = []
+        bikeMapLogger.info("clearBikeStations")
+    }
+
+    /// 현재 줌 레벨에 따라 따릉이 마커 표시/숨김 갱신
+    private func updateBikeAnnotationsVisibility() {
+        guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
+
+        let latDelta = mapView.region.span.latitudeDelta
+        let shouldShow = latDelta <= bikeMaxLatitudeDelta
+
+        let displayedBikes = mapView.annotations.filter { $0 is BikeAnnotation }
+        let isShowing = !displayedBikes.isEmpty
+
+        if shouldShow && !isShowing {
+            mapView.addAnnotations(bikeAnnotations)
+            bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 표시 (\(self.bikeAnnotations.count, privacy: .public)개)")
+        } else if !shouldShow && isShowing {
+            mapView.removeAnnotations(displayedBikes)
+            bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 숨김 (임계값 \(self.bikeMaxLatitudeDelta, privacy: .public) 초과)")
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func fitAnnotations(_ annotations: [MKAnnotation]) {
@@ -535,6 +594,13 @@ extension MapViewController: MKMapViewDelegate {
             return view
         }
 
+        if annotation is BikeAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: BikeAnnotationView.reuseIdentifier) as? BikeAnnotationView
+                ?? BikeAnnotationView(annotation: annotation, reuseIdentifier: BikeAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            return view
+        }
+
         if annotation is DestinationAnnotation {
             let identifier = "Destination"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
@@ -561,9 +627,20 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         guard Date() > regionChangeSuppressionEnd else { return }
         onRegionChanged?()
+        updateBikeAnnotationsVisibility()
     }
 
     func mapView(_ mapView: MKMapView, didSelect annotation: any MKAnnotation) {
+        bikeMapLogger.debug("didSelect type=\(String(describing: type(of: annotation)), privacy: .public)")
+
+        if let bikeAnnotation = annotation as? BikeAnnotation {
+            bikeMapLogger.info("✓ Bike station tapped: \(bikeAnnotation.station.stationId, privacy: .public) \(bikeAnnotation.station.stationName, privacy: .public)")
+            mapView.deselectAnnotation(annotation, animated: false)
+            onBikeStationSelected?(bikeAnnotation.station)
+            return
+        }
+
+
         if let featureAnnotation = annotation as? MKMapFeatureAnnotation {
             mapView.deselectAnnotation(annotation, animated: true)
             let request = MKMapItemRequest(mapFeatureAnnotation: featureAnnotation)
