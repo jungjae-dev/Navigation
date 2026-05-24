@@ -7,6 +7,7 @@ final class MapControlButtonsView: UIView {
 
     var onCurrentLocationTapped: (() -> Void)?
     var onMapModeTapped: (() -> Void)?
+    var onBikeLayerTapped: (() -> Void)?
 
     // MARK: - UI
 
@@ -20,6 +21,7 @@ final class MapControlButtonsView: UIView {
 
     private let currentLocationButton = UIButton(type: .system)
     private let mapModeButton = UIButton(type: .system)
+    private let bikeLayerButton = UIButton(type: .system)
 
     // MARK: - Init
 
@@ -45,6 +47,15 @@ final class MapControlButtonsView: UIView {
 
         configureButton(mapModeButton, iconName: "map")
         stackView.addArrangedSubview(mapModeButton)
+
+        configureButton(bikeLayerButton, iconName: "bicycle")
+        // bicycle 아이콘은 다른 SF Symbol 보다 시각적으로 크게 보여서 살짝 줄이고, weight 는 두껍게
+        bikeLayerButton.setImage(
+            UIImage(systemName: "bicycle")?
+                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize - 4, weight: .bold)),
+            for: .normal
+        )
+        stackView.addArrangedSubview(bikeLayerButton)
 
         NSLayoutConstraint.activate([
             stackView.topAnchor.constraint(equalTo: topAnchor),
@@ -78,6 +89,7 @@ final class MapControlButtonsView: UIView {
     private func setupActions() {
         currentLocationButton.addTarget(self, action: #selector(currentLocationTapped), for: .touchUpInside)
         mapModeButton.addTarget(self, action: #selector(mapModeTapped), for: .touchUpInside)
+        bikeLayerButton.addTarget(self, action: #selector(bikeLayerTapped), for: .touchUpInside)
     }
 
     private func setupAccessibility() {
@@ -86,6 +98,9 @@ final class MapControlButtonsView: UIView {
 
         mapModeButton.accessibilityLabel = "지도 모드"
         mapModeButton.accessibilityHint = "지도 표시 유형을 변경합니다"
+
+        bikeLayerButton.accessibilityLabel = "따릉이 정류소 표시"
+        bikeLayerButton.accessibilityHint = "지도에 따릉이 정류소를 표시하거나 숨깁니다"
     }
 
     // MARK: - Actions
@@ -96,6 +111,10 @@ final class MapControlButtonsView: UIView {
 
     @objc private func mapModeTapped() {
         onMapModeTapped?()
+    }
+
+    @objc private func bikeLayerTapped() {
+        onBikeLayerTapped?()
     }
 
     // MARK: - State Updates
@@ -132,5 +151,10 @@ final class MapControlButtonsView: UIView {
                 .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize, weight: .medium)),
             for: .normal
         )
+    }
+
+    func updateBikeLayerState(isOn: Bool) {
+        let tint: UIColor = isOn ? Theme.Colors.primary : Theme.Colors.secondaryLabel
+        bikeLayerButton.tintColor = tint
     }
 }

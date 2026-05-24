@@ -11,6 +11,7 @@ final class HomeViewController: UIViewController {
     private var compassButton: MKCompassButton!
 
     private let viewModel: HomeViewModel
+    private let bikeViewModel = BikeViewModel()
     let mapViewController: MapViewController
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
@@ -85,10 +86,25 @@ final class HomeViewController: UIViewController {
         buttons.onMapModeTapped = { [weak self] in
             self?.handleMapModeTapped()
         }
+        buttons.onBikeLayerTapped = { [weak self] in
+            self?.handleBikeLayerTapped()
+        }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
         }
+
+        // 따릉이 레이어 ON/OFF → 버튼 시각 상태 갱신
+        bikeViewModel.$isLayerOn
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isOn in
+                self?.mapControlButtons.updateBikeLayerState(isOn: isOn)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleBikeLayerTapped() {
+        Task { await bikeViewModel.toggleLayer() }
     }
 
     private func setupCompassButton() {
