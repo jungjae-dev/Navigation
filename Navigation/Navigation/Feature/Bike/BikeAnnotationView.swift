@@ -69,6 +69,23 @@ final class BikeAnnotationView: MKAnnotationView {
         countLabel.text = "\(bike.availableBikes)"
     }
 
+    // MARK: - Selection
+
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        // 확대 시 외곽선이 같이 굵어 보이지 않도록 lineWidth 를 역보정
+        let scale: CGFloat = selected ? 1.5 : 1.0
+        let apply = {
+            self.transform = CGAffineTransform(scaleX: scale, y: scale)
+            self.pinLayer.lineWidth = 1.5 / scale
+        }
+        if animated {
+            UIView.animate(withDuration: 0.18, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: apply)
+        } else {
+            apply()
+        }
+    }
+
     // MARK: - Path
 
     /// 완전한 원 + 아래쪽에 작은 꼬리 — 단일 연속 path
