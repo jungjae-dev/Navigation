@@ -183,4 +183,15 @@ final class MapControlButtonsView: UIView {
         let alpha: CGFloat = refreshing ? 0.4 : 1
         bikeRefreshButton.alpha = alpha
     }
+
+    // bikeRefreshButton 은 self 의 bounds 좌측 밖에 배치되어 있어 기본 hitTest 로는 탭이 통과됨.
+    // 보이는 영역(노출 중 + 활성) 일 때만 hit 으로 확장.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if super.point(inside: point, with: event) { return true }
+        if !bikeRefreshButton.isHidden, bikeRefreshButton.isEnabled {
+            let p = convert(point, to: bikeRefreshButton)
+            if bikeRefreshButton.bounds.contains(p) { return true }
+        }
+        return false
+    }
 }
