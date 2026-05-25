@@ -612,6 +612,9 @@ extension MapViewController: MKMapViewDelegate {
             view.glyphImage = UIImage(systemName: "mappin")
             view.animatesWhenAdded = true
             view.canShowCallout = true
+            // 따릉이 마커와 겹쳐도 숨겨지지 않도록 collision 비활성
+            view.displayPriority = .required
+            view.collisionMode = .none
             return view
         }
 
