@@ -115,6 +115,11 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showBikeStationDetail(station)
         }
 
+        mapVC.onEmptyMapTapped = { [weak self] in
+            guard self?.mapItemDetailDrawer != nil else { return }
+            self?.dismissMapItemDetailWithCleanup()
+        }
+
         navigationController.delegate = self
         navigationController.setViewControllers([homeVC], animated: false)
 
@@ -189,7 +194,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func showPOIDetail(_ place: Place) {
         guard navigationController.topViewController === homeViewController else { return }
-        mapViewController.showPOIMarker(for: place, zoomIn: true)
+        mapViewController.showPOIMarker(for: place)
         let content = makePlaceContent(place)
         showMapItemDetail(content: content)
     }
@@ -225,6 +230,9 @@ final class AppCoordinator: NSObject, Coordinator {
 
     func showBikeStationDetail(_ station: BikeStation) {
         guard navigationController.topViewController === homeViewController else { return }
+        // POI 와 동일 — 지도를 정류소 중심으로 이동 + 마커 선택 상태 유지
+        mapViewController.focusBikeStation(station, zoomIn: false)
+
         let content = BikeStationContent(station: station)
         content.onWalkingRoute = { station in
             // Phase 7 에서 도보 길찾기 연결 예정
@@ -267,8 +275,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func dismissMapItemDetailWithCleanup() {
         mapItemDetailDrawer = nil
-        // POI 마커가 떠있다면 함께 정리 (다른 타입은 영향 없음 — 멱등성)
+        // POI 마커가 떠있다면 함께 정리 (멱등)
         mapViewController.clearPOIMarker()
+        // 따릉이 마커의 선택 상태 해제
+        mapViewController.deselectAllBikeStations()
         drawerManager.popDrawer()
     }
 

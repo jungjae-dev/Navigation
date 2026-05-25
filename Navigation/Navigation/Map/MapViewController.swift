@@ -4,6 +4,7 @@ import Combine
 import OSLog
 
 private let bikeMapLogger = Logger(subsystem: "nav.bike", category: "Map")
+private let mapTapLogger = Logger(subsystem: "nav.map", category: "Tap")
 
 final class MapViewController: UIViewController {
 
@@ -34,6 +35,9 @@ final class MapViewController: UIViewController {
 
     /// Callback when a 따릉이 station marker is tapped.
     var onBikeStationSelected: ((BikeStation) -> Void)?
+
+    /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
+    var onEmptyMapTapped: (() -> Void)?
 
     /// 현재 표시 중인 따릉이 정류소 annotations
     private var bikeAnnotations: [BikeAnnotation] = []
@@ -99,7 +103,10 @@ final class MapViewController: UIViewController {
         mapView.onUserTouch = { [weak self] in
             self?.userLocationPresenter.userDidInteractWithMap()
         }
+
     }
+
+    private var pendingEmptyTapCheck: DispatchWorkItem?
 
     // MARK: - Binding
 
@@ -475,6 +482,25 @@ final class MapViewController: UIViewController {
         bikeMapLogger.info("clearBikeStations")
     }
 
+    /// 따릉이 정류소 포커스 — 지도 이동 + 마커 선택 (POI 의 showPOIMarker 와 유사)
+    func focusBikeStation(_ station: BikeStation, zoomIn: Bool = false) {
+        if let annotation = bikeAnnotations.first(where: { $0.station.stationId == station.stationId }) {
+            mapView.selectAnnotation(annotation, animated: true)
+        }
+        if zoomIn {
+            moveToLocation(station.coordinate)
+        } else {
+            mapView.setCenter(station.coordinate, animated: true)
+        }
+    }
+
+    /// 따릉이 정류소 선택 해제
+    func deselectAllBikeStations() {
+        for annotation in mapView.selectedAnnotations where annotation is BikeAnnotation {
+            mapView.deselectAnnotation(annotation, animated: false)
+        }
+    }
+
     /// 현재 줌 레벨에 따라 따릉이 마커 표시/숨김 갱신
     private func updateBikeAnnotationsVisibility() {
         guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
@@ -591,6 +617,8 @@ extension MapViewController: MKMapViewDelegate {
             view.glyphImage = UIImage(systemName: poi.glyphIconName)
             view.animatesWhenAdded = true
             view.canShowCallout = true
+            view.displayPriority = .required
+            view.collisionMode = .none
             return view
         }
 
@@ -630,12 +658,24 @@ extension MapViewController: MKMapViewDelegate {
         updateBikeAnnotationsVisibility()
     }
 
+    private func annotationKind(_ annotation: any MKAnnotation) -> String {
+        if annotation is MKMapFeatureAnnotation { return "MKMapFeatureAnnotation" }
+        if annotation is POIAnnotation { return "POIAnnotation" }
+        if annotation is BikeAnnotation { return "BikeAnnotation" }
+        if annotation is SearchResultAnnotation { return "SearchResultAnnotation" }
+        return "Other"
+    }
+
     func mapView(_ mapView: MKMapView, didSelect annotation: any MKAnnotation) {
-        bikeMapLogger.debug("didSelect type=\(String(describing: type(of: annotation)), privacy: .public)")
+        mapTapLogger.debug("[MAP] didSelect \(self.annotationKind(annotation), privacy: .public) pendingClose=\(self.pendingEmptyTapCheck != nil, privacy: .public)")
+
+        // annotation/feature 가 선택되었으므로 빈 곳 탭 디바운스 취소
+        pendingEmptyTapCheck?.cancel()
+        pendingEmptyTapCheck = nil
 
         if let bikeAnnotation = annotation as? BikeAnnotation {
             bikeMapLogger.info("✓ Bike station tapped: \(bikeAnnotation.station.stationId, privacy: .public) \(bikeAnnotation.station.stationName, privacy: .public)")
-            mapView.deselectAnnotation(annotation, animated: false)
+            // 선택 상태 유지 (POI 와 동일) — 드로어 닫을 때 deselect 됨
             onBikeStationSelected?(bikeAnnotation.station)
             return
         }
@@ -669,5 +709,27 @@ extension MapViewController: MKMapViewDelegate {
 
         mapView.setCenter(searchAnnotation.coordinate, animated: true)
         onAnnotationSelected?(index)
+    }
+
+    func mapView(_ mapView: MKMapView, didDeselect annotation: any MKAnnotation) {
+        let isOurs = annotation is POIAnnotation
+            || annotation is BikeAnnotation
+            || annotation is SearchResultAnnotation
+        guard isOurs else {
+            mapTapLogger.debug("[MAP] didDeselect \(self.annotationKind(annotation), privacy: .public) → 무시 (custom 아님)")
+            return
+        }
+        mapTapLogger.debug("[MAP] didDeselect \(self.annotationKind(annotation), privacy: .public) → close 예약 (+50ms)")
+
+        pendingEmptyTapCheck?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingEmptyTapCheck = nil
+            guard self.mapView.selectedAnnotations.isEmpty else { return }
+            mapTapLogger.info("[MAP] 빈 곳 탭 → 드로어 닫기")
+            self.onEmptyMapTapped?()
+        }
+        pendingEmptyTapCheck = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
     }
 }
