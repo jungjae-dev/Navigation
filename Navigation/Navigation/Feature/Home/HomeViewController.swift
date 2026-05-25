@@ -89,6 +89,9 @@ final class HomeViewController: UIViewController {
         buttons.onBikeLayerTapped = { [weak self] in
             self?.handleBikeLayerTapped()
         }
+        buttons.onBikeRefreshTapped = { [weak self] in
+            self?.handleBikeRefreshTapped()
+        }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
@@ -100,7 +103,10 @@ final class HomeViewController: UIViewController {
             .sink { [weak self] isOn in
                 guard let self else { return }
                 self.mapControlButtons.updateBikeLayerState(isOn: isOn)
-                if !isOn {
+                if isOn {
+                    // 캐시에 데이터가 있으면 즉시 마커 표시 (재 fetch 안 함)
+                    self.mapViewController.setBikeStations(BikeStationCache.shared.stations.value)
+                } else {
                     self.mapViewController.clearBikeStations()
                 }
             }
@@ -115,14 +121,19 @@ final class HomeViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 따릉이 정류소 마커 탭 → (Phase 6 에서 상세 시트 처리)
-        mapViewController.onBikeStationSelected = { station in
-            print("[Bike] selected: \(station.stationId) \(station.stationName) avail=\(station.availableBikes)/\(station.totalRacks)")
-        }
+        // 따릉이 정류소 마커 탭은 AppCoordinator 가 직접 mapViewController.onBikeStationSelected 처리
     }
 
     private func handleBikeLayerTapped() {
         Task { await bikeViewModel.toggleLayer() }
+    }
+
+    private func handleBikeRefreshTapped() {
+        mapControlButtons.setBikeRefreshing(true)
+        Task { [weak self] in
+            await self?.bikeViewModel.fetchAll()
+            self?.mapControlButtons.setBikeRefreshing(false)
+        }
     }
 
     private func setupCompassButton() {

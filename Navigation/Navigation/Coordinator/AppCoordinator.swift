@@ -27,7 +27,8 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeDrawerVC: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
     private var lastSearchQuery: String = ""
-    private var poiDetailDrawer: POIDetailViewController?
+    /// POI / 따릉이 / (향후) 버스·지하철 통합 상세 시트
+    private var mapItemDetailDrawer: MapItemDetailViewController?
     private var routePreviewDrawer: RoutePreviewDrawerViewController?
     private var cancellables = Set<AnyCancellable>()
 
@@ -110,6 +111,10 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showPOIDetail(place)
         }
 
+        mapVC.onBikeStationSelected = { [weak self] station in
+            self?.showBikeStationDetail(station)
+        }
+
         navigationController.delegate = self
         navigationController.setViewControllers([homeVC], animated: false)
 
@@ -184,51 +189,73 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private func showPOIDetail(_ place: Place) {
         guard navigationController.topViewController === homeViewController else { return }
-
         mapViewController.showPOIMarker(for: place, zoomIn: true)
-
-        if let existing = poiDetailDrawer {
-            existing.update(with: place)
-            return
-        }
-
-        presentPOIDetail(place) { [weak self] place in
-            self?.dismissIntermediateDrawers {
-                self?.showRoutePreview(to: place)
-            }
-        }
+        let content = makePlaceContent(place)
+        showMapItemDetail(content: content)
     }
 
     private func showPOIDetailFromDrawer(_ place: Place) {
         guard currentDrawer != nil else { return }
-
         mapViewController.showPOIMarker(for: place)
+        let content = makePlaceContent(place)
+        showMapItemDetail(content: content)
+    }
 
-        if let existing = poiDetailDrawer {
-            existing.update(with: place)
-            return
-        }
-
-        presentPOIDetail(place) { [weak self] place in
+    private func makePlaceContent(_ place: Place) -> PlaceContent {
+        let content = PlaceContent(place: place)
+        content.onRouteTapped = { [weak self] place in
             self?.dismissIntermediateDrawers {
                 self?.showRoutePreview(to: place)
             }
         }
+        return content
     }
 
-    private func presentPOIDetail(
-        _ place: Place,
-        onRoute: @escaping (Place) -> Void
-    ) {
-        let detailVC = POIDetailViewController(place: place)
-        poiDetailDrawer = detailVC
+    private func dismissSearchResultDrawerWithCleanup() {
+        mapItemDetailDrawer = nil
+        currentDrawer = nil
+        lastSearchQuery = ""
+        mapViewController.clearSearchResults()
+        mapViewController.onAnnotationSelected = nil
+        mapViewController.onRegionChanged = nil
+        restoreHomeDrawer()
+    }
 
-        detailVC.onRouteTapped = { place in
-            onRoute(place)
+    // MARK: - Bike Station Detail Flow
+
+    func showBikeStationDetail(_ station: BikeStation) {
+        guard navigationController.topViewController === homeViewController else { return }
+        let content = BikeStationContent(station: station)
+        content.onWalkingRoute = { station in
+            // Phase 7 에서 도보 길찾기 연결 예정
+            print("[Bike] walking route to \(station.stationName)")
+        }
+        content.onRent = {
+            // Phase 8 에서 따릉이 앱 딥링크 연결 예정
+            print("[Bike] rent tapped")
+        }
+        showMapItemDetail(content: content)
+    }
+
+    // MARK: - Unified Map Item Detail Flow
+
+    /// POI, 따릉이 등 통합 상세 시트 표시
+    /// - 드로어가 닫혀있으면 새로 push
+    /// - 열려있으면 컨텐츠 교체 (헤더 + 본문 + 푸터 모두 갱신)
+    private func showMapItemDetail(content: any MapItemContent) {
+        let currentCoord = locationService.locationPublisher.value?.coordinate
+
+        if let existing = mapItemDetailDrawer {
+            existing.update(content: content)
+            existing.updateDistance(from: currentCoord)
+            return
         }
 
+        let detailVC = MapItemDetailViewController(content: content)
+        mapItemDetailDrawer = detailVC
+        detailVC.updateDistance(from: currentCoord)
         detailVC.onClose = { [weak self] in
-            self?.dismissPOIDetailWithCleanup()
+            self?.dismissMapItemDetailWithCleanup()
         }
 
         drawerManager.pushDrawer(
@@ -238,25 +265,16 @@ final class AppCoordinator: NSObject, Coordinator {
         )
     }
 
-    private func dismissSearchResultDrawerWithCleanup() {
-        poiDetailDrawer = nil
-        currentDrawer = nil
-        lastSearchQuery = ""
-        mapViewController.clearSearchResults()
-        mapViewController.onAnnotationSelected = nil
-        mapViewController.onRegionChanged = nil
-        restoreHomeDrawer()
-    }
-
-    private func dismissPOIDetailWithCleanup() {
-        poiDetailDrawer = nil
+    private func dismissMapItemDetailWithCleanup() {
+        mapItemDetailDrawer = nil
+        // POI 마커가 떠있다면 함께 정리 (다른 타입은 영향 없음 — 멱등성)
         mapViewController.clearPOIMarker()
         drawerManager.popDrawer()
     }
 
     private func dismissAllDrawers(completion: (() -> Void)? = nil) {
         currentDrawer = nil
-        poiDetailDrawer = nil
+        mapItemDetailDrawer = nil
         routePreviewDrawer = nil
         mapViewController.clearSearchResults()
         mapViewController.clearRoutes()
@@ -464,7 +482,7 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        poiDetailDrawer = nil
+        mapItemDetailDrawer = nil
         completion?()
     }
 
@@ -498,7 +516,7 @@ final class AppCoordinator: NSObject, Coordinator {
             mapViewController.clearSearchResults()
             mapViewController.onAnnotationSelected = nil
         }
-        poiDetailDrawer = nil
+        mapItemDetailDrawer = nil
 
         let mapRegion = mapViewController.mapView.region
 
@@ -578,8 +596,11 @@ final class AppCoordinator: NSObject, Coordinator {
         mapViewController.onAnnotationSelected = { [weak self] index in
             self?.currentDrawer?.scrollToIndex(index)
             if let place = self?.currentDrawer?.place(at: index),
-               let existing = self?.poiDetailDrawer {
-                existing.update(with: place)
+               let existing = self?.mapItemDetailDrawer {
+                let content = self?.makePlaceContent(place)
+                if let content = content {
+                    existing.update(content: content)
+                }
             }
         }
 
@@ -718,7 +739,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
         // Clear intermediate state and replace stack
         currentDrawer = nil
-        poiDetailDrawer = nil
+        mapItemDetailDrawer = nil
         mapViewController.onAnnotationSelected = nil
 
         drawerManager.replaceStack(
