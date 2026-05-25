@@ -238,8 +238,7 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showWalkingRouteToBikeStation(station)
         }
         content.onRent = {
-            // Phase 8 에서 따릉이 앱 딥링크 연결 예정
-            print("[Bike] rent tapped")
+            BikeAppLauncher.openRent()
         }
         showMapItemDetail(content: content)
     }
