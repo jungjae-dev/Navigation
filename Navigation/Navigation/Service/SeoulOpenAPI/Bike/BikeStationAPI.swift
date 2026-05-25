@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let bikeLogger = Logger(subsystem: "nav.bike", category: "API")
 
 /// 따릉이 정류소 API (서울시 OA-15493 bikeList)
 struct BikeStationAPI {
@@ -15,14 +18,20 @@ struct BikeStationAPI {
     func fetchAll() async throws -> [BikeStation] {
         let pages: [(Int, Int)] = [(1, 1000), (1001, 2000), (2001, 3000), (3001, 4000)]
 
-        let results: [[BikeStation]] = try await withThrowingTaskGroup(of: [BikeStation].self) { group in
+        // 페이지별 실패가 다른 페이지를 취소시키지 않도록 non-throwing group + 페이지 내부에서 catch
+        let results: [[BikeStation]] = await withTaskGroup(of: [BikeStation].self) { group in
             for (start, end) in pages {
                 group.addTask {
-                    try await self.fetchPage(start: start, end: end)
+                    do {
+                        return try await self.fetchPage(start: start, end: end)
+                    } catch {
+                        bikeLogger.warning("fetchPage \(start)-\(end) 실패: \(error.localizedDescription, privacy: .public)")
+                        return []
+                    }
                 }
             }
             var collected: [[BikeStation]] = []
-            for try await page in group {
+            for await page in group {
                 collected.append(page)
             }
             return collected

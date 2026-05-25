@@ -16,20 +16,13 @@ final class BikeViewModel: ObservableObject {
         case loading
         case loaded
         case error(String)
-
-        static func == (lhs: State, rhs: State) -> Bool {
-            switch (lhs, rhs) {
-            case (.idle, .idle), (.loading, .loading), (.loaded, .loaded): return true
-            case (.error(let a), .error(let b)): return a == b
-            default: return false
-            }
-        }
     }
 
     // MARK: - Published
 
     @Published private(set) var state: State = .idle
     @Published private(set) var isLayerOn: Bool = false
+    private var isFetching: Bool = false
 
     // MARK: - Dependencies
 
@@ -47,6 +40,8 @@ final class BikeViewModel: ObservableObject {
     /// - ON 전환 시 캐시가 비어있으면 fetchAll
     /// - OFF 전환 시 단순히 표시만 끔 (캐시는 유지)
     func toggleLayer() async {
+        // fetch 진행 중엔 재진입 방지 — 빠른 연타로 상태가 꼬이는 문제 차단
+        guard !isFetching else { return }
         isLayerOn.toggle()
         guard isLayerOn else { return }
 
@@ -61,6 +56,9 @@ final class BikeViewModel: ObservableObject {
 
     /// 전체 정류소 fetch + 캐시 업데이트
     func fetchAll() async {
+        guard !isFetching else { return }
+        isFetching = true
+        defer { isFetching = false }
         state = .loading
         do {
             let stations = try await api.fetchAll()

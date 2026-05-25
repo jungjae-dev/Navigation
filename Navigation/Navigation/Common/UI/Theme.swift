@@ -14,6 +14,8 @@ enum Theme {
         static let separator = UIColor.separator
         static let destructive = UIColor.systemRed
         static let success = UIColor.systemGreen
+        /// 따릉이 브랜드 녹색 (#2EB86B)
+        static let bikeBrand = UIColor(red: 0.18, green: 0.72, blue: 0.42, alpha: 1)
     }
 
     // MARK: - Fonts

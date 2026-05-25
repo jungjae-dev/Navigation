@@ -34,7 +34,7 @@ enum SeoulAPIError: Error, LocalizedError {
     /// 서울 API 응답 결과 코드 → SeoulAPIError
     static func from(code: String, message: String) -> SeoulAPIError {
         switch code {
-        case "INFO-000": fatalError("Success code should not be converted to error")
+        case "INFO-000": return .unknown(code: code, message: message)  // 성공 코드 — 호출자가 분기 실수한 경우 방어
         case "INFO-100": return .invalidAPIKey
         case "INFO-200": return .noData
         case "ERROR-300": return .missingRequiredField

@@ -4,8 +4,6 @@ import CoreLocation
 /// 따릉이 정류소 상세 컨텐츠 — 대여 가능 자전거 + 거리·갱신 정보
 final class BikeStationContentView: UIView {
 
-    private static let brandGreen = UIColor(red: 0.18, green: 0.72, blue: 0.42, alpha: 1)
-
     // MARK: - UI
 
     private let availableLabel = UILabel()
@@ -32,7 +30,7 @@ final class BikeStationContentView: UIView {
         availableLabel.textColor = Theme.Colors.secondaryLabel
 
         availableCountLabel.font = .monospacedDigitSystemFont(ofSize: 28, weight: .bold)
-        availableCountLabel.textColor = Self.brandGreen
+        availableCountLabel.textColor = Theme.Colors.bikeBrand
 
         totalRacksLabel.font = Theme.Fonts.caption
         totalRacksLabel.textColor = Theme.Colors.secondaryLabel
@@ -68,7 +66,7 @@ final class BikeStationContentView: UIView {
 
     func configure(station: BikeStation) {
         availableCountLabel.text = "\(station.availableBikes)"
-        availableCountLabel.textColor = station.availableBikes == 0 ? Theme.Colors.secondaryLabel : Self.brandGreen
+        availableCountLabel.textColor = station.availableBikes == 0 ? Theme.Colors.secondaryLabel : Theme.Colors.bikeBrand
         totalRacksLabel.text = "/ \(station.totalRacks)"
     }
 

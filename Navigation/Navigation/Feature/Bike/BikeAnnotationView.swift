@@ -6,8 +6,6 @@ final class BikeAnnotationView: MKMarkerAnnotationView {
 
     static let reuseIdentifier = "BikeStationAnnotation"
 
-    private static let brandGreen = UIColor(red: 0.18, green: 0.72, blue: 0.42, alpha: 1)
-
     override var annotation: MKAnnotation? {
         didSet { configure() }
     }
@@ -22,7 +20,7 @@ final class BikeAnnotationView: MKMarkerAnnotationView {
     }
 
     private func configure() {
-        markerTintColor = Self.brandGreen
+        markerTintColor = Theme.Colors.bikeBrand
         glyphTintColor = .yellow
         glyphImage = nil
         selectedGlyphImage = nil

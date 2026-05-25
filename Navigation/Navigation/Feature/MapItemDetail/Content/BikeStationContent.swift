@@ -10,13 +10,15 @@ final class BikeStationContent: MapItemContent {
 
     private(set) var station: BikeStation
     private let view = BikeStationContentView()
+    private let cache: BikeStationCache
     private var distanceMeters: CLLocationDistance?
     private var lastUpdated: Date
     private var cancellables = Set<AnyCancellable>()
 
-    init(station: BikeStation) {
+    init(station: BikeStation, cache: BikeStationCache = .shared) {
         self.station = station
-        self.lastUpdated = BikeStationCache.shared.lastUpdated.value ?? Date()
+        self.cache = cache
+        self.lastUpdated = cache.lastUpdated.value ?? Date()
         view.configure(station: station)
         refreshInfo()
         subscribeCache()
@@ -26,7 +28,7 @@ final class BikeStationContent: MapItemContent {
 
     func update(station: BikeStation) {
         self.station = station
-        self.lastUpdated = BikeStationCache.shared.lastUpdated.value ?? Date()
+        self.lastUpdated = cache.lastUpdated.value ?? Date()
         view.configure(station: station)
         refreshInfo()
     }
@@ -87,14 +89,17 @@ final class BikeStationContent: MapItemContent {
     }
 
     private func subscribeCache() {
-        BikeStationCache.shared.stations
+        // 상류에서 자기 정류소만 추출 + 동일 데이터 중복 제거 → sink 호출 횟수 최소화
+        let stationId = station.stationId
+        cache.stations
+            .compactMap { [weak cache] _ in cache?.station(id: stationId) }
+            // == 는 stationId 기준이므로, 잔여 수 등 데이터 변경 감지를 위해 by: 명시
+            .removeDuplicates(by: { $0.availableBikes == $1.availableBikes && $0.totalRacks == $1.totalRacks })
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self,
-                      let updated = BikeStationCache.shared.station(id: self.station.stationId)
-                else { return }
+            .sink { [weak self] updated in
+                guard let self else { return }
                 self.station = updated
-                self.lastUpdated = BikeStationCache.shared.lastUpdated.value ?? Date()
+                self.lastUpdated = self.cache.lastUpdated.value ?? Date()
                 self.view.configure(station: updated)
                 self.refreshInfo()
             }

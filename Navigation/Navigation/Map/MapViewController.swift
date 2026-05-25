@@ -45,7 +45,10 @@ final class MapViewController: UIViewController {
     private var bikeLayerEnabled: Bool = false
     /// 따릉이 마커를 표시하는 최대 latitudeDelta 임계값
     /// 이 값보다 크면 (= 더 줌 아웃이면) 마커를 숨김
-    private let bikeMaxLatitudeDelta: Double = 0.05
+    private static let bikeMaxLatitudeDelta: Double = 0.05
+
+    /// 빈 곳 탭 판정 디바운스 — 후속 didSelect 가 따라오면 취소되도록 짧게 둠
+    private static let emptyTapCloseDebounce: TimeInterval = 0.05
 
     // MARK: - Navigation Mode State
 
@@ -506,7 +509,7 @@ final class MapViewController: UIViewController {
         guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
 
         let latDelta = mapView.region.span.latitudeDelta
-        let shouldShow = latDelta <= bikeMaxLatitudeDelta
+        let shouldShow = latDelta <= Self.bikeMaxLatitudeDelta
 
         let displayedBikes = mapView.annotations.filter { $0 is BikeAnnotation }
         let isShowing = !displayedBikes.isEmpty
@@ -516,7 +519,7 @@ final class MapViewController: UIViewController {
             bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 표시 (\(self.bikeAnnotations.count, privacy: .public)개)")
         } else if !shouldShow && isShowing {
             mapView.removeAnnotations(displayedBikes)
-            bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 숨김 (임계값 \(self.bikeMaxLatitudeDelta, privacy: .public) 초과)")
+            bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 숨김 (임계값 \(Self.bikeMaxLatitudeDelta, privacy: .public) 초과)")
         }
     }
 
@@ -546,6 +549,10 @@ final class MapViewController: UIViewController {
     private func fitPolyline(_ polyline: MKPolyline) {
         let padding = UIEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
         mapView.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: true)
+    }
+
+    deinit {
+        pendingEmptyTapCheck?.cancel()
     }
 }
 
@@ -730,6 +737,6 @@ extension MapViewController: MKMapViewDelegate {
             self.onEmptyMapTapped?()
         }
         pendingEmptyTapCheck = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.emptyTapCloseDebounce, execute: work)
     }
 }

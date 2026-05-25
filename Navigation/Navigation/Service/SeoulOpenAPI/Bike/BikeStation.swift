@@ -16,6 +16,7 @@ struct BikeStation: Hashable, Sendable {
 }
 
 extension BikeStation {
+    // stationId 가 unique 하므로 식별성만으로 충분 — 데이터 변경 감지는 removeDuplicates(by:) 등에서 명시
     static func == (lhs: BikeStation, rhs: BikeStation) -> Bool {
         lhs.stationId == rhs.stationId
     }
