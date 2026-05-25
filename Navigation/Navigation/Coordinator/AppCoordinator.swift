@@ -234,15 +234,38 @@ final class AppCoordinator: NSObject, Coordinator {
         mapViewController.focusBikeStation(station, zoomIn: false)
 
         let content = BikeStationContent(station: station)
-        content.onWalkingRoute = { station in
-            // Phase 7 에서 도보 길찾기 연결 예정
-            print("[Bike] walking route to \(station.stationName)")
+        content.onWalkingRoute = { [weak self] station in
+            self?.showWalkingRouteToBikeStation(station)
         }
         content.onRent = {
             // Phase 8 에서 따릉이 앱 딥링크 연결 예정
             print("[Bike] rent tapped")
         }
         showMapItemDetail(content: content)
+    }
+
+    /// 따릉이 정류소까지 도보 길찾기 — 상세 시트 닫고 RoutePreview 표시
+    private func showWalkingRouteToBikeStation(_ station: BikeStation) {
+        guard navigationController.topViewController === homeViewController else { return }
+        dismissMapItemDetailWithCleanup()
+
+        mapViewController.clearSearchResults()
+        mapViewController.showDestination(
+            coordinate: station.coordinate,
+            title: station.stationName,
+            subtitle: nil
+        )
+
+        let userCoordinate = locationService.bestAvailableLocation?.coordinate
+            ?? mapViewController.mapView.centerCoordinate
+
+        presentRoutePreviewDrawer(
+            origin: userCoordinate,
+            destination: station.coordinate,
+            destinationName: station.stationName,
+            destinationAddress: nil,
+            transportMode: .walking
+        )
     }
 
     // MARK: - Unified Map Item Detail Flow
@@ -704,7 +727,8 @@ final class AppCoordinator: NSObject, Coordinator {
         origin: CLLocationCoordinate2D,
         destination: CLLocationCoordinate2D,
         destinationName: String?,
-        destinationAddress: String? = nil
+        destinationAddress: String? = nil,
+        transportMode: TransportMode = .automobile
     ) {
         // Save as recent destination
         let place = Place(
@@ -719,7 +743,8 @@ final class AppCoordinator: NSObject, Coordinator {
             routeService: routeService,
             origin: origin,
             destination: destination,
-            destinationName: destinationName
+            destinationName: destinationName,
+            transportMode: transportMode
         )
 
         let drawerVC = RoutePreviewDrawerViewController(viewModel: routePreviewVM)
