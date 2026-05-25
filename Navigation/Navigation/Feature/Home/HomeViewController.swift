@@ -11,6 +11,7 @@ final class HomeViewController: UIViewController {
     private var compassButton: MKCompassButton!
 
     private let viewModel: HomeViewModel
+    private let bikeViewModel = BikeViewModel()
     let mapViewController: MapViewController
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
@@ -85,9 +86,53 @@ final class HomeViewController: UIViewController {
         buttons.onMapModeTapped = { [weak self] in
             self?.handleMapModeTapped()
         }
+        buttons.onBikeLayerTapped = { [weak self] in
+            self?.handleBikeLayerTapped()
+        }
+        buttons.onBikeRefreshTapped = { [weak self] in
+            self?.handleBikeRefreshTapped()
+        }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
+        }
+
+        // 따릉이 레이어 ON/OFF → 버튼 시각 상태 갱신 + 지도 마커 동기화
+        bikeViewModel.$isLayerOn
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isOn in
+                guard let self else { return }
+                self.mapControlButtons.updateBikeLayerState(isOn: isOn)
+                if isOn {
+                    // 캐시에 데이터가 있으면 즉시 마커 표시 (재 fetch 안 함)
+                    self.mapViewController.setBikeStations(BikeStationCache.shared.stations.value)
+                } else {
+                    self.mapViewController.clearBikeStations()
+                }
+            }
+            .store(in: &cancellables)
+
+        // 캐시 변경 시 마커 동기화 (단, 레이어 ON 일 때만)
+        BikeStationCache.shared.stations
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] stations in
+                guard let self, self.bikeViewModel.isLayerOn else { return }
+                self.mapViewController.setBikeStations(stations)
+            }
+            .store(in: &cancellables)
+
+        // 따릉이 정류소 마커 탭은 AppCoordinator 가 직접 mapViewController.onBikeStationSelected 처리
+    }
+
+    private func handleBikeLayerTapped() {
+        Task { await bikeViewModel.toggleLayer() }
+    }
+
+    private func handleBikeRefreshTapped() {
+        mapControlButtons.setBikeRefreshing(true)
+        Task { [weak self] in
+            await self?.bikeViewModel.fetchAll()
+            self?.mapControlButtons.setBikeRefreshing(false)
         }
     }
 
