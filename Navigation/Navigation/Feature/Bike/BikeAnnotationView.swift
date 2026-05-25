@@ -28,13 +28,6 @@ final class BikeAnnotationView: MKMarkerAnnotationView {
         selectedGlyphImage = nil
         canShowCallout = false
         displayPriority = .required
-        // 부모 view 의 tint 가 빨강 계통으로 영향주는 케이스 방지
-        tintColor = Self.brandGreen
-        // MKMarkerAnnotationView 의 기본 그림자 색이 빨강 계열로 보이는 이슈 보정
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.1
-        layer.shadowOffset = CGSize(width: 0, height: 2)
-        layer.shadowRadius = 2
 
         if let bike = (annotation as? BikeAnnotation)?.station {
             glyphText = "\(bike.availableBikes)"
