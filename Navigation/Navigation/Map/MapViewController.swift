@@ -35,6 +35,8 @@ final class MapViewController: UIViewController {
 
     /// Callback when a 따릉이 station marker is tapped.
     var onBikeStationSelected: ((BikeStation) -> Void)?
+    var onBusStopSelected: ((BusStop) -> Void)?
+    var onSubwayStationSelected: ((SubwayStation) -> Void)?
 
     /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
     var onEmptyMapTapped: (() -> Void)?
@@ -523,6 +525,113 @@ final class MapViewController: UIViewController {
         }
     }
 
+    // MARK: - Transit Route Polyline
+
+    private var transitRouteOverlay: MKPolyline?
+
+    func showBusRoutePolyline(_ coords: [CLLocationCoordinate2D], color: UIColor = .systemBlue) {
+        clearTransitPolyline()
+        guard !coords.isEmpty else { return }
+        var mutable = coords
+        let polyline = MKPolyline(coordinates: &mutable, count: mutable.count)
+        polyline.title = "transit_route"
+        transitRouteOverlay = polyline
+        mapView.addOverlay(polyline, level: .aboveRoads)
+    }
+
+    func showSubwayLinePolyline(stationCoords: [CLLocationCoordinate2D], colorHex: String, isCircular: Bool) {
+        clearTransitPolyline()
+        guard !stationCoords.isEmpty else { return }
+        // 순환선: 마지막 좌표와 첫 좌표 연결
+        var coords = stationCoords
+        if isCircular, let first = coords.first {
+            coords.append(first)
+        }
+        var mutable = coords
+        let polyline = MKPolyline(coordinates: &mutable, count: mutable.count)
+        polyline.title = "transit_route:\(colorHex)"
+        transitRouteOverlay = polyline
+        mapView.addOverlay(polyline, level: .aboveRoads)
+    }
+
+    func clearTransitPolyline() {
+        guard let overlay = transitRouteOverlay else { return }
+        mapView.removeOverlay(overlay)
+        transitRouteOverlay = nil
+    }
+
+    // MARK: - Bus Stops
+
+    private var busStopAnnotations: [BusStopAnnotation] = []
+    private var busLayerEnabled: Bool = false
+    private static let busMaxLatitudeDelta: Double = 0.03
+
+    func setBusStops(_ stops: [BusStop]) {
+        if !busStopAnnotations.isEmpty {
+            mapView.removeAnnotations(busStopAnnotations)
+        }
+        busStopAnnotations = stops.map { BusStopAnnotation(busStop: $0) }
+        busLayerEnabled = !stops.isEmpty
+        updateBusAnnotationsVisibility()
+    }
+
+    func clearBusStops() {
+        busLayerEnabled = false
+        guard !busStopAnnotations.isEmpty else { return }
+        let displayed = mapView.annotations.filter { $0 is BusStopAnnotation }
+        mapView.removeAnnotations(displayed)
+        busStopAnnotations = []
+    }
+
+    private func updateBusAnnotationsVisibility() {
+        guard busLayerEnabled, !busStopAnnotations.isEmpty else { return }
+        let latDelta = mapView.region.span.latitudeDelta
+        let shouldShow = latDelta <= Self.busMaxLatitudeDelta
+        let displayed = mapView.annotations.filter { $0 is BusStopAnnotation }
+        if shouldShow && displayed.isEmpty {
+            mapView.addAnnotations(busStopAnnotations)
+        } else if !shouldShow && !displayed.isEmpty {
+            mapView.removeAnnotations(displayed)
+        }
+    }
+
+    // MARK: - Subway Stations
+
+    private var subwayAnnotations: [SubwayStationAnnotation] = []
+    private var subwayLayerEnabled: Bool = false
+    private static let subwayMaxLatitudeDelta: Double = 0.15
+    private var currentSubwayLines: SubwayLines = [:]
+
+    func setSubwayStations(_ stations: [SubwayStation], lines: SubwayLines) {
+        if !subwayAnnotations.isEmpty {
+            mapView.removeAnnotations(subwayAnnotations)
+        }
+        currentSubwayLines = lines
+        subwayAnnotations = stations.map { SubwayStationAnnotation(station: $0, lines: lines) }
+        subwayLayerEnabled = !stations.isEmpty
+        updateSubwayAnnotationsVisibility()
+    }
+
+    func clearSubwayStations() {
+        subwayLayerEnabled = false
+        guard !subwayAnnotations.isEmpty else { return }
+        let displayed = mapView.annotations.filter { $0 is SubwayStationAnnotation }
+        mapView.removeAnnotations(displayed)
+        subwayAnnotations = []
+    }
+
+    private func updateSubwayAnnotationsVisibility() {
+        guard subwayLayerEnabled, !subwayAnnotations.isEmpty else { return }
+        let latDelta = mapView.region.span.latitudeDelta
+        let shouldShow = latDelta <= Self.subwayMaxLatitudeDelta
+        let displayed = mapView.annotations.filter { $0 is SubwayStationAnnotation }
+        if shouldShow && displayed.isEmpty {
+            mapView.addAnnotations(subwayAnnotations)
+        } else if !shouldShow && !displayed.isEmpty {
+            mapView.removeAnnotations(displayed)
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func fitAnnotations(_ annotations: [MKAnnotation]) {
@@ -639,6 +748,21 @@ extension MapViewController: MKMapViewDelegate {
             return view
         }
 
+        if annotation is BusStopAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: BusStopAnnotationView.reuseIdentifier) as? BusStopAnnotationView
+                ?? BusStopAnnotationView(annotation: annotation, reuseIdentifier: BusStopAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            return view
+        }
+
+        if let subwayAnnotation = annotation as? SubwayStationAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: SubwayStationAnnotationView.reuseIdentifier) as? SubwayStationAnnotationView
+                ?? SubwayStationAnnotationView(annotation: annotation, reuseIdentifier: SubwayStationAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            view.configure(with: subwayAnnotation)
+            return view
+        }
+
         if annotation is DestinationAnnotation {
             let identifier = "Destination"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
@@ -656,6 +780,19 @@ extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
+            // 대중교통 노선 폴리라인
+            if let title = polyline.title, title.hasPrefix("transit_route") {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                // title 형식: "transit_route" (버스) 또는 "transit_route:#RRGGBB" (지하철)
+                if title.contains(":") {
+                    let hex = String(title.split(separator: ":").last ?? "")
+                    renderer.strokeColor = UIColor(hex: hex)?.withAlphaComponent(0.85) ?? .systemBlue.withAlphaComponent(0.8)
+                } else {
+                    renderer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.8)
+                }
+                renderer.lineWidth = 4
+                return renderer
+            }
             let isPrimary = routeIsPrimary[polyline] ?? false
             return RouteOverlayRenderer(polyline: polyline, isPrimary: isPrimary)
         }
@@ -666,6 +803,8 @@ extension MapViewController: MKMapViewDelegate {
         guard Date() > regionChangeSuppressionEnd else { return }
         onRegionChanged?()
         updateBikeAnnotationsVisibility()
+        updateBusAnnotationsVisibility()
+        updateSubwayAnnotationsVisibility()
     }
 
     private func annotationKind(_ annotation: any MKAnnotation) -> String {
@@ -685,8 +824,17 @@ extension MapViewController: MKMapViewDelegate {
 
         if let bikeAnnotation = annotation as? BikeAnnotation {
             bikeMapLogger.info("✓ Bike station tapped: \(bikeAnnotation.station.stationId, privacy: .public) \(bikeAnnotation.station.stationName, privacy: .public)")
-            // 선택 상태 유지 (POI 와 동일) — 드로어 닫을 때 deselect 됨
             onBikeStationSelected?(bikeAnnotation.station)
+            return
+        }
+
+        if let busAnnotation = annotation as? BusStopAnnotation {
+            onBusStopSelected?(busAnnotation.busStop)
+            return
+        }
+
+        if let subwayAnnotation = annotation as? SubwayStationAnnotation {
+            onSubwayStationSelected?(subwayAnnotation.station)
             return
         }
 
@@ -741,5 +889,19 @@ extension MapViewController: MKMapViewDelegate {
         }
         pendingEmptyTapCheck = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.emptyTapCloseDebounce, execute: work)
+    }
+}
+
+private extension UIColor {
+    convenience init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int = UInt64()
+        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else { return nil }
+        self.init(
+            red: CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8) & 0xFF) / 255,
+            blue: CGFloat(int & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }

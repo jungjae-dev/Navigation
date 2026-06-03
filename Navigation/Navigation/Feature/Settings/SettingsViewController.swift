@@ -48,6 +48,7 @@ final class SettingsViewController: UIViewController {
     private enum DataRow: Int, CaseIterable {
         case favorites = 0
         case clearHistory = 1
+        case transitRefresh = 2
     }
 
     private enum InfoRow: Int, CaseIterable {
@@ -250,6 +251,30 @@ final class SettingsViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
         present(alert, animated: true)
+    }
+
+    private func handleTransitRefresh(at indexPath: IndexPath) {
+        let service = TransitDataService.shared
+        guard service.canRefreshToday() else {
+            let alert = UIAlertController(title: nil, message: "오늘 이미 업데이트했습니다.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "확인", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        Task { [weak self] in
+            do {
+                try await service.refreshAll()
+                await MainActor.run {
+                    self?.tableView.reloadRows(at: [indexPath], with: .automatic)
+                }
+            } catch {
+                await MainActor.run {
+                    let alert = UIAlertController(title: "갱신 실패", message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "확인", style: .default))
+                    self?.present(alert, animated: true)
+                }
+            }
+        }
     }
 
     private func confirmClearSearchHistory() {
@@ -642,6 +667,23 @@ extension SettingsViewController: UITableViewDataSource {
                 config.image = UIImage(systemName: "trash.fill")
                 config.imageProperties.tintColor = Theme.Table.destructiveColor
                 config.textProperties.color = Theme.Table.destructiveColor
+
+            case .transitRefresh:
+                config.text = "대중교통 데이터 갱신"
+                let service = TransitDataService.shared
+                if let date = service.lastUpdatedDate() {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "M.d HH:mm"
+                    config.secondaryText = "마지막 갱신: \(formatter.string(from: date))"
+                } else {
+                    config.secondaryText = "아직 갱신하지 않음"
+                }
+                config.image = UIImage(systemName: "arrow.triangle.2.circlepath")
+                config.imageProperties.tintColor = Theme.Colors.primary
+                if !service.canRefreshToday() {
+                    config.textProperties.color = Theme.Colors.secondaryLabel
+                    cell.selectionStyle = .none
+                }
             }
 
         case .info:
@@ -716,8 +758,13 @@ extension SettingsViewController: UITableViewDelegate {
 
         case .data:
             guard let row = DataRow(rawValue: indexPath.row) else { return }
-            if row == .clearHistory && viewModel.searchHistoryCount.value > 0 {
-                confirmClearSearchHistory()
+            switch row {
+            case .clearHistory:
+                if viewModel.searchHistoryCount.value > 0 { confirmClearSearchHistory() }
+            case .transitRefresh:
+                handleTransitRefresh(at: indexPath)
+            case .favorites:
+                break
             }
 
         case .info:

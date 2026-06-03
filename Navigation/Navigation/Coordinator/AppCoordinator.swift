@@ -27,9 +27,11 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeDrawerVC: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
     private var lastSearchQuery: String = ""
-    /// POI / 따릉이 / (향후) 버스·지하철 통합 상세 시트
+    /// POI / 따릉이 / 버스·지하철 통합 상세 시트
     private var mapItemDetailDrawer: MapItemDetailViewController?
     private var routePreviewDrawer: RoutePreviewDrawerViewController?
+    /// 버스/지하철 노선 드로어 (1개만 유지)
+    private var transitRouteDrawer: UIViewController?
     private var cancellables = Set<AnyCancellable>()
 
     private var drawerManager: DrawerContainerManager {
@@ -113,6 +115,14 @@ final class AppCoordinator: NSObject, Coordinator {
 
         mapVC.onBikeStationSelected = { [weak self] station in
             self?.showBikeStationDetail(station)
+        }
+
+        mapVC.onBusStopSelected = { [weak self] busStop in
+            self?.showBusStopDetail(busStop)
+        }
+
+        mapVC.onSubwayStationSelected = { [weak self] station in
+            self?.showSubwayStationDetail(station)
         }
 
         mapVC.onEmptyMapTapped = { [weak self] in
@@ -265,6 +275,207 @@ final class AppCoordinator: NSObject, Coordinator {
             destinationAddress: nil,
             transportMode: .walking
         )
+    }
+
+    // MARK: - Bus Stop Detail Flow
+
+    func showBusStopDetail(_ busStop: BusStop) {
+        guard navigationController.topViewController === homeViewController else { return }
+        mapViewController.mapView.setCenter(busStop.coordinate, animated: true)
+
+        let content = BusStopContent(busStop: busStop)
+        content.onWalkingRoute = { [weak self] stop in
+            self?.showWalkingRouteToBusStop(stop)
+        }
+        content.onRouteTapped = { [weak self] arrival in
+            self?.showBusRoute(arrival: arrival, fromStop: busStop)
+        }
+        content.onTimetableTapped = { [weak self] in
+            guard let self else { return }
+            // 현재 도착 정보가 로드됐을 때만 시간표 진입
+            // BusStopContent가 arrivals를 보유하지 않으므로 별도 fetch 없이 빈 목록으로 시작
+            self.showBusStopTimetable(busStop: busStop, arrivals: [])
+        }
+        showMapItemDetail(content: content)
+    }
+
+    private func showWalkingRouteToBusStop(_ busStop: BusStop) {
+        guard navigationController.topViewController === homeViewController else { return }
+        dismissMapItemDetailWithCleanup()
+
+        mapViewController.showDestination(
+            coordinate: busStop.coordinate,
+            title: busStop.name,
+            subtitle: nil
+        )
+
+        let userCoordinate = locationService.bestAvailableLocation?.coordinate
+            ?? mapViewController.mapView.centerCoordinate
+
+        presentRoutePreviewDrawer(
+            origin: userCoordinate,
+            destination: busStop.coordinate,
+            destinationName: busStop.name,
+            destinationAddress: nil,
+            transportMode: .walking
+        )
+    }
+
+    // MARK: - Subway Station Detail Flow
+
+    func showSubwayStationDetail(_ station: SubwayStation) {
+        guard navigationController.topViewController === homeViewController else { return }
+        mapViewController.mapView.setCenter(station.coordinate, animated: true)
+
+        // 현재 로드된 지하철 라인 정보 가져오기
+        var currentLines: SubwayLines = [:]
+        if case .loaded(_, _, let lines) = TransitDataService.shared.statePublisher.value {
+            currentLines = lines
+        }
+
+        let content = SubwayStationContent(station: station, lines: currentLines)
+        content.onWalkingRoute = { [weak self] st in
+            self?.showWalkingRouteToSubwayStation(st)
+        }
+        content.onLineTapped = { [weak self] lineName in
+            self?.showSubwayLineDetail(station: station, lineName: lineName)
+        }
+        content.onTimetableTapped = { [weak self] in
+            self?.showSubwayStationTimetable(station: station)
+        }
+        showMapItemDetail(content: content)
+    }
+
+    private func showWalkingRouteToSubwayStation(_ station: SubwayStation) {
+        guard navigationController.topViewController === homeViewController else { return }
+        dismissMapItemDetailWithCleanup()
+
+        mapViewController.showDestination(
+            coordinate: station.coordinate,
+            title: station.name,
+            subtitle: nil
+        )
+
+        let userCoordinate = locationService.bestAvailableLocation?.coordinate
+            ?? mapViewController.mapView.centerCoordinate
+
+        presentRoutePreviewDrawer(
+            origin: userCoordinate,
+            destination: station.coordinate,
+            destinationName: station.name,
+            destinationAddress: nil,
+            transportMode: .walking
+        )
+    }
+
+    // MARK: - Subway Timetable Flow (US7)
+
+    func showSubwayStationTimetable(station: SubwayStation) {
+        let drawer = SubwayStationTimetableDrawerViewController(station: station)
+        drawer.onClose = { [weak self] in
+            self?.transitRouteDrawer = nil
+            self?.drawerManager.popDrawer()
+        }
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+    }
+
+    // MARK: - Subway Line Detail Flow (US6)
+
+    private func showSubwayLineDetail(station: SubwayStation, lineName: String) {
+        // 기존 노선 드로어가 열려있으면 제거
+        if transitRouteDrawer != nil {
+            drawerManager.popDrawer()
+            transitRouteDrawer = nil
+        }
+
+        guard case .loaded(_, let stations, let lines) = TransitDataService.shared.statePublisher.value,
+              let lineInfo = lines[lineName] else { return }
+
+        let drawer = SubwayLineDrawerViewController(
+            lineName: lineName,
+            lineInfo: lineInfo,
+            allStations: stations,
+            currentStationCode: station.stationCode
+        )
+
+        drawer.onClose = { [weak self] in
+            self?.transitRouteDrawer = nil
+            self?.drawerManager.popDrawer()
+            self?.mapViewController.clearTransitPolyline()
+        }
+
+        drawer.onStationTapped = { [weak self] tappedStation in
+            self?.mapViewController.mapView.setCenter(tappedStation.coordinate, animated: true)
+        }
+
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+
+        // 호선 폴리라인 그리기
+        let stationMap = Dictionary(uniqueKeysWithValues: stations.map { ($0.stationCode, $0) })
+        let coords = lineInfo.stationCodes.compactMap { stationMap[$0] }
+            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+        mapViewController.showSubwayLinePolyline(
+            stationCoords: coords,
+            colorHex: lineInfo.color,
+            isCircular: lineInfo.circular ?? false
+        )
+    }
+
+    // MARK: - Bus Route Detail Flow
+
+    func showBusRoute(arrival: BusArrival, fromStop: BusStop?) {
+        // 기존 노선 드로어가 열려있으면 제거
+        if let existing = transitRouteDrawer {
+            drawerManager.popDrawer()
+            transitRouteDrawer = nil
+            if existing === existing { /* 동일 노선 재탭 시 닫기만 */ }
+        }
+
+        let drawer = BusRouteDrawerViewController(
+            arrival: arrival,
+            currentStopArsId: fromStop?.arsId,
+            api: .shared
+        )
+
+        drawer.onClose = { [weak self] in
+            self?.dismissTransitRouteDrawer()
+        }
+
+        // 정류소 탭 → 지도 카메라 이동 (드로어 유지)
+        drawer.onStopTapped = { [weak self] stop in
+            let coord = CLLocationCoordinate2D(latitude: stop.lat, longitude: stop.lng)
+            self?.mapViewController.mapView.setCenter(coord, animated: true)
+        }
+
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+
+        // 폴리라인 표시
+        Task {
+            if let coords = try? await BusAPIClient.shared.fetchRoutePolyline(routeId: arrival.routeId) {
+                await MainActor.run {
+                    self.mapViewController.showBusRoutePolyline(coords)
+                }
+            }
+        }
+    }
+
+    func showBusStopTimetable(busStop: BusStop, arrivals: [BusArrival]) {
+        let drawer = BusStopTimetableDrawerViewController(busStop: busStop, arrivals: arrivals)
+        drawer.onClose = { [weak self] in
+            self?.transitRouteDrawer = nil
+            self?.drawerManager.popDrawer()
+        }
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+    }
+
+    private func dismissTransitRouteDrawer() {
+        transitRouteDrawer = nil
+        drawerManager.popDrawer()
+        mapViewController.clearTransitPolyline()
     }
 
     // MARK: - Unified Map Item Detail Flow
