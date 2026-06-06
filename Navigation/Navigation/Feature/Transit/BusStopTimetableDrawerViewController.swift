@@ -14,7 +14,7 @@ final class BusStopTimetableDrawerViewController: UIViewController {
     // MARK: - UI
 
     private let headerView = DrawerHeaderView()
-    private let closeButton = DrawerIconButton(preset: .close)
+    private let closeButton = DrawerIconButton(preset: .back)
 
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -86,7 +86,7 @@ final class BusStopTimetableDrawerViewController: UIViewController {
 
     private func setupUI() {
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-        headerView.addRightAction(closeButton)
+        headerView.addLeftAction(closeButton)
         headerView.setTitle("\(busStop.name) 운행정보")
 
         scrollView.addSubview(rowsStack)

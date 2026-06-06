@@ -15,7 +15,7 @@ final class BusRouteDrawerViewController: UIViewController {
     // MARK: - UI
 
     private let headerView = DrawerHeaderView()
-    private let closeButton = DrawerIconButton(preset: .close)
+    private let closeButton = DrawerIconButton(preset: .back)
 
     private let tableView: UITableView = {
         let tv = UITableView()
@@ -67,7 +67,7 @@ final class BusRouteDrawerViewController: UIViewController {
 
     private func setupUI() {
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-        headerView.addRightAction(closeButton)
+        headerView.addLeftAction(closeButton)
 
         [headerView, tableView, loadingIndicator].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false

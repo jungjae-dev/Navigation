@@ -7,7 +7,7 @@ final class RoutePreviewDrawerViewController: UIViewController {
     // MARK: - UI Components
 
     private let headerView = DrawerHeaderView()
-    private let closeButton = DrawerIconButton(preset: .close)
+    private let closeButton = DrawerIconButton(preset: .back)
 
     private let transportModeSegment: UISegmentedControl = {
         let segment = UISegmentedControl(items: [
@@ -85,8 +85,8 @@ final class RoutePreviewDrawerViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        // Header: destination name + close
-        headerView.addRightAction(closeButton)
+        // Header: back + destination name
+        headerView.addLeftAction(closeButton)
 
         view.addSubview(headerView)
         view.addSubview(transportModeSegment)

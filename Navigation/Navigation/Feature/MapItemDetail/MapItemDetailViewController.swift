@@ -17,7 +17,7 @@ final class MapItemDetailViewController: UIViewController {
     // MARK: - UI
 
     private let headerView = DrawerHeaderView()
-    private let closeButton = DrawerIconButton(preset: .close)
+    private let closeButton = DrawerIconButton(preset: .back)
     private let contentContainer = UIView()
     private var footerActionStack: UIStackView?
 
@@ -64,7 +64,8 @@ final class MapItemDetailViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = Theme.Colors.background
 
-        headerView.addRightAction(closeButton)
+        // 좌측 백버튼 → (아이콘) → 제목 순으로 배치
+        headerView.addLeftAction(closeButton)
 
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
 

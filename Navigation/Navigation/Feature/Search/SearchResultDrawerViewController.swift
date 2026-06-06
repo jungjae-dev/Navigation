@@ -6,7 +6,7 @@ final class SearchResultDrawerViewController: UIViewController {
 
     private let headerView = DrawerHeaderView()
     private let refreshButton = DrawerIconButton(iconName: "arrow.clockwise", tintColor: Theme.Colors.primary)
-    private let closeButton = DrawerIconButton(preset: .close)
+    private let closeButton = DrawerIconButton(preset: .back)
 
     private let tableView: UITableView = {
         let tableView = UITableView()
@@ -72,8 +72,8 @@ final class SearchResultDrawerViewController: UIViewController {
         titleStack.alignment = .center
         titleStack.spacing = Theme.Spacing.xs
 
+        headerView.addLeftAction(closeButton)
         headerView.setCenterView(titleStack)
-        headerView.addRightAction(closeButton)
 
         view.addSubview(headerView)
         view.addSubview(tableView)
