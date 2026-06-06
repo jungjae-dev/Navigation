@@ -378,6 +378,11 @@ final class AppCoordinator: NSObject, Coordinator {
     /// - 드로어가 닫혀있으면 새로 push
     /// - 열려있으면 컨텐츠 교체 (헤더 + 본문 + 푸터 모두 갱신)
     private func showMapItemDetail(content: any MapItemContent) {
+        // 노선/시간표 드로어가 위에 떠 있으면 먼저 닫아 상세가 최상단에 오도록
+        if transitRouteDrawer != nil {
+            dismissTransitRouteDrawer()
+        }
+
         let currentCoord = locationService.locationPublisher.value?.coordinate
 
         if let existing = mapItemDetailDrawer {
