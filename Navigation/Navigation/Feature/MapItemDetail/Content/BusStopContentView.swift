@@ -69,13 +69,25 @@ final class BusStopContentView: UIView {
         outer.axis = .vertical
         outer.spacing = Theme.Spacing.sm
         outer.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(outer)
+
+        // 도착 노선이 많아 고정 높이(드로어 detent)를 초과할 수 있으므로 스크롤 가능하게 구성
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = false
+        addSubview(scrollView)
+        scrollView.addSubview(outer)
 
         NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: topAnchor),
-            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
-            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            outer.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            outer.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            outer.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            outer.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            outer.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            outer.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
         ])
     }
 
