@@ -35,6 +35,7 @@ final class MapViewController: UIViewController {
 
     /// Callback when a 따릉이 station marker is tapped.
     var onBikeStationSelected: ((BikeStation) -> Void)?
+    var onBusStopSelected: ((BusStop) -> Void)?
 
     /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
     var onEmptyMapTapped: (() -> Void)?
@@ -504,9 +505,16 @@ final class MapViewController: UIViewController {
         }
     }
 
+    /// 버스 정류소 선택 해제
+    func deselectAllBusStops() {
+        for annotation in mapView.selectedAnnotations where annotation is BusStopAnnotation {
+            mapView.deselectAnnotation(annotation, animated: false)
+        }
+    }
+
     /// 현재 줌 레벨에 따라 따릉이 마커 표시/숨김 갱신
     private func updateBikeAnnotationsVisibility() {
-        guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
+        guard !routeFocusMode, bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
 
         let latDelta = mapView.region.span.latitudeDelta
         let shouldShow = latDelta <= Self.bikeMaxLatitudeDelta
@@ -522,6 +530,130 @@ final class MapViewController: UIViewController {
             bikeMapLogger.info("[ZOOM] latΔ=\(String(format: "%.4f", latDelta), privacy: .public) → 마커 숨김 (임계값 \(Self.bikeMaxLatitudeDelta, privacy: .public) 초과)")
         }
     }
+
+    // MARK: - Transit Route Polyline
+
+    private var transitRouteOverlay: MKPolyline?
+
+    func showBusRoutePolyline(_ coords: [CLLocationCoordinate2D], color: UIColor = .systemBlue) {
+        clearTransitPolyline()
+        guard !coords.isEmpty else { return }
+        var mutable = coords
+        let polyline = MKPolyline(coordinates: &mutable, count: mutable.count)
+        polyline.title = "transit_route"
+        transitRouteOverlay = polyline
+        mapView.addOverlay(polyline, level: .aboveRoads)
+    }
+
+    func clearTransitPolyline() {
+        guard let overlay = transitRouteOverlay else { return }
+        mapView.removeOverlay(overlay)
+        transitRouteOverlay = nil
+    }
+
+    // MARK: - Bus Stops
+
+    private var busStopAnnotations: [BusStopAnnotation] = []
+    private var busLayerEnabled: Bool = false
+    private static let busMaxLatitudeDelta: Double = 0.03
+
+    func setBusStops(_ stops: [BusStop]) {
+        if !busStopAnnotations.isEmpty {
+            mapView.removeAnnotations(busStopAnnotations)
+        }
+        busStopAnnotations = stops.map { BusStopAnnotation(busStop: $0) }
+        busLayerEnabled = !stops.isEmpty
+        updateBusAnnotationsVisibility()
+    }
+
+    func clearBusStops() {
+        busLayerEnabled = false
+        guard !busStopAnnotations.isEmpty else { return }
+        let displayed = mapView.annotations.filter { $0 is BusStopAnnotation }
+        mapView.removeAnnotations(displayed)
+        busStopAnnotations = []
+    }
+
+    private func updateBusAnnotationsVisibility() {
+        guard !routeFocusMode, busLayerEnabled, !busStopAnnotations.isEmpty else { return }
+        let latDelta = mapView.region.span.latitudeDelta
+        let shouldShow = latDelta <= Self.busMaxLatitudeDelta
+        let displayed = Set(mapView.annotations.compactMap { $0 as? BusStopAnnotation })
+        if shouldShow {
+            // 이미 표시된 것 제외하고 누락분만 추가 (포커스 중 남겨둔 마커와 중복 방지)
+            let missing = busStopAnnotations.filter { !displayed.contains($0) }
+            if !missing.isEmpty { mapView.addAnnotations(missing) }
+        } else if !displayed.isEmpty {
+            mapView.removeAnnotations(Array(displayed))
+        }
+    }
+
+    // MARK: - Route Focus Mode
+
+    /// 노선 정보 보기 중 — 선택 정류장 외 버스/따릉이 마커를 숨겨 노선만 부각
+    private var routeFocusMode = false
+
+    func enterRouteFocus(keepingStopArsId arsId: String?) {
+        routeFocusMode = true
+        // 버스 마커: 선택 정류장만 남기고 제거
+        let busToRemove = mapView.annotations
+            .compactMap { $0 as? BusStopAnnotation }
+            .filter { $0.busStop.arsId != arsId }
+        if !busToRemove.isEmpty { mapView.removeAnnotations(busToRemove) }
+        // 따릉이 마커 전부 숨김
+        let bikeDisplayed = mapView.annotations.filter { $0 is BikeAnnotation }
+        if !bikeDisplayed.isEmpty { mapView.removeAnnotations(bikeDisplayed) }
+    }
+
+    func exitRouteFocus() {
+        guard routeFocusMode else { return }
+        routeFocusMode = false
+        clearBusVehicles()
+        clearRouteStops()
+        // 현재 줌/레이어 상태대로 마커 복원
+        updateBusAnnotationsVisibility()
+        updateBikeAnnotationsVisibility()
+    }
+
+    // MARK: - Route Stops (노선 경유 정류소)
+
+    private var routeStopAnnotations: [BusStopAnnotation] = []
+
+    /// 노선 경유 정류소를 마커로 표시 (선택 정류장은 중복 방지 위해 제외)
+    func showRouteStops(_ stops: [BusRouteStop], excludingArsId excludeArsId: String?) {
+        clearRouteStops()
+        let annotations = stops.compactMap { stop -> BusStopAnnotation? in
+            if let ex = excludeArsId, stop.arsId == ex { return nil }
+            let busStop = BusStop(stId: stop.stationId, arsId: stop.arsId, name: stop.name, lat: stop.lat, lng: stop.lng)
+            return BusStopAnnotation(busStop: busStop)
+        }
+        routeStopAnnotations = annotations
+        if !annotations.isEmpty { mapView.addAnnotations(annotations) }
+    }
+
+    func clearRouteStops() {
+        guard !routeStopAnnotations.isEmpty else { return }
+        mapView.removeAnnotations(routeStopAnnotations)
+        routeStopAnnotations = []
+    }
+
+    // MARK: - Bus Vehicles (실시간 운행 위치)
+
+    private var busVehicleAnnotations: [BusVehicleAnnotation] = []
+
+    func showBusVehicles(_ vehicles: [BusVehicle]) {
+        clearBusVehicles()
+        guard !vehicles.isEmpty else { return }
+        busVehicleAnnotations = vehicles.map { BusVehicleAnnotation(vehicle: $0) }
+        mapView.addAnnotations(busVehicleAnnotations)
+    }
+
+    func clearBusVehicles() {
+        guard !busVehicleAnnotations.isEmpty else { return }
+        mapView.removeAnnotations(busVehicleAnnotations)
+        busVehicleAnnotations = []
+    }
+
 
     // MARK: - Private Helpers
 
@@ -639,6 +771,20 @@ extension MapViewController: MKMapViewDelegate {
             return view
         }
 
+        if annotation is BusStopAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: BusStopAnnotationView.reuseIdentifier) as? BusStopAnnotationView
+                ?? BusStopAnnotationView(annotation: annotation, reuseIdentifier: BusStopAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            return view
+        }
+
+        if annotation is BusVehicleAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: BusVehicleAnnotationView.reuseIdentifier) as? BusVehicleAnnotationView
+                ?? BusVehicleAnnotationView(annotation: annotation, reuseIdentifier: BusVehicleAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            return view
+        }
+
         if annotation is DestinationAnnotation {
             let identifier = "Destination"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
@@ -656,6 +802,19 @@ extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
+            // 대중교통 노선 폴리라인
+            if let title = polyline.title, title.hasPrefix("transit_route") {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                // title 형식: "transit_route" (버스) 또는 "transit_route:#RRGGBB" (지하철)
+                if title.contains(":") {
+                    let hex = String(title.split(separator: ":").last ?? "")
+                    renderer.strokeColor = UIColor(hex: hex)?.withAlphaComponent(0.85) ?? .systemBlue.withAlphaComponent(0.8)
+                } else {
+                    renderer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.8)
+                }
+                renderer.lineWidth = 4
+                return renderer
+            }
             let isPrimary = routeIsPrimary[polyline] ?? false
             return RouteOverlayRenderer(polyline: polyline, isPrimary: isPrimary)
         }
@@ -666,6 +825,7 @@ extension MapViewController: MKMapViewDelegate {
         guard Date() > regionChangeSuppressionEnd else { return }
         onRegionChanged?()
         updateBikeAnnotationsVisibility()
+        updateBusAnnotationsVisibility()
     }
 
     private func annotationKind(_ annotation: any MKAnnotation) -> String {
@@ -685,11 +845,14 @@ extension MapViewController: MKMapViewDelegate {
 
         if let bikeAnnotation = annotation as? BikeAnnotation {
             bikeMapLogger.info("✓ Bike station tapped: \(bikeAnnotation.station.stationId, privacy: .public) \(bikeAnnotation.station.stationName, privacy: .public)")
-            // 선택 상태 유지 (POI 와 동일) — 드로어 닫을 때 deselect 됨
             onBikeStationSelected?(bikeAnnotation.station)
             return
         }
 
+        if let busAnnotation = annotation as? BusStopAnnotation {
+            onBusStopSelected?(busAnnotation.busStop)
+            return
+        }
 
         if let featureAnnotation = annotation as? MKMapFeatureAnnotation {
             mapView.deselectAnnotation(annotation, animated: true)
@@ -741,5 +904,19 @@ extension MapViewController: MKMapViewDelegate {
         }
         pendingEmptyTapCheck = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.emptyTapCloseDebounce, execute: work)
+    }
+}
+
+private extension UIColor {
+    convenience init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int = UInt64()
+        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else { return nil }
+        self.init(
+            red: CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8) & 0xFF) / 255,
+            blue: CGFloat(int & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }

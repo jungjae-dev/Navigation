@@ -27,9 +27,11 @@ final class AppCoordinator: NSObject, Coordinator {
     private var homeDrawerVC: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
     private var lastSearchQuery: String = ""
-    /// POI / 따릉이 / (향후) 버스·지하철 통합 상세 시트
+    /// POI / 따릉이 / 버스·지하철 통합 상세 시트
     private var mapItemDetailDrawer: MapItemDetailViewController?
     private var routePreviewDrawer: RoutePreviewDrawerViewController?
+    /// 버스/지하철 노선 드로어 (1개만 유지)
+    private var transitRouteDrawer: UIViewController?
     private var cancellables = Set<AnyCancellable>()
 
     private var drawerManager: DrawerContainerManager {
@@ -113,6 +115,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
         mapVC.onBikeStationSelected = { [weak self] station in
             self?.showBikeStationDetail(station)
+        }
+
+        mapVC.onBusStopSelected = { [weak self] busStop in
+            self?.showBusStopDetail(busStop)
         }
 
         mapVC.onEmptyMapTapped = { [weak self] in
@@ -267,12 +273,133 @@ final class AppCoordinator: NSObject, Coordinator {
         )
     }
 
+    // MARK: - Bus Stop Detail Flow
+
+    func showBusStopDetail(_ busStop: BusStop) {
+        guard navigationController.topViewController === homeViewController else { return }
+        mapViewController.mapView.setCenter(busStop.coordinate, animated: true)
+
+        let content = BusStopContent(busStop: busStop)
+        content.onWalkingRoute = { [weak self] stop in
+            self?.showWalkingRouteToBusStop(stop)
+        }
+        content.onRouteTapped = { [weak self] arrival in
+            self?.showBusRoute(arrival: arrival, fromStop: busStop)
+        }
+        content.onTimetableTapped = { [weak self] in
+            guard let self else { return }
+            // 현재 도착 정보가 로드됐을 때만 시간표 진입
+            // BusStopContent가 arrivals를 보유하지 않으므로 별도 fetch 없이 빈 목록으로 시작
+            self.showBusStopTimetable(busStop: busStop, arrivals: [])
+        }
+        showMapItemDetail(content: content)
+    }
+
+    private func showWalkingRouteToBusStop(_ busStop: BusStop) {
+        guard navigationController.topViewController === homeViewController else { return }
+        dismissMapItemDetailWithCleanup()
+
+        mapViewController.showDestination(
+            coordinate: busStop.coordinate,
+            title: busStop.name,
+            subtitle: nil
+        )
+
+        let userCoordinate = locationService.bestAvailableLocation?.coordinate
+            ?? mapViewController.mapView.centerCoordinate
+
+        presentRoutePreviewDrawer(
+            origin: userCoordinate,
+            destination: busStop.coordinate,
+            destinationName: busStop.name,
+            destinationAddress: nil,
+            transportMode: .walking
+        )
+    }
+
+    // MARK: - Bus Route Detail Flow
+
+    func showBusRoute(arrival: BusArrival, fromStop: BusStop?) {
+        // 기존 노선 드로어가 열려있으면 제거
+        if let existing = transitRouteDrawer {
+            drawerManager.popDrawer()
+            transitRouteDrawer = nil
+            if existing === existing { /* 동일 노선 재탭 시 닫기만 */ }
+        }
+
+        let drawer = BusRouteDrawerViewController(
+            arrival: arrival,
+            currentStopArsId: fromStop?.arsId,
+            api: .shared
+        )
+
+        drawer.onClose = { [weak self] in
+            self?.dismissTransitRouteDrawer()
+        }
+
+        // 정류소 탭 → 지도 카메라 이동 (드로어 유지)
+        drawer.onStopTapped = { [weak self] stop in
+            let coord = CLLocationCoordinate2D(latitude: stop.lat, longitude: stop.lng)
+            self?.mapViewController.mapView.setCenter(coord, animated: true)
+        }
+
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+
+        // 노선 포커스: 선택 정류장 외 버스/따릉이 마커 숨김
+        mapViewController.enterRouteFocus(keepingStopArsId: fromStop?.arsId)
+        mapViewController.clearBusVehicles()
+        mapViewController.clearRouteStops()
+
+        // 노선 폴리라인 + 경유 정류소 마커 표시
+        Task {
+            if let stops = try? await BusAPIClient.shared.fetchRouteStops(routeId: arrival.routeId) {
+                let coords = stops.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+                await MainActor.run {
+                    self.mapViewController.showBusRoutePolyline(coords)
+                    self.mapViewController.showRouteStops(stops, excludingArsId: fromStop?.arsId)
+                }
+            }
+        }
+
+        // 실시간 운행 차량 위치 1회 조회 후 표시 (서비스 미구독 시 빈 결과 → 무시)
+        Task {
+            if let vehicles = try? await BusAPIClient.shared.fetchBusPositions(routeId: arrival.routeId) {
+                await MainActor.run {
+                    self.mapViewController.showBusVehicles(vehicles)
+                }
+            }
+        }
+    }
+
+    func showBusStopTimetable(busStop: BusStop, arrivals: [BusArrival]) {
+        let drawer = BusStopTimetableDrawerViewController(busStop: busStop, arrivals: arrivals)
+        drawer.onClose = { [weak self] in
+            self?.transitRouteDrawer = nil
+            self?.drawerManager.popDrawer()
+        }
+        transitRouteDrawer = drawer
+        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
+    }
+
+    private func dismissTransitRouteDrawer() {
+        transitRouteDrawer = nil
+        drawerManager.popDrawer()
+        mapViewController.clearTransitPolyline()
+        mapViewController.exitRouteFocus()
+    }
+
     // MARK: - Unified Map Item Detail Flow
 
     /// POI, 따릉이 등 통합 상세 시트 표시
     /// - 드로어가 닫혀있으면 새로 push
     /// - 열려있으면 컨텐츠 교체 (헤더 + 본문 + 푸터 모두 갱신)
     private func showMapItemDetail(content: any MapItemContent) {
+        // 노선/시간표 드로어가 위에 떠 있으면 먼저 닫아 상세가 최상단에 오도록
+        if transitRouteDrawer != nil {
+            dismissTransitRouteDrawer()
+        }
+
         let currentCoord = locationService.locationPublisher.value?.coordinate
 
         if let existing = mapItemDetailDrawer {
@@ -299,8 +426,9 @@ final class AppCoordinator: NSObject, Coordinator {
         mapItemDetailDrawer = nil
         // POI 마커가 떠있다면 함께 정리 (멱등)
         mapViewController.clearPOIMarker()
-        // 따릉이 마커의 선택 상태 해제
+        // 따릉이/버스 마커의 선택 상태 해제
         mapViewController.deselectAllBikeStations()
+        mapViewController.deselectAllBusStops()
         drawerManager.popDrawer()
     }
 

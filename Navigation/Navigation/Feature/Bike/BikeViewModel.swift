@@ -24,6 +24,8 @@ final class BikeViewModel: ObservableObject {
     @Published private(set) var isLayerOn: Bool = false
     private var isFetching: Bool = false
 
+    private static let layerDefaultsKey = "layer.bike.enabled"
+
     // MARK: - Dependencies
 
     private let api: BikeStationAPI
@@ -32,6 +34,7 @@ final class BikeViewModel: ObservableObject {
     init(api: BikeStationAPI = BikeStationAPI(), cache: BikeStationCache = .shared) {
         self.api = api
         self.cache = cache
+        self.isLayerOn = UserDefaults.standard.bool(forKey: Self.layerDefaultsKey)
     }
 
     // MARK: - Actions
@@ -43,6 +46,7 @@ final class BikeViewModel: ObservableObject {
         // fetch 진행 중엔 재진입 방지 — 빠른 연타로 상태가 꼬이는 문제 차단
         guard !isFetching else { return }
         isLayerOn.toggle()
+        UserDefaults.standard.set(isLayerOn, forKey: Self.layerDefaultsKey)
         guard isLayerOn else { return }
 
         // 이미 캐시가 있으면 재호출 안 함 (수동 갱신 정책)
@@ -52,6 +56,16 @@ final class BikeViewModel: ObservableObject {
         }
 
         await fetchAll()
+    }
+
+    /// 앱 시작 시 저장된 레이어 상태 복원 — ON 으로 저장돼 있으면 데이터 확보
+    func restoreLayerIfNeeded() async {
+        guard isLayerOn else { return }
+        if cache.allStations.isEmpty {
+            await fetchAll()
+        } else {
+            state = .loaded
+        }
     }
 
     /// 전체 정류소 fetch + 캐시 업데이트

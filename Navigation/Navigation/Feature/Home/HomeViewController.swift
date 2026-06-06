@@ -12,6 +12,7 @@ final class HomeViewController: UIViewController {
 
     private let viewModel: HomeViewModel
     private let bikeViewModel = BikeViewModel()
+    private let busViewModel = BusViewModel()
     let mapViewController: MapViewController
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
@@ -39,6 +40,9 @@ final class HomeViewController: UIViewController {
         bindViewModel()
         handleInitialPermission()
         setupLBSNotifications()
+        Task { await TransitDataService.shared.load() }
+        // 저장된 레이어 상태 복원 (따릉이 ON 이면 데이터 확보)
+        Task { await bikeViewModel.restoreLayerIfNeeded() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -86,11 +90,11 @@ final class HomeViewController: UIViewController {
         buttons.onMapModeTapped = { [weak self] in
             self?.handleMapModeTapped()
         }
-        buttons.onBikeLayerTapped = { [weak self] in
-            self?.handleBikeLayerTapped()
-        }
         buttons.onBikeRefreshTapped = { [weak self] in
             self?.handleBikeRefreshTapped()
+        }
+        buttons.onPOILayerTapped = { [weak self] in
+            self?.handlePOILayerTapped()
         }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
@@ -121,11 +125,46 @@ final class HomeViewController: UIViewController {
             }
             .store(in: &cancellables)
 
+        // 버스 레이어 ON/OFF
+        busViewModel.isLayerOnPublisher
+            .receive(on: DispatchQueue.main)
+            .combineLatest(busViewModel.busStopsPublisher)
+            .sink { [weak self] isOn, stops in
+                guard let self else { return }
+                if isOn { self.mapViewController.setBusStops(stops) }
+                else { self.mapViewController.clearBusStops() }
+                self.updatePOIButtonState()
+            }
+            .store(in: &cancellables)
+
         // 따릉이 정류소 마커 탭은 AppCoordinator 가 직접 mapViewController.onBikeStationSelected 처리
     }
 
-    private func handleBikeLayerTapped() {
-        Task { await bikeViewModel.toggleLayer() }
+    private func updatePOIButtonState() {
+        let hasActive = bikeViewModel.isLayerOn || busViewModel.isLayerOn
+        mapControlButtons.updatePOILayerState(hasActiveLayer: hasActive)
+    }
+
+    private func handlePOILayerTapped() {
+        let alert = UIAlertController(title: "지도 레이어", message: nil, preferredStyle: .actionSheet)
+
+        let bikeTitle = bikeViewModel.isLayerOn ? "✓ 따릉이" : "따릉이"
+        alert.addAction(UIAlertAction(title: bikeTitle, style: .default) { [weak self] _ in
+            Task { await self?.bikeViewModel.toggleLayer() }
+        })
+
+        let busTitle = busViewModel.isLayerOn ? "✓ 버스 정류소" : "버스 정류소"
+        alert.addAction(UIAlertAction(title: busTitle, style: .default) { [weak self] _ in
+            self?.busViewModel.toggleLayer()
+        })
+
+        alert.addAction(UIAlertAction(title: "닫기", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = mapControlButtons
+            popover.sourceRect = mapControlButtons.bounds
+        }
+        present(alert, animated: true)
     }
 
     private func handleBikeRefreshTapped() {

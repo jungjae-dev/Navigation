@@ -7,8 +7,8 @@ final class MapControlButtonsView: UIView {
 
     var onCurrentLocationTapped: (() -> Void)?
     var onMapModeTapped: (() -> Void)?
-    var onBikeLayerTapped: (() -> Void)?
     var onBikeRefreshTapped: (() -> Void)?
+    var onPOILayerTapped: (() -> Void)?
 
     // MARK: - UI
 
@@ -22,8 +22,8 @@ final class MapControlButtonsView: UIView {
 
     private let currentLocationButton = UIButton(type: .system)
     private let mapModeButton = UIButton(type: .system)
-    private let bikeLayerButton = UIButton(type: .system)
     private let bikeRefreshButton = UIButton(type: .system)
+    private let poiLayerButton = UIButton(type: .system)
 
     // MARK: - Init
 
@@ -50,16 +50,11 @@ final class MapControlButtonsView: UIView {
         configureButton(mapModeButton, iconName: "map")
         stackView.addArrangedSubview(mapModeButton)
 
-        configureButton(bikeLayerButton, iconName: "bicycle")
-        // bicycle 아이콘은 다른 SF Symbol 보다 시각적으로 크게 보여서 살짝 줄이고, weight 는 두껍게
-        bikeLayerButton.setImage(
-            UIImage(systemName: "bicycle")?
-                .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.Card.iconSize - 4, weight: .bold)),
-            for: .normal
-        )
-        stackView.addArrangedSubview(bikeLayerButton)
+        // POI 레이어 버튼 — 따릉이/버스 토글 팝업 진입
+        configureButton(poiLayerButton, iconName: "square.3.layers.3d")
+        stackView.addArrangedSubview(poiLayerButton)
 
-        // 새로고침 버튼 — 자전거 ON 일 때만 노출. stackView 바깥에서 bike 버튼 좌측에 별도 배치
+        // 새로고침 버튼 — 따릉이 ON 일 때만 노출. stackView 바깥에서 POI 버튼 좌측에 별도 배치
         configureButton(bikeRefreshButton, iconName: "arrow.clockwise")
         bikeRefreshButton.isHidden = true
         addSubview(bikeRefreshButton)
@@ -70,9 +65,9 @@ final class MapControlButtonsView: UIView {
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // refresh 는 자전거 버튼의 좌측에 배치
-            bikeRefreshButton.trailingAnchor.constraint(equalTo: bikeLayerButton.leadingAnchor, constant: -Theme.Spacing.sm),
-            bikeRefreshButton.centerYAnchor.constraint(equalTo: bikeLayerButton.centerYAnchor),
+            // refresh 는 POI 레이어 버튼의 좌측에 배치
+            bikeRefreshButton.trailingAnchor.constraint(equalTo: poiLayerButton.leadingAnchor, constant: -Theme.Spacing.sm),
+            bikeRefreshButton.centerYAnchor.constraint(equalTo: poiLayerButton.centerYAnchor),
         ])
     }
 
@@ -100,8 +95,8 @@ final class MapControlButtonsView: UIView {
     private func setupActions() {
         currentLocationButton.addTarget(self, action: #selector(currentLocationTapped), for: .touchUpInside)
         mapModeButton.addTarget(self, action: #selector(mapModeTapped), for: .touchUpInside)
-        bikeLayerButton.addTarget(self, action: #selector(bikeLayerTapped), for: .touchUpInside)
         bikeRefreshButton.addTarget(self, action: #selector(bikeRefreshTapped), for: .touchUpInside)
+        poiLayerButton.addTarget(self, action: #selector(poiLayerTapped), for: .touchUpInside)
     }
 
     private func setupAccessibility() {
@@ -111,11 +106,11 @@ final class MapControlButtonsView: UIView {
         mapModeButton.accessibilityLabel = "지도 모드"
         mapModeButton.accessibilityHint = "지도 표시 유형을 변경합니다"
 
-        bikeLayerButton.accessibilityLabel = "따릉이 정류소 표시"
-        bikeLayerButton.accessibilityHint = "지도에 따릉이 정류소를 표시하거나 숨깁니다"
-
         bikeRefreshButton.accessibilityLabel = "따릉이 새로고침"
         bikeRefreshButton.accessibilityHint = "따릉이 정류소 정보를 새로고침합니다"
+
+        poiLayerButton.accessibilityLabel = "POI 레이어"
+        poiLayerButton.accessibilityHint = "따릉이, 버스 표시를 설정합니다"
     }
 
     // MARK: - Actions
@@ -128,12 +123,12 @@ final class MapControlButtonsView: UIView {
         onMapModeTapped?()
     }
 
-    @objc private func bikeLayerTapped() {
-        onBikeLayerTapped?()
-    }
-
     @objc private func bikeRefreshTapped() {
         onBikeRefreshTapped?()
+    }
+
+    @objc private func poiLayerTapped() {
+        onPOILayerTapped?()
     }
 
     // MARK: - State Updates
@@ -173,8 +168,7 @@ final class MapControlButtonsView: UIView {
     }
 
     func updateBikeLayerState(isOn: Bool) {
-        let tint: UIColor = isOn ? Theme.Colors.primary : Theme.Colors.secondaryLabel
-        bikeLayerButton.tintColor = tint
+        // 따릉이 레이어 ON 일 때만 새로고침 버튼 노출
         bikeRefreshButton.isHidden = !isOn
     }
 
@@ -182,6 +176,10 @@ final class MapControlButtonsView: UIView {
         bikeRefreshButton.isEnabled = !refreshing
         let alpha: CGFloat = refreshing ? 0.4 : 1
         bikeRefreshButton.alpha = alpha
+    }
+
+    func updatePOILayerState(hasActiveLayer: Bool) {
+        poiLayerButton.tintColor = hasActiveLayer ? Theme.Colors.primary : Theme.Colors.secondaryLabel
     }
 
     // bikeRefreshButton 은 self 의 bounds 좌측 밖에 배치되어 있어 기본 hitTest 로는 탭이 통과됨.

@@ -84,7 +84,7 @@ final class MapItemDetailViewController: UIViewController {
             ),
             contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: padding),
             contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -padding),
-            contentContainer.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
