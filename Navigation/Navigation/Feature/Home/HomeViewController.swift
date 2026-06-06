@@ -13,7 +13,6 @@ final class HomeViewController: UIViewController {
     private let viewModel: HomeViewModel
     private let bikeViewModel = BikeViewModel()
     private let busViewModel = BusViewModel()
-    private let subwayViewModel = SubwayViewModel()
     let mapViewController: MapViewController
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
@@ -139,23 +138,11 @@ final class HomeViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 지하철 레이어 ON/OFF
-        subwayViewModel.isLayerOnPublisher
-            .receive(on: DispatchQueue.main)
-            .combineLatest(subwayViewModel.subwayStationsPublisher, subwayViewModel.subwayLinesPublisher)
-            .sink { [weak self] isOn, stations, lines in
-                guard let self else { return }
-                if isOn { self.mapViewController.setSubwayStations(stations, lines: lines) }
-                else { self.mapViewController.clearSubwayStations() }
-                self.updatePOIButtonState()
-            }
-            .store(in: &cancellables)
-
         // 따릉이 정류소 마커 탭은 AppCoordinator 가 직접 mapViewController.onBikeStationSelected 처리
     }
 
     private func updatePOIButtonState() {
-        let hasActive = bikeViewModel.isLayerOn || busViewModel.isLayerOn || subwayViewModel.isLayerOn
+        let hasActive = bikeViewModel.isLayerOn || busViewModel.isLayerOn
         mapControlButtons.updatePOILayerState(hasActiveLayer: hasActive)
     }
 
@@ -170,11 +157,6 @@ final class HomeViewController: UIViewController {
         let busTitle = busViewModel.isLayerOn ? "✓ 버스 정류소" : "버스 정류소"
         alert.addAction(UIAlertAction(title: busTitle, style: .default) { [weak self] _ in
             self?.busViewModel.toggleLayer()
-        })
-
-        let subwayTitle = subwayViewModel.isLayerOn ? "✓ 지하철역" : "지하철역"
-        alert.addAction(UIAlertAction(title: subwayTitle, style: .default) { [weak self] _ in
-            self?.subwayViewModel.toggleLayer()
         })
 
         alert.addAction(UIAlertAction(title: "닫기", style: .cancel))

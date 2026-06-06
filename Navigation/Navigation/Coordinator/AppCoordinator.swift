@@ -121,10 +121,6 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showBusStopDetail(busStop)
         }
 
-        mapVC.onSubwayStationSelected = { [weak self] station in
-            self?.showSubwayStationDetail(station)
-        }
-
         mapVC.onEmptyMapTapped = { [weak self] in
             guard self?.mapItemDetailDrawer != nil else { return }
             self?.dismissMapItemDetailWithCleanup()
@@ -318,108 +314,6 @@ final class AppCoordinator: NSObject, Coordinator {
             destinationName: busStop.name,
             destinationAddress: nil,
             transportMode: .walking
-        )
-    }
-
-    // MARK: - Subway Station Detail Flow
-
-    func showSubwayStationDetail(_ station: SubwayStation) {
-        guard navigationController.topViewController === homeViewController else { return }
-        mapViewController.mapView.setCenter(station.coordinate, animated: true)
-
-        // 현재 로드된 지하철 라인 정보 가져오기
-        var currentLines: SubwayLines = [:]
-        if case .loaded(_, _, let lines) = TransitDataService.shared.statePublisher.value {
-            currentLines = lines
-        }
-
-        let content = SubwayStationContent(station: station, lines: currentLines)
-        content.onWalkingRoute = { [weak self] st in
-            self?.showWalkingRouteToSubwayStation(st)
-        }
-        content.onLineTapped = { [weak self] lineName in
-            self?.showSubwayLineDetail(station: station, lineName: lineName)
-        }
-        content.onTimetableTapped = { [weak self] in
-            self?.showSubwayStationTimetable(station: station)
-        }
-        showMapItemDetail(content: content)
-    }
-
-    private func showWalkingRouteToSubwayStation(_ station: SubwayStation) {
-        guard navigationController.topViewController === homeViewController else { return }
-        dismissMapItemDetailWithCleanup()
-
-        mapViewController.showDestination(
-            coordinate: station.coordinate,
-            title: station.name,
-            subtitle: nil
-        )
-
-        let userCoordinate = locationService.bestAvailableLocation?.coordinate
-            ?? mapViewController.mapView.centerCoordinate
-
-        presentRoutePreviewDrawer(
-            origin: userCoordinate,
-            destination: station.coordinate,
-            destinationName: station.name,
-            destinationAddress: nil,
-            transportMode: .walking
-        )
-    }
-
-    // MARK: - Subway Timetable Flow (US7)
-
-    func showSubwayStationTimetable(station: SubwayStation) {
-        let drawer = SubwayStationTimetableDrawerViewController(station: station)
-        drawer.onClose = { [weak self] in
-            self?.transitRouteDrawer = nil
-            self?.drawerManager.popDrawer()
-        }
-        transitRouteDrawer = drawer
-        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
-    }
-
-    // MARK: - Subway Line Detail Flow (US6)
-
-    private func showSubwayLineDetail(station: SubwayStation, lineName: String) {
-        // 기존 노선 드로어가 열려있으면 제거
-        if transitRouteDrawer != nil {
-            drawerManager.popDrawer()
-            transitRouteDrawer = nil
-        }
-
-        guard case .loaded(_, let stations, let lines) = TransitDataService.shared.statePublisher.value,
-              let lineInfo = lines[lineName] else { return }
-
-        let drawer = SubwayLineDrawerViewController(
-            lineName: lineName,
-            lineInfo: lineInfo,
-            allStations: stations,
-            currentStationCode: station.stationCode
-        )
-
-        drawer.onClose = { [weak self] in
-            self?.transitRouteDrawer = nil
-            self?.drawerManager.popDrawer()
-            self?.mapViewController.clearTransitPolyline()
-        }
-
-        drawer.onStationTapped = { [weak self] tappedStation in
-            self?.mapViewController.mapView.setCenter(tappedStation.coordinate, animated: true)
-        }
-
-        transitRouteDrawer = drawer
-        drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
-
-        // 호선 폴리라인 그리기
-        let stationMap = Dictionary(uniqueKeysWithValues: stations.map { ($0.stationCode, $0) })
-        let coords = lineInfo.stationCodes.compactMap { stationMap[$0] }
-            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
-        mapViewController.showSubwayLinePolyline(
-            stationCoords: coords,
-            colorHex: lineInfo.color,
-            isCircular: lineInfo.circular ?? false
         )
     }
 

@@ -36,7 +36,6 @@ final class MapViewController: UIViewController {
     /// Callback when a 따릉이 station marker is tapped.
     var onBikeStationSelected: ((BikeStation) -> Void)?
     var onBusStopSelected: ((BusStop) -> Void)?
-    var onSubwayStationSelected: ((SubwayStation) -> Void)?
 
     /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
     var onEmptyMapTapped: (() -> Void)?
@@ -539,21 +538,6 @@ final class MapViewController: UIViewController {
         mapView.addOverlay(polyline, level: .aboveRoads)
     }
 
-    func showSubwayLinePolyline(stationCoords: [CLLocationCoordinate2D], colorHex: String, isCircular: Bool) {
-        clearTransitPolyline()
-        guard !stationCoords.isEmpty else { return }
-        // 순환선: 마지막 좌표와 첫 좌표 연결
-        var coords = stationCoords
-        if isCircular, let first = coords.first {
-            coords.append(first)
-        }
-        var mutable = coords
-        let polyline = MKPolyline(coordinates: &mutable, count: mutable.count)
-        polyline.title = "transit_route:\(colorHex)"
-        transitRouteOverlay = polyline
-        mapView.addOverlay(polyline, level: .aboveRoads)
-    }
-
     func clearTransitPolyline() {
         guard let overlay = transitRouteOverlay else { return }
         mapView.removeOverlay(overlay)
@@ -595,42 +579,6 @@ final class MapViewController: UIViewController {
         }
     }
 
-    // MARK: - Subway Stations
-
-    private var subwayAnnotations: [SubwayStationAnnotation] = []
-    private var subwayLayerEnabled: Bool = false
-    private static let subwayMaxLatitudeDelta: Double = 0.15
-    private var currentSubwayLines: SubwayLines = [:]
-
-    func setSubwayStations(_ stations: [SubwayStation], lines: SubwayLines) {
-        if !subwayAnnotations.isEmpty {
-            mapView.removeAnnotations(subwayAnnotations)
-        }
-        currentSubwayLines = lines
-        subwayAnnotations = stations.map { SubwayStationAnnotation(station: $0, lines: lines) }
-        subwayLayerEnabled = !stations.isEmpty
-        updateSubwayAnnotationsVisibility()
-    }
-
-    func clearSubwayStations() {
-        subwayLayerEnabled = false
-        guard !subwayAnnotations.isEmpty else { return }
-        let displayed = mapView.annotations.filter { $0 is SubwayStationAnnotation }
-        mapView.removeAnnotations(displayed)
-        subwayAnnotations = []
-    }
-
-    private func updateSubwayAnnotationsVisibility() {
-        guard subwayLayerEnabled, !subwayAnnotations.isEmpty else { return }
-        let latDelta = mapView.region.span.latitudeDelta
-        let shouldShow = latDelta <= Self.subwayMaxLatitudeDelta
-        let displayed = mapView.annotations.filter { $0 is SubwayStationAnnotation }
-        if shouldShow && displayed.isEmpty {
-            mapView.addAnnotations(subwayAnnotations)
-        } else if !shouldShow && !displayed.isEmpty {
-            mapView.removeAnnotations(displayed)
-        }
-    }
 
     // MARK: - Private Helpers
 
@@ -755,14 +703,6 @@ extension MapViewController: MKMapViewDelegate {
             return view
         }
 
-        if let subwayAnnotation = annotation as? SubwayStationAnnotation {
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: SubwayStationAnnotationView.reuseIdentifier) as? SubwayStationAnnotationView
-                ?? SubwayStationAnnotationView(annotation: annotation, reuseIdentifier: SubwayStationAnnotationView.reuseIdentifier)
-            view.annotation = annotation
-            view.configure(with: subwayAnnotation)
-            return view
-        }
-
         if annotation is DestinationAnnotation {
             let identifier = "Destination"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
@@ -804,7 +744,6 @@ extension MapViewController: MKMapViewDelegate {
         onRegionChanged?()
         updateBikeAnnotationsVisibility()
         updateBusAnnotationsVisibility()
-        updateSubwayAnnotationsVisibility()
     }
 
     private func annotationKind(_ annotation: any MKAnnotation) -> String {
@@ -832,12 +771,6 @@ extension MapViewController: MKMapViewDelegate {
             onBusStopSelected?(busAnnotation.busStop)
             return
         }
-
-        if let subwayAnnotation = annotation as? SubwayStationAnnotation {
-            onSubwayStationSelected?(subwayAnnotation.station)
-            return
-        }
-
 
         if let featureAnnotation = annotation as? MKMapFeatureAnnotation {
             mapView.deselectAnnotation(annotation, animated: true)

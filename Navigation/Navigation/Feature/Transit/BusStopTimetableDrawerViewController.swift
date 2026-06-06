@@ -3,7 +3,8 @@ import OSLog
 
 private let logger = Logger(subsystem: "nav.transit", category: "BusTimetableDrawer")
 
-/// 버스 정류소 시간표 드로어 — 노선 선택 + 평일/토/일 탭 + 시간 그리드
+/// 버스 정류소 운행정보 드로어 — 노선별 첫차/막차/배차간격
+/// (서울 버스 API에는 분단위 시간표가 없어 첫차/막차/배차간격으로 표시)
 final class BusStopTimetableDrawerViewController: UIViewController {
 
     // MARK: - Callbacks
@@ -15,31 +16,28 @@ final class BusStopTimetableDrawerViewController: UIViewController {
     private let headerView = DrawerHeaderView()
     private let closeButton = DrawerIconButton(preset: .close)
 
-    private let routePicker: UISegmentedControl = {
-        let sc = UISegmentedControl()
-        sc.translatesAutoresizingMaskIntoConstraints = false
-        return sc
-    }()
-
-    private let daySegment: UISegmentedControl = {
-        let sc = UISegmentedControl(items: ["평일", "토요일", "일요일/공휴일"])
-        sc.translatesAutoresizingMaskIntoConstraints = false
-        sc.selectedSegmentIndex = 0
-        return sc
-    }()
-
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
 
-    private let timesLabel: UILabel = {
+    private let rowsStack: UIStackView = {
+        let sv = UIStackView()
+        sv.axis = .vertical
+        sv.spacing = 0
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        return sv
+    }()
+
+    private let emptyLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .regular)
-        lbl.textColor = Theme.Colors.label
+        lbl.font = Theme.Fonts.body
+        lbl.textColor = Theme.Colors.secondaryLabel
+        lbl.textAlignment = .center
         lbl.numberOfLines = 0
+        lbl.isHidden = true
         return lbl
     }()
 
@@ -53,16 +51,15 @@ final class BusStopTimetableDrawerViewController: UIViewController {
     // MARK: - State
 
     private let busStop: BusStop
-    private let arrivals: [BusArrival]
+    private let initialArrivals: [BusArrival]
     private let api: BusAPIClient
-    private var selectedRouteIndex: Int = 0
-    private var selectedDayType: BusAPIClient.DayType = .weekday
+    private var loadedArrivals: [BusArrival] = []
 
     // MARK: - Init
 
     init(busStop: BusStop, arrivals: [BusArrival], api: BusAPIClient = .shared) {
         self.busStop = busStop
-        self.arrivals = arrivals
+        self.initialArrivals = arrivals
         self.api = api
         super.init(nibName: nil, bundle: nil)
     }
@@ -77,8 +74,12 @@ final class BusStopTimetableDrawerViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = Theme.Card.backgroundColor
         setupUI()
-        setupRouteSegment()
-        Task { await loadTimetable() }
+        if initialArrivals.isEmpty {
+            Task { await fetchArrivalsAndRender() }
+        } else {
+            loadedArrivals = initialArrivals
+            renderRows()
+        }
     }
 
     // MARK: - Setup
@@ -86,18 +87,16 @@ final class BusStopTimetableDrawerViewController: UIViewController {
     private func setupUI() {
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         headerView.addRightAction(closeButton)
-        headerView.setTitle("\(busStop.name) 시간표")
+        headerView.setTitle("\(busStop.name) 운행정보")
 
-        daySegment.addTarget(self, action: #selector(dayChanged), for: .valueChanged)
-        routePicker.addTarget(self, action: #selector(routeChanged), for: .valueChanged)
+        scrollView.addSubview(rowsStack)
 
-        scrollView.addSubview(timesLabel)
-
-        let stack = UIStackView(arrangedSubviews: [headerView, routePicker, daySegment, scrollView])
+        let stack = UIStackView(arrangedSubviews: [headerView, scrollView])
         stack.axis = .vertical
         stack.spacing = Theme.Spacing.md
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
+        view.addSubview(emptyLabel)
         view.addSubview(loadingIndicator)
 
         NSLayoutConstraint.activate([
@@ -106,83 +105,139 @@ final class BusStopTimetableDrawerViewController: UIViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -Theme.Spacing.xl),
 
-            timesLabel.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            timesLabel.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            timesLabel.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            timesLabel.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            timesLabel.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            rowsStack.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            rowsStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            rowsStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            rowsStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            rowsStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+
+            emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            emptyLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
 
             loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
 
-    private func setupRouteSegment() {
-        for (i, arrival) in arrivals.enumerated() {
-            routePicker.insertSegment(withTitle: arrival.routeName, at: i, animated: false)
-        }
-        if !arrivals.isEmpty { routePicker.selectedSegmentIndex = 0 }
-    }
-
     // MARK: - Load
 
-    private func loadTimetable() async {
-        guard !arrivals.isEmpty else { return }
+    private func fetchArrivalsAndRender() async {
         loadingIndicator.startAnimating()
-        timesLabel.text = nil
-
-        let arrival = arrivals[selectedRouteIndex]
+        logger.info("[BusTimetable] fetch arrivals for arsId=\(self.busStop.arsId)")
         do {
-            let times = try await api.fetchTimetable(
-                arsId: busStop.arsId,
-                routeId: arrival.routeId,
-                dayType: selectedDayType
-            )
-            await MainActor.run { renderTimes(times) }
+            loadedArrivals = try await api.fetchArrivals(arsId: busStop.arsId)
+            logger.info("[BusTimetable] arrivals=\(self.loadedArrivals.count) for arsId=\(self.busStop.arsId)")
         } catch {
-            logger.error("Timetable fetch error: \(error.localizedDescription)")
-            await MainActor.run { timesLabel.text = "시간표를 불러올 수 없습니다" }
+            logger.error("[BusTimetable] fetch failed: \(error.localizedDescription)")
         }
         loadingIndicator.stopAnimating()
+        renderRows()
     }
 
-    private func renderTimes(_ times: [String]) {
-        if times.isEmpty {
-            timesLabel.text = "운행 정보 없음"
+    private func renderRows() {
+        rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        guard !loadedArrivals.isEmpty else {
+            emptyLabel.text = "경유 노선 운행정보가 없습니다"
+            emptyLabel.isHidden = false
             return
         }
-        // 시간대별 그룹 (HH: MM MM MM ...)
-        var grouped: [String: [String]] = [:]
-        for time in times {
-            let parts = time.split(separator: ":").map(String.init)
-            guard parts.count >= 2 else { continue }
-            let hour = parts[0]
-            let minute = parts[1]
-            grouped[hour, default: []].append(minute)
+        emptyLabel.isHidden = true
+
+        for arrival in loadedArrivals {
+            rowsStack.addArrangedSubview(makeRow(arrival))
+            rowsStack.addArrangedSubview(makeSeparator())
         }
-        let sortedHours = grouped.keys.sorted()
-        let lines = sortedHours.map { hour -> String in
-            let mins = (grouped[hour] ?? []).sorted().joined(separator: " ")
-            return "\(hour)시  \(mins)"
+    }
+
+    private func makeRow(_ arrival: BusArrival) -> UIView {
+        let colorDot = UIView()
+        colorDot.backgroundColor = UIColor(hex: arrival.routeType.color) ?? Theme.Colors.primary
+        colorDot.layer.cornerRadius = 4
+        colorDot.widthAnchor.constraint(equalToConstant: 8).isActive = true
+        colorDot.heightAnchor.constraint(equalToConstant: 8).isActive = true
+
+        let routeLabel = UILabel()
+        routeLabel.text = arrival.routeName
+        routeLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        routeLabel.textColor = Theme.Colors.label
+
+        let directionLabel = UILabel()
+        directionLabel.text = arrival.direction.isEmpty ? nil : "\(arrival.direction) 방면"
+        directionLabel.font = Theme.Fonts.caption
+        directionLabel.textColor = Theme.Colors.secondaryLabel
+
+        let titleStack = UIStackView(arrangedSubviews: [colorDot, routeLabel, directionLabel])
+        titleStack.axis = .horizontal
+        titleStack.spacing = 6
+        titleStack.alignment = .center
+
+        let infoLabel = UILabel()
+        infoLabel.font = Theme.Fonts.body
+        infoLabel.textColor = Theme.Colors.secondaryLabel
+        infoLabel.numberOfLines = 0
+        infoLabel.text = scheduleText(arrival)
+
+        let row = UIStackView(arrangedSubviews: [titleStack, infoLabel])
+        row.axis = .vertical
+        row.spacing = 4
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = UIView()
+        container.addSubview(row)
+        NSLayoutConstraint.activate([
+            row.topAnchor.constraint(equalTo: container.topAnchor, constant: Theme.Spacing.md),
+            row.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Theme.Spacing.md),
+            row.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
+        return container
+    }
+
+    private func scheduleText(_ arrival: BusArrival) -> String {
+        var parts: [String] = []
+        if !arrival.firstTime.isEmpty || !arrival.lastTime.isEmpty {
+            parts.append("첫차 \(formatTime(arrival.firstTime)) · 막차 \(formatTime(arrival.lastTime))")
         }
-        timesLabel.text = lines.joined(separator: "\n")
+        if !arrival.term.isEmpty, arrival.term != "0" {
+            parts.append("배차간격 약 \(arrival.term)분")
+        }
+        return parts.isEmpty ? "운행정보 없음" : parts.joined(separator: "\n")
+    }
+
+    /// "0400" → "04:00"
+    private func formatTime(_ raw: String) -> String {
+        let digits = raw.filter { $0.isNumber }
+        guard digits.count == 4 else { return raw.isEmpty ? "-" : raw }
+        let h = digits.prefix(2)
+        let m = digits.suffix(2)
+        return "\(h):\(m)"
+    }
+
+    private func makeSeparator() -> UIView {
+        let view = UIView()
+        view.backgroundColor = Theme.Colors.separator
+        view.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
+        return view
     }
 
     // MARK: - Actions
 
     @objc private func closeTapped() { onClose?() }
+}
 
-    @objc private func dayChanged() {
-        switch daySegment.selectedSegmentIndex {
-        case 0: selectedDayType = .weekday
-        case 1: selectedDayType = .saturday
-        default: selectedDayType = .sunday
-        }
-        Task { await loadTimetable() }
-    }
-
-    @objc private func routeChanged() {
-        selectedRouteIndex = routePicker.selectedSegmentIndex
-        Task { await loadTimetable() }
+private extension UIColor {
+    convenience init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int = UInt64()
+        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else { return nil }
+        self.init(
+            red: CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8) & 0xFF) / 255,
+            blue: CGFloat(int & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }

@@ -37,7 +37,7 @@ final class BusViewModel {
         dataService.statePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                if case .loaded(let busStops, _, _) = state {
+                if case .loaded(let busStops) = state {
                     self?.busStopsPublisher.send(busStops)
                 }
             }

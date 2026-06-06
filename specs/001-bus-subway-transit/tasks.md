@@ -1,5 +1,10 @@
 # Tasks: 버스/지하철 대중교통 기능
 
+> ⚠️ **지하철 기능 제거됨 (2026-06-06)** — 환승역(한 역에 여러 호선) 마커 표시 복잡도 등으로
+> 지하철 관련 기능(US5·US6·US7 및 US1의 지하철 마커/레이어)을 제거했습니다.
+> 아래 지하철 태스크는 이력 보존용이며, 실제 코드/데이터는 모두 삭제되었습니다.
+> **버스 + 따릉이 기능은 유지됩니다.** 재도입 시 research.md의 API 조사와 KRIC 데이터 출처를 참고하세요.
+
 **Input**: `specs/001-bus-subway-transit/` (plan.md, spec.md, research.md, data-model.md)
 
 **Branch**: `001-bus-subway-transit`

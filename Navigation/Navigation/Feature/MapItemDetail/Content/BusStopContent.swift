@@ -22,7 +22,7 @@ final class BusStopContent: MapItemContent {
 
     // MARK: - Init
 
-    init(busStop: BusStop, api: BusAPIClient = BusAPIClient()) {
+    init(busStop: BusStop, api: BusAPIClient = .shared) {
         self.busStop = busStop
         self.api = api
         setupCallbacks()
@@ -74,17 +74,19 @@ final class BusStopContent: MapItemContent {
     private func fetchArrivals() async {
         guard !isLoading else { return }
         isLoading = true
+        logger.info("[BusStopContent] fetchArrivals start — stId=\(self.busStop.stId) arsId=\(self.busStop.arsId) name=\(self.busStop.name)")
         contentViewInstance.showLoading()
         contentViewInstance.setRefreshing(true)
 
         do {
             let arrivals = try await api.fetchArrivals(arsId: busStop.arsId)
+            logger.info("[BusStopContent] arrivals loaded: \(arrivals.count) routes — arsId=\(self.busStop.arsId)")
             await MainActor.run {
                 contentViewInstance.configure(arrivals: arrivals)
                 contentViewInstance.setRefreshing(false)
             }
         } catch {
-            logger.error("Bus API error: \(error.localizedDescription)")
+            logger.error("[BusStopContent] fetchArrivals failed: \(error.localizedDescription) — arsId=\(self.busStop.arsId)")
             await MainActor.run {
                 contentViewInstance.configure(arrivals: [])
                 contentViewInstance.setRefreshing(false)

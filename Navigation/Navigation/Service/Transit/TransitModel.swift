@@ -5,8 +5,6 @@ import CoreLocation
 
 struct TransitDataVersion: Codable {
     let busStops: String
-    let subwayStations: String
-    let subwayLines: String
 }
 
 struct BusStop: Codable, Identifiable {
@@ -20,25 +18,6 @@ struct BusStop: Codable, Identifiable {
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lng) }
 }
 
-struct SubwayStation: Codable, Identifiable {
-    let stationCode: String
-    let name: String
-    let lat: Double
-    let lng: Double
-    let lines: [String]
-
-    var id: String { stationCode }
-    var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lng) }
-}
-
-struct SubwayLineInfo: Codable {
-    let color: String
-    let stationCodes: [String]
-    let circular: Bool?
-}
-
-typealias SubwayLines = [String: SubwayLineInfo]
-
 // MARK: - Gist Envelope (version + data)
 
 struct BusStopsEnvelope: Codable {
@@ -46,21 +25,11 @@ struct BusStopsEnvelope: Codable {
     let data: [BusStop]
 }
 
-struct SubwayStationsEnvelope: Codable {
-    let version: String
-    let data: [SubwayStation]
-}
-
-struct SubwayLinesEnvelope: Codable {
-    let version: String
-    let data: SubwayLines
-}
-
 // MARK: - Service State
 
 enum TransitDataState: Equatable {
     case loading
-    case loaded(busStops: [BusStop], subwayStations: [SubwayStation], subwayLines: SubwayLines)
+    case loaded(busStops: [BusStop])
     case failed(String)
 
     static func == (lhs: TransitDataState, rhs: TransitDataState) -> Bool {
@@ -78,7 +47,6 @@ enum TransitDataState: Equatable {
 struct POILayerState {
     var bikeEnabled: Bool = false
     var busEnabled: Bool = false
-    var subwayEnabled: Bool = false
 }
 
 // MARK: - Realtime Models (API)
@@ -92,6 +60,9 @@ struct BusArrival: Identifiable {
     let secondArrivalMessage: String
     let routeType: BusRouteType
     let isLastBus: Bool
+    var firstTime: String = ""   // 첫차 (HHmm)
+    var lastTime: String = ""    // 막차 (HHmm)
+    var term: String = ""        // 배차간격(분)
 }
 
 enum BusRouteType: Int, Codable {
@@ -114,13 +85,4 @@ enum BusRouteType: Int, Codable {
         default: return "#888888"
         }
     }
-}
-
-struct SubwayArrival: Identifiable {
-    let id = UUID()
-    let lineName: String
-    let direction: String
-    let destination: String
-    let arrivalMessage: String
-    let isExpress: Bool
 }

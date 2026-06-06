@@ -26,16 +26,26 @@ final class BusAPIClient {
     // MARK: - 정류소 실시간 도착 (arsId 기준)
 
     func fetchArrivals(arsId: String) async throws -> [BusArrival] {
+        let key = apiKey
+        logger.debug("[BusAPI] apiKey isEmpty=\(key.isEmpty), length=\(key.count)")
         logger.info("Fetching arrivals for arsId=\(arsId)")
-        guard !apiKey.isEmpty else { throw BusAPIError.missingAPIKey }
+        guard !key.isEmpty else { throw BusAPIError.missingAPIKey }
 
-        let urlString = "\(baseURL)/arrive/getArrInfoByRouteAll?serviceKey=\(apiKey)&arsId=\(arsId)&resultType=json"
+        let urlString = "\(baseURL)/stationinfo/getStationByUid?serviceKey=\(apiKey)&arsId=\(arsId)&resultType=json"
         guard let url = URL(string: urlString) else { throw BusAPIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+        logger.debug("[BusAPI] arrivals HTTP status=\(httpStatus), bytes=\(data.count)")
         try validateHTTP(response)
 
+        if let raw = String(data: data.prefix(300), encoding: .utf8) {
+            logger.debug("[BusAPI] arrivals raw(300): \(raw)")
+        }
         let decoded = try JSONDecoder().decode(BusArrivalResponse.self, from: data)
+        if let header = decoded.comMsgHeader {
+            logger.debug("[BusAPI] arrivals errCode=\(header.errCode ?? "nil") errMsg=\(header.errMsg ?? "nil")")
+        }
         let arrivals = try decoded.toArrivals()
         logger.info("Arrivals fetched: \(arrivals.count) routes for arsId=\(arsId)")
         return arrivals
@@ -146,6 +156,9 @@ private struct BusArrivalResponse: Decodable {
             let arrmsg2: String?
             let routeType: String?
             let isLast1: String?
+            let firstTm: String?
+            let lastTm: String?
+            let term: String?
         }
         let itemList: [ItemList]?
     }
@@ -168,7 +181,10 @@ private struct BusArrivalResponse: Decodable {
                 firstArrivalMessage: item.arrmsg1 ?? "-",
                 secondArrivalMessage: item.arrmsg2 ?? "-",
                 routeType: routeType,
-                isLastBus: item.isLast1 == "1"
+                isLastBus: item.isLast1 == "1",
+                firstTime: (item.firstTm ?? "").trimmingCharacters(in: .whitespaces),
+                lastTime: (item.lastTm ?? "").trimmingCharacters(in: .whitespaces),
+                term: (item.term ?? "").trimmingCharacters(in: .whitespaces)
             )
         }
     }
@@ -177,7 +193,7 @@ private struct BusArrivalResponse: Decodable {
 private struct BusRouteStopsResponse: Decodable {
     struct MsgBody: Decodable {
         struct ItemList: Decodable {
-            let stationId: String?
+            let station: String?      // 정류소 고유 ID (API 필드명: station)
             let stationNm: String?
             let arsId: String?
             let gpsX: String?
@@ -191,7 +207,7 @@ private struct BusRouteStopsResponse: Decodable {
     func toStops() -> [BusRouteStop] {
         guard let items = msgBody?.itemList else { return [] }
         return items.compactMap { item in
-            guard let stId = item.stationId,
+            guard let stId = item.station,
                   let lat = Double(item.gpsY ?? ""),
                   let lng = Double(item.gpsX ?? "") else { return nil }
             return BusRouteStop(

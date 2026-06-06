@@ -31,16 +31,15 @@ final class TransitDataService {
     // MARK: - Load
 
     func load() async {
+        logger.info("[DataService] load() start")
         statePublisher.send(.loading)
         do {
             try await downloadIfNeeded()
             let busStops = try loadBusStops()
-            let subwayStations = try loadSubwayStations()
-            let subwayLines = try loadSubwayLines()
-            logger.info("Transit data loaded — busStops: \(busStops.count), stations: \(subwayStations.count)")
-            statePublisher.send(.loaded(busStops: busStops, subwayStations: subwayStations, subwayLines: subwayLines))
+            logger.info("[DataService] loaded — busStops=\(busStops.count)")
+            statePublisher.send(.loaded(busStops: busStops))
         } catch {
-            logger.warning("Gist fetch failed, using bundle fallback: \(error.localizedDescription)")
+            logger.warning("[DataService] load failed, falling back to bundle: \(error.localizedDescription)")
             loadFromBundle()
         }
     }
@@ -54,27 +53,13 @@ final class TransitDataService {
         }
 
         let localVersion = loadLocalVersion()
-        logger.info("version.json fetched: busStops=\(remoteVersion.busStops), stations=\(remoteVersion.subwayStations)")
+        logger.info("version.json fetched: busStops=\(remoteVersion.busStops)")
 
         if localVersion?.busStops != remoteVersion.busStops {
             try await downloadFile(urlString: TransitGistURLs.busStops, name: "bus_stops_seoul.json")
             logger.info("bus_stops downloaded")
         } else {
             logger.info("Using cached bus_stops (version up to date)")
-        }
-
-        if localVersion?.subwayStations != remoteVersion.subwayStations {
-            try await downloadFile(urlString: TransitGistURLs.subwayStations, name: "subway_stations_seoul.json")
-            logger.info("subway_stations downloaded")
-        } else {
-            logger.info("Using cached subway_stations (version up to date)")
-        }
-
-        if localVersion?.subwayLines != remoteVersion.subwayLines {
-            try await downloadFile(urlString: TransitGistURLs.subwayLines, name: "subway_lines_seoul.json")
-            logger.info("subway_lines downloaded")
-        } else {
-            logger.info("Using cached subway_lines (version up to date)")
         }
 
         saveLocalVersion(remoteVersion)
@@ -104,22 +89,6 @@ final class TransitDataService {
         return try JSONDecoder().decode([BusStop].self, from: data)
     }
 
-    private func loadSubwayStations() throws -> [SubwayStation] {
-        let data = try cachedOrBundleData(name: "subway_stations_seoul")
-        if let envelope = try? JSONDecoder().decode(SubwayStationsEnvelope.self, from: data) {
-            return envelope.data
-        }
-        return try JSONDecoder().decode([SubwayStation].self, from: data)
-    }
-
-    private func loadSubwayLines() throws -> SubwayLines {
-        let data = try cachedOrBundleData(name: "subway_lines_seoul")
-        if let envelope = try? JSONDecoder().decode(SubwayLinesEnvelope.self, from: data) {
-            return envelope.data
-        }
-        return try JSONDecoder().decode(SubwayLines.self, from: data)
-    }
-
     private func cachedOrBundleData(name: String) throws -> Data {
         let cached = cacheDir.appendingPathComponent("\(name).json")
         if let data = try? Data(contentsOf: cached) { return data }
@@ -134,11 +103,10 @@ final class TransitDataService {
     private func loadFromBundle() {
         do {
             let busStops = try loadBusStops()
-            let subwayStations = try loadSubwayStations()
-            let subwayLines = try loadSubwayLines()
-            statePublisher.send(.loaded(busStops: busStops, subwayStations: subwayStations, subwayLines: subwayLines))
+            logger.info("[DataService] bundle fallback loaded — busStops=\(busStops.count)")
+            statePublisher.send(.loaded(busStops: busStops))
         } catch {
-            logger.error("Bundle fallback also failed: \(error.localizedDescription)")
+            logger.error("[DataService] bundle fallback also failed: \(error.localizedDescription)")
             statePublisher.send(.failed(error.localizedDescription))
         }
     }
@@ -179,10 +147,8 @@ final class TransitDataService {
         UserDefaults.standard.set(Date(), forKey: lastUpdatedKey)
 
         let busStops = try loadBusStops()
-        let subwayStations = try loadSubwayStations()
-        let subwayLines = try loadSubwayLines()
-        logger.info("Manual refresh complete — busStops: \(busStops.count), stations: \(subwayStations.count)")
-        statePublisher.send(.loaded(busStops: busStops, subwayStations: subwayStations, subwayLines: subwayLines))
+        logger.info("Manual refresh complete — busStops: \(busStops.count)")
+        statePublisher.send(.loaded(busStops: busStops))
     }
 
     func clearTimetableCache() {
