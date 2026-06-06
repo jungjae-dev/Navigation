@@ -514,7 +514,7 @@ final class MapViewController: UIViewController {
 
     /// 현재 줌 레벨에 따라 따릉이 마커 표시/숨김 갱신
     private func updateBikeAnnotationsVisibility() {
-        guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
+        guard !routeFocusMode, bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }
 
         let latDelta = mapView.region.span.latitudeDelta
         let shouldShow = latDelta <= Self.bikeMaxLatitudeDelta
@@ -575,15 +575,42 @@ final class MapViewController: UIViewController {
     }
 
     private func updateBusAnnotationsVisibility() {
-        guard busLayerEnabled, !busStopAnnotations.isEmpty else { return }
+        guard !routeFocusMode, busLayerEnabled, !busStopAnnotations.isEmpty else { return }
         let latDelta = mapView.region.span.latitudeDelta
         let shouldShow = latDelta <= Self.busMaxLatitudeDelta
-        let displayed = mapView.annotations.filter { $0 is BusStopAnnotation }
-        if shouldShow && displayed.isEmpty {
-            mapView.addAnnotations(busStopAnnotations)
-        } else if !shouldShow && !displayed.isEmpty {
-            mapView.removeAnnotations(displayed)
+        let displayed = Set(mapView.annotations.compactMap { $0 as? BusStopAnnotation })
+        if shouldShow {
+            // 이미 표시된 것 제외하고 누락분만 추가 (포커스 중 남겨둔 마커와 중복 방지)
+            let missing = busStopAnnotations.filter { !displayed.contains($0) }
+            if !missing.isEmpty { mapView.addAnnotations(missing) }
+        } else if !displayed.isEmpty {
+            mapView.removeAnnotations(Array(displayed))
         }
+    }
+
+    // MARK: - Route Focus Mode
+
+    /// 노선 정보 보기 중 — 선택 정류장 외 버스/따릉이 마커를 숨겨 노선만 부각
+    private var routeFocusMode = false
+
+    func enterRouteFocus(keepingStopArsId arsId: String?) {
+        routeFocusMode = true
+        // 버스 마커: 선택 정류장만 남기고 제거
+        let busToRemove = mapView.annotations
+            .compactMap { $0 as? BusStopAnnotation }
+            .filter { $0.busStop.arsId != arsId }
+        if !busToRemove.isEmpty { mapView.removeAnnotations(busToRemove) }
+        // 따릉이 마커 전부 숨김
+        let bikeDisplayed = mapView.annotations.filter { $0 is BikeAnnotation }
+        if !bikeDisplayed.isEmpty { mapView.removeAnnotations(bikeDisplayed) }
+    }
+
+    func exitRouteFocus() {
+        guard routeFocusMode else { return }
+        routeFocusMode = false
+        // 현재 줌/레이어 상태대로 마커 복원
+        updateBusAnnotationsVisibility()
+        updateBikeAnnotationsVisibility()
     }
 
 

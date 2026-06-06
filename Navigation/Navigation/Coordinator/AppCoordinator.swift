@@ -346,6 +346,9 @@ final class AppCoordinator: NSObject, Coordinator {
         transitRouteDrawer = drawer
         drawerManager.pushDrawer(drawer, detents: standardDetents(), initialDetent: homeInitialDetent())
 
+        // 노선 포커스: 선택 정류장 외 버스/따릉이 마커 숨김
+        mapViewController.enterRouteFocus(keepingStopArsId: fromStop?.arsId)
+
         // 폴리라인 표시
         Task {
             if let coords = try? await BusAPIClient.shared.fetchRoutePolyline(routeId: arrival.routeId) {
@@ -370,6 +373,7 @@ final class AppCoordinator: NSObject, Coordinator {
         transitRouteDrawer = nil
         drawerManager.popDrawer()
         mapViewController.clearTransitPolyline()
+        mapViewController.exitRouteFocus()
     }
 
     // MARK: - Unified Map Item Detail Flow
