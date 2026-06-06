@@ -74,6 +74,28 @@ final class BusAPIClient {
         return stops
     }
 
+    // MARK: - 노선별 실시간 차량 위치 (buspos/getBusPosByRtid)
+
+    /// 노선의 현재 운행 차량 위치 (1회 조회). 서비스 미구독 시 빈 배열 반환.
+    func fetchBusPositions(routeId: String) async throws -> [BusVehicle] {
+        let key = apiKey
+        guard !key.isEmpty else { throw BusAPIError.missingAPIKey }
+
+        let urlString = "\(baseURL)/buspos/getBusPosByRtid?serviceKey=\(key)&busRouteId=\(routeId)&resultType=json"
+        guard let url = URL(string: urlString) else { throw BusAPIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        try validateHTTP(response)
+
+        let decoded = try JSONDecoder().decode(BusPositionResponse.self, from: data)
+        if let header = decoded.msgHeader, header.headerCd != "0" {
+            logger.warning("[BusAPI] busPos header: \(header.headerMsg ?? "") code=\(header.headerCd ?? "")")
+        }
+        let vehicles = decoded.toVehicles()
+        logger.info("[BusAPI] busPos fetched: \(vehicles.count) vehicles for routeId=\(routeId)")
+        return vehicles
+    }
+
     // MARK: - 노선 폴리라인 (정류소 좌표 기반)
 
     func fetchRoutePolyline(routeId: String) async throws -> [CLLocationCoordinate2D] {
@@ -238,6 +260,47 @@ private struct BusTimetableResponse: Decodable {
     }
 }
 
+private struct BusPositionResponse: Decodable {
+    struct MsgHeader: Decodable {
+        let headerCd: String?
+        let headerMsg: String?
+    }
+    struct MsgBody: Decodable {
+        struct ItemList: Decodable {
+            let vehId: String?
+            let plainNo: String?    // 차량 번호판
+            let gpsX: String?       // 경도
+            let gpsY: String?       // 위도
+            let sectOrd: String?    // 구간 순번 (정류소 seq 매칭용)
+            let busType: String?    // "1" 이면 저상버스
+            let congetion: String?  // 혼잡도 (API 철자 그대로)
+            let dataTm: String?     // 데이터 제공 시각
+        }
+        let itemList: [ItemList]?
+    }
+    let msgHeader: MsgHeader?
+    let msgBody: MsgBody?
+
+    func toVehicles() -> [BusVehicle] {
+        guard let items = msgBody?.itemList else { return [] }
+        return items.compactMap { item in
+            guard let id = item.vehId,
+                  let lat = Double(item.gpsY ?? ""),
+                  let lng = Double(item.gpsX ?? ""),
+                  lat != 0, lng != 0 else { return nil }
+            return BusVehicle(
+                id: id,
+                plateNo: item.plainNo ?? "",
+                lat: lat,
+                lng: lng,
+                sectionOrder: Int(item.sectOrd ?? "0") ?? 0,
+                isLowFloor: item.busType == "1",
+                dataTime: item.dataTm ?? ""
+            )
+        }
+    }
+}
+
 // MARK: - BusRouteStop
 
 struct BusRouteStop: Identifiable {
@@ -249,6 +312,20 @@ struct BusRouteStop: Identifiable {
     let lng: Double
 
     var id: String { stationId }
+}
+
+// MARK: - BusVehicle (실시간 차량 위치)
+
+struct BusVehicle: Identifiable {
+    let id: String          // vehId
+    let plateNo: String
+    let lat: Double
+    let lng: Double
+    let sectionOrder: Int
+    let isLowFloor: Bool
+    let dataTime: String
+
+    var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lng) }
 }
 
 // MARK: - BusAPIError

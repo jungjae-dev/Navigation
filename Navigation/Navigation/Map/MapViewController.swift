@@ -608,9 +608,50 @@ final class MapViewController: UIViewController {
     func exitRouteFocus() {
         guard routeFocusMode else { return }
         routeFocusMode = false
+        clearBusVehicles()
+        clearRouteStops()
         // 현재 줌/레이어 상태대로 마커 복원
         updateBusAnnotationsVisibility()
         updateBikeAnnotationsVisibility()
+    }
+
+    // MARK: - Route Stops (노선 경유 정류소)
+
+    private var routeStopAnnotations: [BusStopAnnotation] = []
+
+    /// 노선 경유 정류소를 마커로 표시 (선택 정류장은 중복 방지 위해 제외)
+    func showRouteStops(_ stops: [BusRouteStop], excludingArsId excludeArsId: String?) {
+        clearRouteStops()
+        let annotations = stops.compactMap { stop -> BusStopAnnotation? in
+            if let ex = excludeArsId, stop.arsId == ex { return nil }
+            let busStop = BusStop(stId: stop.stationId, arsId: stop.arsId, name: stop.name, lat: stop.lat, lng: stop.lng)
+            return BusStopAnnotation(busStop: busStop)
+        }
+        routeStopAnnotations = annotations
+        if !annotations.isEmpty { mapView.addAnnotations(annotations) }
+    }
+
+    func clearRouteStops() {
+        guard !routeStopAnnotations.isEmpty else { return }
+        mapView.removeAnnotations(routeStopAnnotations)
+        routeStopAnnotations = []
+    }
+
+    // MARK: - Bus Vehicles (실시간 운행 위치)
+
+    private var busVehicleAnnotations: [BusVehicleAnnotation] = []
+
+    func showBusVehicles(_ vehicles: [BusVehicle]) {
+        clearBusVehicles()
+        guard !vehicles.isEmpty else { return }
+        busVehicleAnnotations = vehicles.map { BusVehicleAnnotation(vehicle: $0) }
+        mapView.addAnnotations(busVehicleAnnotations)
+    }
+
+    func clearBusVehicles() {
+        guard !busVehicleAnnotations.isEmpty else { return }
+        mapView.removeAnnotations(busVehicleAnnotations)
+        busVehicleAnnotations = []
     }
 
 
@@ -733,6 +774,13 @@ extension MapViewController: MKMapViewDelegate {
         if annotation is BusStopAnnotation {
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: BusStopAnnotationView.reuseIdentifier) as? BusStopAnnotationView
                 ?? BusStopAnnotationView(annotation: annotation, reuseIdentifier: BusStopAnnotationView.reuseIdentifier)
+            view.annotation = annotation
+            return view
+        }
+
+        if annotation is BusVehicleAnnotation {
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: BusVehicleAnnotationView.reuseIdentifier) as? BusVehicleAnnotationView
+                ?? BusVehicleAnnotationView(annotation: annotation, reuseIdentifier: BusVehicleAnnotationView.reuseIdentifier)
             view.annotation = annotation
             return view
         }

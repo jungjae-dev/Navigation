@@ -348,12 +348,25 @@ final class AppCoordinator: NSObject, Coordinator {
 
         // 노선 포커스: 선택 정류장 외 버스/따릉이 마커 숨김
         mapViewController.enterRouteFocus(keepingStopArsId: fromStop?.arsId)
+        mapViewController.clearBusVehicles()
+        mapViewController.clearRouteStops()
 
-        // 폴리라인 표시
+        // 노선 폴리라인 + 경유 정류소 마커 표시
         Task {
-            if let coords = try? await BusAPIClient.shared.fetchRoutePolyline(routeId: arrival.routeId) {
+            if let stops = try? await BusAPIClient.shared.fetchRouteStops(routeId: arrival.routeId) {
+                let coords = stops.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
                 await MainActor.run {
                     self.mapViewController.showBusRoutePolyline(coords)
+                    self.mapViewController.showRouteStops(stops, excludingArsId: fromStop?.arsId)
+                }
+            }
+        }
+
+        // 실시간 운행 차량 위치 1회 조회 후 표시 (서비스 미구독 시 빈 결과 → 무시)
+        Task {
+            if let vehicles = try? await BusAPIClient.shared.fetchBusPositions(routeId: arrival.routeId) {
+                await MainActor.run {
+                    self.mapViewController.showBusVehicles(vehicles)
                 }
             }
         }
