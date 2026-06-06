@@ -505,6 +505,13 @@ final class MapViewController: UIViewController {
         }
     }
 
+    /// 버스 정류소 선택 해제
+    func deselectAllBusStops() {
+        for annotation in mapView.selectedAnnotations where annotation is BusStopAnnotation {
+            mapView.deselectAnnotation(annotation, animated: false)
+        }
+    }
+
     /// 현재 줌 레벨에 따라 따릉이 마커 표시/숨김 갱신
     private func updateBikeAnnotationsVisibility() {
         guard bikeLayerEnabled, !bikeAnnotations.isEmpty else { return }

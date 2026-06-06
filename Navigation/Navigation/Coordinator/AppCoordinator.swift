@@ -409,8 +409,9 @@ final class AppCoordinator: NSObject, Coordinator {
         mapItemDetailDrawer = nil
         // POI 마커가 떠있다면 함께 정리 (멱등)
         mapViewController.clearPOIMarker()
-        // 따릉이 마커의 선택 상태 해제
+        // 따릉이/버스 마커의 선택 상태 해제
         mapViewController.deselectAllBikeStations()
+        mapViewController.deselectAllBusStops()
         drawerManager.popDrawer()
     }
 

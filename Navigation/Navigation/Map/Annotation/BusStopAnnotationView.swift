@@ -1,48 +1,31 @@
 import MapKit
 import UIKit
 
-final class BusStopAnnotationView: MKAnnotationView {
+/// 버스 정류소 마커 — 시스템 MKMarkerAnnotationView + 버스 SF Symbol
+/// 선택 시 시스템이 자동으로 확대/강조 (따릉이 마커와 동일 방식)
+final class BusStopAnnotationView: MKMarkerAnnotationView {
 
     static let reuseIdentifier = "BusStopAnnotationView"
 
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        setupView()
+        configure()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupView() {
-        frame = CGRect(x: 0, y: 0, width: 20, height: 20)
-        backgroundColor = UIColor(hex: "#3366CC") ?? .systemBlue
-        layer.cornerRadius = 10
-        layer.borderWidth = 2
-        layer.borderColor = UIColor.white.cgColor
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.3
-        layer.shadowOffset = CGSize(width: 0, height: 1)
-        layer.shadowRadius = 2
-        canShowCallout = false
-    }
-
     override func prepareForReuse() {
         super.prepareForReuse()
-        setupView()
+        configure()
     }
-}
 
-private extension UIColor {
-    convenience init?(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int = UInt64()
-        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else { return nil }
-        self.init(
-            red: CGFloat((int >> 16) & 0xFF) / 255,
-            green: CGFloat((int >> 8) & 0xFF) / 255,
-            blue: CGFloat(int & 0xFF) / 255,
-            alpha: 1
-        )
+    private func configure() {
+        markerTintColor = UIColor(red: 0x33 / 255, green: 0x66 / 255, blue: 0xCC / 255, alpha: 1)
+        glyphImage = UIImage(systemName: "bus")
+        glyphTintColor = .white
+        canShowCallout = false
+        displayPriority = .required
     }
 }

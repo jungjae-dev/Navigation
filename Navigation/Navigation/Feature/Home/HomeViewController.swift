@@ -41,6 +41,8 @@ final class HomeViewController: UIViewController {
         handleInitialPermission()
         setupLBSNotifications()
         Task { await TransitDataService.shared.load() }
+        // 저장된 레이어 상태 복원 (따릉이 ON 이면 데이터 확보)
+        Task { await bikeViewModel.restoreLayerIfNeeded() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -87,9 +89,6 @@ final class HomeViewController: UIViewController {
         }
         buttons.onMapModeTapped = { [weak self] in
             self?.handleMapModeTapped()
-        }
-        buttons.onBikeLayerTapped = { [weak self] in
-            self?.handleBikeLayerTapped()
         }
         buttons.onBikeRefreshTapped = { [weak self] in
             self?.handleBikeRefreshTapped()
@@ -166,10 +165,6 @@ final class HomeViewController: UIViewController {
             popover.sourceRect = mapControlButtons.bounds
         }
         present(alert, animated: true)
-    }
-
-    private func handleBikeLayerTapped() {
-        Task { await bikeViewModel.toggleLayer() }
     }
 
     private func handleBikeRefreshTapped() {
