@@ -126,14 +126,16 @@ final class BusStopContentView: UIView {
     private func makeArrivalRow(_ arrival: BusArrival) -> UIView {
         let routeColorHex = arrival.routeType.color
         let colorDot = UIView()
-        colorDot.backgroundColor = UIColor(hex: routeColorHex) ?? Theme.Colors.primary
+        // 노선 색은 도메인 의미색. 미지정 시 중립색(accent 절제).
+        colorDot.backgroundColor = UIColor(hex: routeColorHex) ?? Theme.Colors.secondaryLabel
         colorDot.layer.cornerRadius = 4
         colorDot.widthAnchor.constraint(equalToConstant: 8).isActive = true
         colorDot.heightAnchor.constraint(equalToConstant: 8).isActive = true
 
         let routeLabel = UILabel()
         routeLabel.text = arrival.routeName
-        routeLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        routeLabel.font = Theme.Fonts.headline
+        routeLabel.adjustsFontForContentSizeCategory = true
         routeLabel.textColor = Theme.Colors.label
 
         let directionLabel = UILabel()

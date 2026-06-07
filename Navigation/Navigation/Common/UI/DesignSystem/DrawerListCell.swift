@@ -27,6 +27,7 @@ final class DrawerListCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Drawer.Cell.titleFont
         label.textColor = Theme.Drawer.Cell.titleColor
+        label.adjustsFontForContentSizeCategory = true
         label.lineBreakMode = .byTruncatingTail
         return label
     }()
@@ -36,6 +37,7 @@ final class DrawerListCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Drawer.Cell.subtitleFont
         label.textColor = Theme.Drawer.Cell.subtitleColor
+        label.adjustsFontForContentSizeCategory = true
         label.lineBreakMode = .byTruncatingTail
         return label
     }()

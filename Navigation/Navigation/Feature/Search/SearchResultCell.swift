@@ -8,7 +8,8 @@ final class SearchResultCell: UITableViewCell {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.contentMode = .scaleAspectFit
-        imageView.tintColor = Theme.Colors.primary
+        // 기본 중립색 — 강조(선택) 시 configure에서 accent로 전환
+        imageView.tintColor = Theme.Colors.secondaryLabel
         imageView.image = UIImage(systemName: "mappin.circle.fill")
         return imageView
     }()
@@ -18,6 +19,7 @@ final class SearchResultCell: UITableViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.headline
         label.textColor = Theme.Colors.label
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
@@ -26,6 +28,7 @@ final class SearchResultCell: UITableViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.subheadline
         label.textColor = Theme.Colors.secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
         label.numberOfLines = 2
         return label
     }()

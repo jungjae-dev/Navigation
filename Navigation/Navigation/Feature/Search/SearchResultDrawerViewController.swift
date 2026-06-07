@@ -117,6 +117,19 @@ final class SearchResultDrawerViewController: UIViewController {
         highlightedIndex = 0
         isLoadingMore = false
         tableView.reloadData()
+        updateEmptyState()
+    }
+
+    private func updateEmptyState() {
+        if searchResults.isEmpty {
+            tableView.backgroundView = EmptyStateView(state: .empty(
+                iconName: "magnifyingglass",
+                title: "검색 결과가 없어요",
+                subtitle: "다른 검색어로 다시 시도해 보세요"
+            ))
+        } else {
+            tableView.backgroundView = nil
+        }
     }
 
     func appendResults(_ results: [Place]) {

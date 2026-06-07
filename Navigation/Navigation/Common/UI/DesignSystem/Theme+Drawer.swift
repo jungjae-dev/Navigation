@@ -28,10 +28,13 @@ extension Theme {
         // MARK: - Cell
 
         enum Cell {
+            /// 최소 height — Dynamic Type 확대 시 콘텐츠에 맞춰 성장 허용(고정 아님).
             static let height: CGFloat = 52
             static let iconSize = Theme.IconSize.xxl
             static let iconCornerRadius = Theme.CornerRadius.small
-            static let iconColor = Theme.Colors.primary
+            /// 목록 아이콘은 장식 → 중립색(accent 절제). 선택/활성 표시에만 accent 사용.
+            static let iconColor = Theme.Colors.secondaryLabel
+            static let selectedIconColor = Theme.Colors.accent
             static let iconBackgroundColor = Theme.Colors.secondaryBackground
             static let titleFont = Theme.Fonts.body
             static let titleColor = Theme.Colors.label
@@ -60,7 +63,8 @@ extension Theme {
             static let titleFont = Theme.Fonts.headline
             static let titleColor = Theme.Colors.label
             static let iconSize = Theme.IconSize.sm
-            static let iconColor = Theme.Colors.primary
+            /// 섹션 아이콘은 장식 → 중립색(accent 절제).
+            static let iconColor = Theme.Colors.secondaryLabel
             static let iconToTitleSpacing = Theme.Spacing.xs
             static let horizontalPadding = Theme.Spacing.lg
         }

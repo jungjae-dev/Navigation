@@ -161,7 +161,8 @@ final class BusStopTimetableDrawerViewController: UIViewController {
 
         let routeLabel = UILabel()
         routeLabel.text = arrival.routeName
-        routeLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        routeLabel.font = Theme.Fonts.headline
+        routeLabel.adjustsFontForContentSizeCategory = true
         routeLabel.textColor = Theme.Colors.label
 
         let directionLabel = UILabel()

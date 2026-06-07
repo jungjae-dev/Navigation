@@ -16,6 +16,7 @@ final class RouteOptionCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.headline
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
@@ -24,6 +25,7 @@ final class RouteOptionCell: UITableViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.subheadline
         label.textColor = Theme.Colors.secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
@@ -32,6 +34,7 @@ final class RouteOptionCell: UITableViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.footnote
         label.textColor = Theme.Colors.secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
@@ -40,6 +43,7 @@ final class RouteOptionCell: UITableViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.footnote
         label.textColor = Theme.Colors.secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 

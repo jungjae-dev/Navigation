@@ -29,7 +29,9 @@ final class BikeStationContentView: UIView {
         availableLabel.font = Theme.Fonts.caption
         availableLabel.textColor = Theme.Colors.secondaryLabel
 
-        availableCountLabel.font = .monospacedDigitSystemFont(ofSize: 28, weight: .bold)
+        availableCountLabel.font = UIFontMetrics(forTextStyle: .title2)
+            .scaledFont(for: .monospacedDigitSystemFont(ofSize: 28, weight: .bold))
+        availableCountLabel.adjustsFontForContentSizeCategory = true
         availableCountLabel.textColor = Theme.Colors.bikeBrand
 
         totalRacksLabel.font = Theme.Fonts.caption
