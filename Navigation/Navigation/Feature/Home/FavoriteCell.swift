@@ -18,7 +18,8 @@ final class FavoriteCell: UICollectionViewCell {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.contentMode = .scaleAspectFit
-        imageView.tintColor = Theme.Colors.primary
+        // 즐겨찾기 카테고리 아이콘은 장식 → 중립색 (accent 절제)
+        imageView.tintColor = Theme.Colors.secondaryLabel
         return imageView
     }()
 
@@ -27,6 +28,7 @@ final class FavoriteCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.footnote
         label.textColor = Theme.Colors.label
+        label.adjustsFontForContentSizeCategory = true
         label.textAlignment = .center
         label.numberOfLines = 1
         return label

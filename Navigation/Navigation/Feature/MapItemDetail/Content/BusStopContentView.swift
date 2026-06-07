@@ -18,24 +18,10 @@ final class BusStopContentView: UIView {
         return sv
     }()
 
-    private let loadingLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.text = "도착 정보를 불러오는 중..."
-        lbl.font = Theme.Fonts.body
-        lbl.textColor = Theme.Colors.secondaryLabel
-        lbl.textAlignment = .center
-        return lbl
-    }()
-
-    private let emptyLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.text = "경유 노선 정보가 없습니다"
-        lbl.font = Theme.Fonts.body
-        lbl.textColor = Theme.Colors.secondaryLabel
-        lbl.textAlignment = .center
-        lbl.isHidden = true
-        return lbl
-    }()
+    private let placeholderView = EmptyStateView(
+        state: .loading(caption: "도착 정보를 불러오는 중..."),
+        centered: false
+    )
 
     private let refreshButton: UIButton = {
         let btn = UIButton(type: .system)
@@ -65,7 +51,7 @@ final class BusStopContentView: UIView {
         let headerRow = UIStackView(arrangedSubviews: [UIView(), refreshButton])
         headerRow.axis = .horizontal
 
-        let outer = UIStackView(arrangedSubviews: [headerRow, loadingLabel, emptyLabel, stackView])
+        let outer = UIStackView(arrangedSubviews: [headerRow, placeholderView, stackView])
         outer.axis = .vertical
         outer.spacing = Theme.Spacing.sm
         outer.translatesAutoresizingMaskIntoConstraints = false
@@ -94,20 +80,24 @@ final class BusStopContentView: UIView {
     // MARK: - Public
 
     func showLoading() {
-        loadingLabel.isHidden = false
-        emptyLabel.isHidden = true
+        placeholderView.apply(.loading(caption: "도착 정보를 불러오는 중..."))
+        placeholderView.isHidden = false
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
     }
 
     func configure(arrivals: [BusArrival]) {
-        loadingLabel.isHidden = true
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         if arrivals.isEmpty {
-            emptyLabel.isHidden = false
+            placeholderView.apply(.empty(
+                iconName: "bus",
+                title: "경유 노선 정보가 없어요",
+                subtitle: nil
+            ))
+            placeholderView.isHidden = false
             return
         }
-        emptyLabel.isHidden = true
+        placeholderView.isHidden = true
 
         for arrival in arrivals {
             let row = makeArrivalRow(arrival)
@@ -126,14 +116,16 @@ final class BusStopContentView: UIView {
     private func makeArrivalRow(_ arrival: BusArrival) -> UIView {
         let routeColorHex = arrival.routeType.color
         let colorDot = UIView()
-        colorDot.backgroundColor = UIColor(hex: routeColorHex) ?? Theme.Colors.primary
+        // 노선 색은 도메인 의미색. 미지정 시 중립색(accent 절제).
+        colorDot.backgroundColor = UIColor(hex: routeColorHex) ?? Theme.Colors.secondaryLabel
         colorDot.layer.cornerRadius = 4
         colorDot.widthAnchor.constraint(equalToConstant: 8).isActive = true
         colorDot.heightAnchor.constraint(equalToConstant: 8).isActive = true
 
         let routeLabel = UILabel()
         routeLabel.text = arrival.routeName
-        routeLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        routeLabel.font = Theme.Fonts.headline
+        routeLabel.adjustsFontForContentSizeCategory = true
         routeLabel.textColor = Theme.Colors.label
 
         let directionLabel = UILabel()

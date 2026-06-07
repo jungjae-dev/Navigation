@@ -25,6 +25,7 @@ final class SearchBarView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Drawer.SearchBar.font
         label.textColor = Theme.Drawer.SearchBar.placeholderColor
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 

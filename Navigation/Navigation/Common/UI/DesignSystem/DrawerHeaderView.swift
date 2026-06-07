@@ -33,6 +33,7 @@ final class DrawerHeaderView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Drawer.Header.titleFont
         label.textColor = Theme.Drawer.Header.titleColor
+        label.adjustsFontForContentSizeCategory = true
         label.lineBreakMode = .byTruncatingTail
         return label
     }()
@@ -41,7 +42,8 @@ final class DrawerHeaderView: UIView {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        iv.tintColor = Theme.Colors.primary
+        // 헤더 좌측 장식 아이콘은 중립색 (accent 절제)
+        iv.tintColor = Theme.Colors.secondaryLabel
         return iv
     }()
 

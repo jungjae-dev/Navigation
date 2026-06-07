@@ -137,7 +137,7 @@ extension BusRouteDrawerViewController: UITableViewDataSource, UITableViewDelega
         let isCurrent = stop.arsId == currentStopArsId
         config.textProperties.color = isCurrent ? Theme.Colors.primary : Theme.Colors.label
         if isCurrent {
-            config.textProperties.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+            config.textProperties.font = Theme.Fonts.headline
         }
 
         cell.contentConfiguration = config

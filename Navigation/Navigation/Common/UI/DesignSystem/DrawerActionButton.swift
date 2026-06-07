@@ -88,6 +88,9 @@ final class DrawerActionButton: UIButton {
         config.background.cornerRadius = layer.cornerRadius
         configuration = config
 
+        // Dynamic Type — 토큰 폰트는 이미 스케일됨, 콘텐츠 크기 변화에 반응하도록 설정
+        titleLabel?.adjustsFontForContentSizeCategory = true
+
         addSubview(loadingIndicator)
         NSLayoutConstraint.activate([
             loadingIndicator.centerXAnchor.constraint(equalTo: centerXAnchor),

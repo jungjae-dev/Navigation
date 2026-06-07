@@ -26,7 +26,7 @@ final class SearchViewController: UIViewController {
         let stackView = UIStackView()
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .horizontal
-        stackView.spacing = 8
+        stackView.spacing = Theme.Spacing.sm
         return stackView
     }()
 
@@ -277,11 +277,11 @@ final class SearchViewController: UIViewController {
         titleAttr.font = Theme.Fonts.footnote
         config.attributedTitle = titleAttr
         config.image = UIImage(systemName: "location.magnifyingglass")
-        config.imagePadding = 4
-        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        config.imagePadding = Theme.Spacing.xs
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: Theme.Spacing.md, bottom: 6, trailing: Theme.Spacing.md)
         config.cornerStyle = .capsule
-        config.baseBackgroundColor = Theme.Colors.primary.withAlphaComponent(0.12)
-        config.baseForegroundColor = Theme.Colors.primary
+        config.baseBackgroundColor = Theme.Colors.accentSubtle
+        config.baseForegroundColor = Theme.Colors.accent
         config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 12)
 
         let button = UIButton(configuration: config)

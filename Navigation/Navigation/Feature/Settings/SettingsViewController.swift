@@ -387,9 +387,9 @@ final class SettingsViewController: UIViewController {
         let imageView = UIImageView(image: cutout)
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.layer.borderColor = UIColor.systemGray4.cgColor
+        imageView.layer.borderColor = Theme.Colors.separator.cgColor
         imageView.layer.borderWidth = 1
-        imageView.layer.cornerRadius = 8
+        imageView.layer.cornerRadius = Theme.CornerRadius.small
         imageView.clipsToBounds = true
         alert.view.addSubview(imageView)
 

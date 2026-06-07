@@ -20,6 +20,7 @@ final class RecentSearchCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.body
         label.textColor = Theme.Colors.label
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
@@ -28,6 +29,7 @@ final class RecentSearchCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Fonts.caption
         label.textColor = Theme.Colors.secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 

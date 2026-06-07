@@ -19,8 +19,9 @@ final class DrawerIconButton: UIButton {
 
         var tintColorValue: UIColor {
             switch self {
+            // 기본 tint는 중립색. 즐겨찾기 활성(채워짐) 시에만 accent (setFavoriteState).
             case .close: Theme.Button.Icon.tintColor
-            case .favorite: Theme.Colors.primary
+            case .favorite: Theme.Button.Icon.tintColor
             case .settings: Theme.Button.Icon.tintColor
             case .back: Theme.Colors.label
             }
@@ -67,6 +68,8 @@ final class DrawerIconButton: UIButton {
         let config = UIImage.SymbolConfiguration(pointSize: Theme.Button.Icon.imageSize, weight: .medium)
         let image = UIImage(systemName: iconName)?.withConfiguration(config)
         setImage(image, for: .normal)
+        // 활성(즐겨찾기됨) 상태에만 accent — accent 절제 규칙
+        tintColor = isFavorite ? Theme.Colors.accent : Theme.Button.Icon.tintColor
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {

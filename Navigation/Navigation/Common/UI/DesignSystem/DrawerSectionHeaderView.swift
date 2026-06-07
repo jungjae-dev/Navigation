@@ -19,6 +19,7 @@ final class DrawerSectionHeaderView: UICollectionReusableView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = Theme.Drawer.SectionHeader.titleFont
         label.textColor = Theme.Drawer.SectionHeader.titleColor
+        label.adjustsFontForContentSizeCategory = true
         return label
     }()
 
