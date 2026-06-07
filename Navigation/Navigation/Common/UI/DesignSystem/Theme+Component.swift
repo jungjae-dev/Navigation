@@ -42,9 +42,9 @@ extension Theme {
     // MARK: - Card (Map Floating Buttons)
 
     enum Card {
-        static let size: CGFloat = 48
-        static let iconSize = Theme.IconSize.md
-        static let cornerRadius: CGFloat = 24
+        static let size: CGFloat = 40
+        static let iconSize = Theme.IconSize.sm
+        static let cornerRadius: CGFloat = 20
         /// 불투명 솔리드 (반투명 머터리얼 미사용) — research D3
         static let backgroundOpacity: CGFloat = 1.0
         static let backgroundColor = Theme.Colors.secondaryBackground
