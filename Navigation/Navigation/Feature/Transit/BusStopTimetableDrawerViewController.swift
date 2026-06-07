@@ -30,22 +30,11 @@ final class BusStopTimetableDrawerViewController: UIViewController {
         return sv
     }()
 
-    private let emptyLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = Theme.Fonts.body
-        lbl.textColor = Theme.Colors.secondaryLabel
-        lbl.textAlignment = .center
-        lbl.numberOfLines = 0
-        lbl.isHidden = true
-        return lbl
-    }()
-
-    private let loadingIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView(style: .medium)
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.hidesWhenStopped = true
-        return indicator
+    private let placeholderView: EmptyStateView = {
+        let view = EmptyStateView(state: .loading(caption: "운행정보를 불러오는 중..."))
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
+        return view
     }()
 
     // MARK: - State
@@ -96,8 +85,7 @@ final class BusStopTimetableDrawerViewController: UIViewController {
         stack.spacing = Theme.Spacing.md
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
-        view.addSubview(emptyLabel)
-        view.addSubview(loadingIndicator)
+        view.addSubview(placeholderView)
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.md),
@@ -111,20 +99,19 @@ final class BusStopTimetableDrawerViewController: UIViewController {
             rowsStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             rowsStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
 
-            emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
-            emptyLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
-
-            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            // 리스트 영역(scrollView) 중앙에 빈/로딩 상태 표시
+            placeholderView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            placeholderView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            placeholderView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            placeholderView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
         ])
     }
 
     // MARK: - Load
 
     private func fetchArrivalsAndRender() async {
-        loadingIndicator.startAnimating()
+        placeholderView.apply(.loading(caption: "운행정보를 불러오는 중..."))
+        placeholderView.isHidden = false
         logger.info("[BusTimetable] fetch arrivals for arsId=\(self.busStop.arsId)")
         do {
             loadedArrivals = try await api.fetchArrivals(arsId: busStop.arsId)
@@ -132,7 +119,6 @@ final class BusStopTimetableDrawerViewController: UIViewController {
         } catch {
             logger.error("[BusTimetable] fetch failed: \(error.localizedDescription)")
         }
-        loadingIndicator.stopAnimating()
         renderRows()
     }
 
@@ -140,11 +126,15 @@ final class BusStopTimetableDrawerViewController: UIViewController {
         rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         guard !loadedArrivals.isEmpty else {
-            emptyLabel.text = "경유 노선 운행정보가 없습니다"
-            emptyLabel.isHidden = false
+            placeholderView.apply(.empty(
+                iconName: "clock",
+                title: "경유 노선 운행정보가 없어요",
+                subtitle: nil
+            ))
+            placeholderView.isHidden = false
             return
         }
-        emptyLabel.isHidden = true
+        placeholderView.isHidden = true
 
         for arrival in loadedArrivals {
             rowsStack.addArrangedSubview(makeRow(arrival))
@@ -154,7 +144,8 @@ final class BusStopTimetableDrawerViewController: UIViewController {
 
     private func makeRow(_ arrival: BusArrival) -> UIView {
         let colorDot = UIView()
-        colorDot.backgroundColor = UIColor(hex: arrival.routeType.color) ?? Theme.Colors.primary
+        // 노선 색은 도메인 의미색. 미지정 시 중립색(accent 절제).
+        colorDot.backgroundColor = UIColor(hex: arrival.routeType.color) ?? Theme.Colors.secondaryLabel
         colorDot.layer.cornerRadius = 4
         colorDot.widthAnchor.constraint(equalToConstant: 8).isActive = true
         colorDot.heightAnchor.constraint(equalToConstant: 8).isActive = true

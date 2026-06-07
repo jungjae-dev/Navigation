@@ -64,9 +64,11 @@ final class EmptyStateView: UIView {
 
     // MARK: - Init
 
-    init(state: State) {
+    /// - Parameter centered: `true`(기본)면 컨테이너 중앙에 배치(예: tableView.backgroundView).
+    ///   `false`면 콘텐츠 높이에 맞춰 self-size(예: 스택/스크롤 안 인라인 배치).
+    init(state: State, centered: Bool = true) {
         super.init(frame: .zero)
-        setup()
+        setup(centered: centered)
         apply(state)
     }
 
@@ -76,14 +78,21 @@ final class EmptyStateView: UIView {
 
     // MARK: - Setup
 
-    private func setup() {
+    private func setup(centered: Bool) {
         addSubview(stack)
-        NSLayoutConstraint.activate([
+        var constraints: [NSLayoutConstraint] = [
             stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: Theme.Spacing.xl),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Theme.Spacing.xl),
-        ])
+        ]
+        if centered {
+            constraints.append(stack.centerYAnchor.constraint(equalTo: centerYAnchor))
+        } else {
+            // 콘텐츠 높이로 self-size (인라인 배치용)
+            constraints.append(stack.topAnchor.constraint(equalTo: topAnchor, constant: Theme.Spacing.xl))
+            constraints.append(stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Theme.Spacing.xl))
+        }
+        NSLayoutConstraint.activate(constraints)
     }
 
     // MARK: - State
