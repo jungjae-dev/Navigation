@@ -5,10 +5,10 @@ enum Theme {
     // MARK: - Colors
 
     enum Colors {
-        /// 앱 강조색 — 인디고 (Light #4F46E5 / Dark #818CF8). 주요 액션·선택/활성·링크에만 절제 사용.
-        static let accent = UIColor(named: "AccentIndigo") ?? UIColor.systemIndigo
+        /// 앱 강조색 — 시스템 블루. 주요 액션·선택/활성·링크에만 절제 사용. (라이트/다크 자동 대응)
+        static let accent = UIColor.systemBlue
         /// 옅은 강조 — 선택 배경 등 (accent 12% 틴트)
-        static let accentSubtle = (UIColor(named: "AccentIndigo") ?? UIColor.systemIndigo).withAlphaComponent(0.12)
+        static let accentSubtle = UIColor.systemBlue.withAlphaComponent(0.12)
         /// 강조색. `accent`의 별칭 — 기존 호출부 호환용.
         static let primary = accent
         static let background = UIColor.systemBackground
