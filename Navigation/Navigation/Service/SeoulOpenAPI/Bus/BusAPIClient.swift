@@ -221,6 +221,7 @@ private struct BusRouteStopsResponse: Decodable {
             let gpsX: String?
             let gpsY: String?
             let seq: String?
+            let direction: String?    // 진행 방향(종착지 표시) — 회차 지점에서 값이 바뀜
         }
         let itemList: [ItemList]?
     }
@@ -238,7 +239,8 @@ private struct BusRouteStopsResponse: Decodable {
                 name: item.stationNm ?? "",
                 seq: Int(item.seq ?? "0") ?? 0,
                 lat: lat,
-                lng: lng
+                lng: lng,
+                direction: item.direction ?? ""
             )
         }
         .sorted { $0.seq < $1.seq }
@@ -310,6 +312,8 @@ struct BusRouteStop: Identifiable {
     let seq: Int
     let lat: Double
     let lng: Double
+    /// 진행 방향(종착지 표시). 회차 지점에서 값이 바뀌어 상/하행 구분에 사용
+    let direction: String
 
     var id: String { stationId }
 }

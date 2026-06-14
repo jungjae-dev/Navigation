@@ -354,9 +354,13 @@ final class AppCoordinator: NSObject, Coordinator {
         // 노선 폴리라인 + 경유 정류소 마커 표시
         Task {
             if let stops = try? await BusAPIClient.shared.fetchRouteStops(routeId: arrival.routeId) {
-                let coords = stops.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+                let (primary, opposite) = Self.directionSegments(stops, selectedArsId: fromStop?.arsId)
+                let primaryCoords = primary.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+                let oppositeCoords = opposite.map { run in
+                    run.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+                }
                 await MainActor.run {
-                    self.mapViewController.showBusRoutePolyline(coords)
+                    self.mapViewController.showBusRoutePolyline(primary: primaryCoords, opposite: oppositeCoords)
                     self.mapViewController.showRouteStops(stops, excludingArsId: fromStop?.arsId)
                 }
             }
@@ -370,6 +374,44 @@ final class AppCoordinator: NSObject, Coordinator {
                 }
             }
         }
+    }
+
+    /// 노선 정류소를 진행 방향(direction) 기준 상/하행 구간으로 분리한다.
+    /// - direction 값이 바뀌는 회차 지점에서 구간이 나뉜다.
+    /// - selectedArsId가 포함된 구간을 primary(짙은 색), 나머지를 opposite로 반환.
+    /// - 방향 데이터가 없거나 한 방향뿐이면 전체를 primary로 반환(단색 폴백).
+    static func directionSegments(
+        _ stops: [BusRouteStop],
+        selectedArsId: String?
+    ) -> (primary: [BusRouteStop], opposite: [[BusRouteStop]]) {
+        guard let first = stops.first else { return ([], []) }
+
+        // direction 기준 연속 구간(run)으로 분할. 빈 direction은 직전 구간에 흡수.
+        var runs: [[BusRouteStop]] = []
+        var current: [BusRouteStop] = [first]
+        for stop in stops.dropFirst() {
+            let last = current[current.count - 1]
+            if stop.direction.isEmpty || stop.direction == last.direction {
+                current.append(stop)
+            } else {
+                runs.append(current)
+                current = [stop]
+            }
+        }
+        runs.append(current)
+
+        guard runs.count > 1 else { return (stops, []) }
+
+        let primaryIndex: Int = {
+            guard let sel = selectedArsId else { return 0 }
+            return runs.firstIndex { run in run.contains { $0.arsId == sel } } ?? 0
+        }()
+
+        let primary = runs[primaryIndex]
+        let opposite = runs.enumerated()
+            .filter { $0.offset != primaryIndex }
+            .map { $0.element }
+        return (primary, opposite)
     }
 
     func showBusStopTimetable(busStop: BusStop, arrivals: [BusArrival]) {

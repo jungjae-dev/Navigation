@@ -533,22 +533,41 @@ final class MapViewController: UIViewController {
 
     // MARK: - Transit Route Polyline
 
-    private var transitRouteOverlay: MKPolyline?
+    private var transitRouteOverlays: [MKPolyline] = []
+    private var transitPrimaryFlags: [MKPolyline: Bool] = [:]
 
-    func showBusRoutePolyline(_ coords: [CLLocationCoordinate2D], color: UIColor = .systemBlue) {
+    /// 단일 방향(폴백) 표시 — 방향 데이터가 없거나 순환 노선일 때
+    func showBusRoutePolyline(_ coords: [CLLocationCoordinate2D]) {
+        showBusRoutePolyline(primary: coords, opposite: [])
+    }
+
+    /// 상/하행 구분 표시.
+    /// - primary: 선택 정류소가 포함된 방향 (짙은 색)
+    /// - opposite: 반대 방향 구간들 (옅은 색). 비연속 구간 대비 배열의 배열
+    func showBusRoutePolyline(primary: [CLLocationCoordinate2D], opposite: [[CLLocationCoordinate2D]]) {
         clearTransitPolyline()
-        guard !coords.isEmpty else { return }
+        // 반대 방향을 먼저(아래) 그리고 선택 방향을 나중(위)에 그려 가독성 확보
+        for segment in opposite {
+            addTransitSegment(segment, isPrimary: false)
+        }
+        addTransitSegment(primary, isPrimary: true)
+    }
+
+    private func addTransitSegment(_ coords: [CLLocationCoordinate2D], isPrimary: Bool) {
+        guard coords.count >= 2 else { return }
         var mutable = coords
         let polyline = MKPolyline(coordinates: &mutable, count: mutable.count)
         polyline.title = "transit_route"
-        transitRouteOverlay = polyline
+        transitPrimaryFlags[polyline] = isPrimary
+        transitRouteOverlays.append(polyline)
         mapView.addOverlay(polyline, level: .aboveRoads)
     }
 
     func clearTransitPolyline() {
-        guard let overlay = transitRouteOverlay else { return }
-        mapView.removeOverlay(overlay)
-        transitRouteOverlay = nil
+        guard !transitRouteOverlays.isEmpty else { return }
+        mapView.removeOverlays(transitRouteOverlays)
+        transitPrimaryFlags.removeAll()
+        transitRouteOverlays = []
     }
 
     // MARK: - Bus Stops
@@ -802,18 +821,10 @@ extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
-            // 대중교통 노선 폴리라인
+            // 대중교통 노선 폴리라인 — 방향 구분 + 진행방향 화살표
             if let title = polyline.title, title.hasPrefix("transit_route") {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                // title 형식: "transit_route" (버스) 또는 "transit_route:#RRGGBB" (지하철)
-                if title.contains(":") {
-                    let hex = String(title.split(separator: ":").last ?? "")
-                    renderer.strokeColor = UIColor(hex: hex)?.withAlphaComponent(0.85) ?? .systemBlue.withAlphaComponent(0.8)
-                } else {
-                    renderer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.8)
-                }
-                renderer.lineWidth = 4
-                return renderer
+                let isPrimary = transitPrimaryFlags[polyline] ?? true
+                return TransitRouteRenderer(polyline: polyline, isPrimary: isPrimary)
             }
             let isPrimary = routeIsPrimary[polyline] ?? false
             return RouteOverlayRenderer(polyline: polyline, isPrimary: isPrimary)
