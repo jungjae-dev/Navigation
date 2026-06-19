@@ -29,6 +29,7 @@ final class AppCoordinator: NSObject, Coordinator {
     private var lastSearchQuery: String = ""
     /// POI / 따릉이 / 버스·지하철 통합 상세 시트
     private var mapItemDetailDrawer: MapItemDetailViewController?
+    private let regionCodeService = RegionCodeService()
     private var routePreviewDrawer: RoutePreviewDrawerViewController?
     /// 버스/지하철 노선 드로어 (1개만 유지)
     private var transitRouteDrawer: UIViewController?
@@ -124,6 +125,10 @@ final class AppCoordinator: NSObject, Coordinator {
         mapVC.onEmptyMapTapped = { [weak self] in
             guard self?.mapItemDetailDrawer != nil else { return }
             self?.dismissMapItemDetailWithCleanup()
+        }
+
+        mapVC.onLongPressDropped = { [weak self] coordinate in
+            self?.showNeighborhoodInsight(at: coordinate)
         }
 
         navigationController.delegate = self
@@ -436,6 +441,31 @@ final class AppCoordinator: NSObject, Coordinator {
     /// POI, 따릉이 등 통합 상세 시트 표시
     /// - 드로어가 닫혀있으면 새로 push
     /// - 열려있으면 컨텐츠 교체 (헤더 + 본문 + 푸터 모두 갱신)
+    // MARK: - Neighborhood Insight (핀 기반 동네 인사이트)
+
+    func showNeighborhoodInsight(at coordinate: CLLocationCoordinate2D) {
+        print("[Insight] 2. resolving region…")
+        Task { @MainActor in
+            do {
+                let region = try await regionCodeService.regionCode(at: coordinate)
+                print("[Insight] 3. region = \(region.guName) \(region.dongName) (code \(region.dongCode))")
+                let content = PinInsightContent(coordinate: coordinate, region: region)
+                content.onRouteTapped = { coord in
+                    // US2에서 RoutePreview 연결 예정 — 슬라이스 1은 로그만
+                    print("[Insight] route tapped at \(coord.latitude),\(coord.longitude)")
+                }
+                self.showMapItemDetail(content: content)
+                print("[Insight] 4. popup presented")
+            } catch RegionCodeError.outsideSeoul {
+                print("[Insight] X. outside Seoul — 서울만 지원")
+                self.mapViewController?.clearInsightPin()
+            } catch {
+                print("[Insight] X. region resolve failed: \(error)")
+                self.mapViewController?.clearInsightPin()
+            }
+        }
+    }
+
     private func showMapItemDetail(content: any MapItemContent) {
         // 노선/시간표 드로어가 위에 떠 있으면 먼저 닫아 상세가 최상단에 오도록
         if transitRouteDrawer != nil {
