@@ -17,7 +17,7 @@ final class PinInsightContent: MapItemContent {
     init(coordinate: CLLocationCoordinate2D, region: RegionCode) {
         self.coordinate = coordinate
         self.region = region
-        self.viewModel = InsightViewModel(region: region)
+        self.viewModel = InsightViewModel(coordinate: coordinate, region: region)
         bind()
         viewModel.load()
     }
