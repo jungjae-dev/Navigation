@@ -450,9 +450,21 @@ final class AppCoordinator: NSObject, Coordinator {
                 let region = try await regionCodeService.regionCode(at: coordinate)
                 print("[Insight] 3. region = \(region.guName) \(region.dongName) (code \(region.dongCode))")
                 let content = PinInsightContent(coordinate: coordinate, region: region)
-                content.onRouteTapped = { coord in
-                    // US2에서 RoutePreview 연결 예정 — 슬라이스 1은 로그만
-                    print("[Insight] route tapped at \(coord.latitude),\(coord.longitude)")
+                let regionName = region.displayAddress
+                content.onRouteTapped = { [weak self] coord in
+                    self?.showRouteToInsight(coordinate: coord, name: regionName)
+                }
+                content.onSave = { [weak self] coord, name in
+                    DataService.shared.saveFavoriteFromCoordinate(
+                        name: name, address: name,
+                        latitude: coord.latitude, longitude: coord.longitude,
+                        category: "neighborhood"
+                    )
+                    print("[Insight] saved favorite: \(name)")
+                    self?.presentInsightToast("‘\(name)’ 관심 동네에 저장됨")
+                }
+                content.onShare = { [weak self] text in
+                    self?.presentInsightShare(text)
                 }
                 self.showMapItemDetail(content: content)
                 print("[Insight] 4. popup presented")
@@ -463,6 +475,35 @@ final class AppCoordinator: NSObject, Coordinator {
                 print("[Insight] X. region resolve failed: \(error)")
                 self.mapViewController?.clearInsightPin()
             }
+        }
+    }
+
+    /// 인사이트 공유 시트 (US3)
+    private func presentInsightShare(_ text: String) {
+        let vc = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        let presenter = navigationController.topViewController ?? navigationController
+        vc.popoverPresentationController?.sourceView = presenter.view
+        presenter.present(vc, animated: true)
+    }
+
+    /// 저장 확인 토스트 (US3)
+    private func presentInsightToast(_ message: String) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        let presenter = navigationController.topViewController ?? navigationController
+        presenter.present(alert, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak alert] in
+            alert?.dismiss(animated: true)
+        }
+    }
+
+    /// 인사이트 핀 좌표까지 경로 미리보기 (US2)
+    private func showRouteToInsight(coordinate: CLLocationCoordinate2D, name: String) {
+        dismissIntermediateDrawers { [weak self] in
+            guard let self else { return }
+            let userCoordinate = self.locationService.bestAvailableLocation?.coordinate
+                ?? self.mapViewController.mapView.centerCoordinate
+            self.mapViewController.showDestination(coordinate: coordinate, title: name, subtitle: nil)
+            self.presentRoutePreviewDrawer(origin: userCoordinate, destination: coordinate, destinationName: name)
         }
     }
 
