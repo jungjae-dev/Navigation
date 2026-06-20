@@ -8,6 +8,7 @@ final class NeighborhoodInsightService {
     private let airQuality = AirQualityService()
     private let bikeAPI = BikeStationAPI()
     private let events = CulturalEventService()
+    private let greenery = GreeneryService()
 
     // MARK: - 대기질
 
@@ -75,6 +76,19 @@ final class NeighborhoodInsightService {
         } catch {
             print("[Insight] card events → FAILED: \(error)")
             return InsightCard(kind: .events, state: .failed)
+        }
+    }
+
+    // MARK: - 녹지 (최근접 공원)
+
+    func greeneryCard(at coordinate: CLLocationCoordinate2D) async -> InsightCard {
+        do {
+            let content = try await greenery.nearestPark(near: coordinate)
+            print("[Insight] card greenery → loaded: \(content.headline)")
+            return InsightCard(kind: .greenery, state: .loaded(content))
+        } catch {
+            print("[Insight] card greenery → FAILED: \(error)")
+            return InsightCard(kind: .greenery, state: .failed)
         }
     }
 

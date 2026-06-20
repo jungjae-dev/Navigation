@@ -22,7 +22,7 @@ final class InsightViewModel {
 
     /// 카드 로드 시작 (슬라이스 2: 대기질 + 교통(따릉이) + 지금(행사))
     func load() {
-        let kinds: [InsightCardKind] = [.airQuality, .transit, .events]
+        let kinds: [InsightCardKind] = [.airQuality, .transit, .greenery, .events]
         print("[Insight] 5. load cards (gu=\(region.guName), kinds=\(kinds.map { $0.rawValue }))")
         cards.send(kinds.map { InsightCard(kind: $0, state: .loading) })
 
@@ -33,6 +33,10 @@ final class InsightViewModel {
         Task { [weak self] in
             guard let self else { return }
             self.apply(await self.service.transitCard(at: self.coordinate))
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            self.apply(await self.service.greeneryCard(at: self.coordinate))
         }
         Task { [weak self] in
             guard let self else { return }
