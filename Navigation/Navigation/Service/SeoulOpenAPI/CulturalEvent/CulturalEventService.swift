@@ -11,18 +11,12 @@ final class CulturalEventService {
     private let lngKeys = ["LOT", "X_COORD", "X"]
 
     /// 핀 주변 행사 개수 + 대표 1건. 좌표가 있으면 반경, 없으면 자치구 매칭.
+    // 행사는 준정적 → 1시간 캐시 (위치 무관 fetch + 위치별 필터)
+    private static var cache: (rows: [CulturalEventResponse.Row], at: Date)?
+    private static let ttl: TimeInterval = 60 * 60
+
     func events(near coordinate: CLLocationCoordinate2D, gu: String, radius: CLLocationDistance = 2000) async throws -> CardContent {
-        print("[Insight] E1. culturalEventInfo fetch (gu=\(gu))…")
-        let response: CulturalEventResponse = try await SeoulAPIClient.shared.request(
-            service: "culturalEventInfo",
-            startIndex: 1,
-            endIndex: 200,
-            responseType: CulturalEventResponse.self
-        )
-
-        let rows = response.container.row ?? []
-        print("[Insight] E2. event rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
-
+        let rows = try await Self.eventRows()
         let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         // (행사 행, 거리) — 좌표 없으면 자치구 폴백(거리 무한대)
         let nearby: [(row: CulturalEventResponse.Row, dist: CLLocationDistance)] = rows.compactMap { row in
@@ -59,6 +53,24 @@ final class CulturalEventService {
         guard let lat = vals.first(where: { (33.0...39.0).contains($0) }),
               let lng = vals.first(where: { (124.0...132.0).contains($0) }) else { return nil }
         return (lat, lng)
+    }
+
+    private static func eventRows() async throws -> [CulturalEventResponse.Row] {
+        if let c = cache, Date().timeIntervalSince(c.at) < ttl {
+            print("[Insight] E1. event cache hit (\(c.rows.count))")
+            return c.rows
+        }
+        print("[Insight] E1. culturalEventInfo fetch…")
+        let response: CulturalEventResponse = try await SeoulAPIClient.shared.request(
+            service: "culturalEventInfo",
+            startIndex: 1,
+            endIndex: 200,
+            responseType: CulturalEventResponse.self
+        )
+        let rows = response.container.row ?? []
+        print("[Insight] E2. event rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
+        cache = (rows, Date())
+        return rows
     }
 
     private func pick(_ row: CulturalEventResponse.Row, _ keys: [String]) -> String? {

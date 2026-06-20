@@ -8,18 +8,12 @@ final class GreeneryService {
     private let latKeys = ["YCRD", "LAT", "Y"]
     private let lngKeys = ["XCRD", "LNT", "X"]
 
+    // 공원은 정적 데이터 → 1일 캐시 (위치 무관 fetch + 위치별 최근접 계산)
+    private static var cache: (rows: [ParkResponse.Row], at: Date)?
+    private static let ttl: TimeInterval = 60 * 60 * 24
+
     func nearestPark(near coordinate: CLLocationCoordinate2D) async throws -> CardContent {
-        print("[Insight] G1. SearchParkInfoService fetch…")
-        let response: ParkResponse = try await SeoulAPIClient.shared.request(
-            service: "SearchParkInfoService",
-            startIndex: 1,
-            endIndex: 300,
-            responseType: ParkResponse.self
-        )
-
-        let rows = response.container.row ?? []
-        print("[Insight] G2. park rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
-
+        let rows = try await Self.parkRows()
         let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let nearest = rows.compactMap { row -> (name: String, dist: CLLocationDistance)? in
             let a = pick(row, latKeys).flatMap(Double.init)
@@ -40,6 +34,24 @@ final class GreeneryService {
             detail: "최근접 공원 · \(Self.distanceText(nearest.dist))",
             badge: .good
         )
+    }
+
+    private static func parkRows() async throws -> [ParkResponse.Row] {
+        if let c = cache, Date().timeIntervalSince(c.at) < ttl {
+            print("[Insight] G1. park cache hit (\(c.rows.count))")
+            return c.rows
+        }
+        print("[Insight] G1. SearchParkInfoService fetch…")
+        let response: ParkResponse = try await SeoulAPIClient.shared.request(
+            service: "SearchParkInfoService",
+            startIndex: 1,
+            endIndex: 300,
+            responseType: ParkResponse.self
+        )
+        let rows = response.container.row ?? []
+        print("[Insight] G2. park rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
+        cache = (rows, Date())
+        return rows
     }
 
     private func pick(_ row: ParkResponse.Row, _ keys: [String]) -> String? {

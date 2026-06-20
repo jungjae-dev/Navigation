@@ -8,18 +8,13 @@ final class AirQualityService {
     private let gradeKeys = ["CAI_GRD", "IDEX_NM", "GRADE"]
     private let indexKeys = ["CAI_IDX", "IDEX_MVL", "KHAI"]
 
+    // 대기질은 시간 단위 변동 → 10분 캐시 (전 자치구 fetch + gu 매칭)
+    private static var cache: (rows: [RealtimeCityAirResponse.Row], at: Date)?
+    private static let ttl: TimeInterval = 60 * 10
+
     /// 자치구명으로 해당 대기질을 조회해 CardContent 생성
     func airQuality(gu: String) async throws -> CardContent {
-        print("[Insight] 6. RealtimeCityAir fetch (gu=\(gu))…")
-        let response: RealtimeCityAirResponse = try await SeoulAPIClient.shared.request(
-            service: "RealtimeCityAir",
-            startIndex: 1,
-            endIndex: 25,
-            responseType: RealtimeCityAirResponse.self
-        )
-
-        let rows = response.container.row ?? []
-        print("[Insight] 7. air rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
+        let rows = try await Self.airRows()
 
         let match = rows.first { row in
             guard let d = pick(row, districtKeys) else { return false }
@@ -46,6 +41,24 @@ final class AirQualityService {
             detail: "\(gu) 통합대기환경지수",
             badge: Self.badge(for: grade)
         )
+    }
+
+    private static func airRows() async throws -> [RealtimeCityAirResponse.Row] {
+        if let c = cache, Date().timeIntervalSince(c.at) < ttl {
+            print("[Insight] 6. air cache hit (\(c.rows.count))")
+            return c.rows
+        }
+        print("[Insight] 6. RealtimeCityAir fetch…")
+        let response: RealtimeCityAirResponse = try await SeoulAPIClient.shared.request(
+            service: "RealtimeCityAir",
+            startIndex: 1,
+            endIndex: 25,
+            responseType: RealtimeCityAirResponse.self
+        )
+        let rows = response.container.row ?? []
+        print("[Insight] 7. air rows=\(rows.count) keys=\(rows.first?.fields.keys.sorted() ?? [])")
+        cache = (rows, Date())
+        return rows
     }
 
     private func pick(_ row: RealtimeCityAirResponse.Row, _ keys: [String]) -> String? {
