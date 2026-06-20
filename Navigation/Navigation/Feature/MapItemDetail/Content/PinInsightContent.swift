@@ -30,7 +30,7 @@ final class PinInsightContent: MapItemContent {
 
     var iconImage: UIImage? {
         UIImage(systemName: "mappin.circle.fill")?
-            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .bold))
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: Theme.IconSize.lg, weight: .bold))
     }
 
     var title: String { region.displayAddress }

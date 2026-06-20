@@ -542,6 +542,8 @@ final class AppCoordinator: NSObject, Coordinator {
         // 따릉이/버스 마커의 선택 상태 해제
         mapViewController.deselectAllBikeStations()
         mapViewController.deselectAllBusStops()
+        // 인사이트 핀 제거 (멱등)
+        mapViewController.clearInsightPin()
         drawerManager.popDrawer()
     }
 

@@ -1,9 +1,10 @@
 import UIKit
 
-/// 동네 인사이트 카드 목록 표시 뷰.
-/// (슬라이스 1: 시스템 색상 사용 — 디자인 토큰화는 폴리시 T031에서)
+/// 동네 인사이트 카드 목록 — 평평한 리스트(구분선) 스타일로 기존 상세 시트와 통일.
+/// 카드가 많아도 detent 높이에 맞춰 스크롤되도록 UIScrollView로 감싼다.
 final class PinInsightContentView: UIView {
 
+    private let scrollView = UIScrollView()
     private let stack = UIStackView()
 
     override init(frame: CGRect) {
@@ -14,58 +15,75 @@ final class PinInsightContentView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setup() {
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = true
+        addSubview(scrollView)
+
         stack.axis = .vertical
-        stack.spacing = 12
+        stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        scrollView.addSubview(stack)
+
+        let frameGuide = scrollView.frameLayoutGuide
+        let contentGuide = scrollView.contentLayoutGuide
+
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            stack.topAnchor.constraint(equalTo: contentGuide.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: contentGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentGuide.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: contentGuide.bottomAnchor),
+            stack.widthAnchor.constraint(equalTo: frameGuide.widthAnchor),
         ])
     }
 
-    /// 카드 목록으로 행 재구성
+    /// 카드 목록으로 행 재구성 (행 사이 구분선)
     func configure(cards: [InsightCard]) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for card in cards {
+        for (index, card) in cards.enumerated() {
             stack.addArrangedSubview(makeRow(for: card))
+            if index < cards.count - 1 {
+                stack.addArrangedSubview(makeSeparator())
+            }
         }
     }
 
     private func makeRow(for card: InsightCard) -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 12
-
         let icon = UIImageView(image: UIImage(systemName: card.kind.symbolName))
-        icon.tintColor = .label
+        icon.tintColor = Theme.Colors.secondaryLabel
         icon.contentMode = .scaleAspectFit
         icon.setContentHuggingPriority(.required, for: .horizontal)
+        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let titleLabel = UILabel()
         titleLabel.text = card.kind.title
-        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        titleLabel.textColor = .secondaryLabel
+        titleLabel.font = Theme.Fonts.caption
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.textColor = Theme.Colors.secondaryLabel
 
         let valueLabel = UILabel()
-        valueLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        valueLabel.textColor = .label
+        valueLabel.font = Theme.Fonts.callout
+        valueLabel.adjustsFontForContentSizeCategory = true
+        valueLabel.textColor = Theme.Colors.label
         valueLabel.numberOfLines = 0
 
         let detailLabel = UILabel()
-        detailLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        detailLabel.textColor = .tertiaryLabel
+        detailLabel.font = Theme.Fonts.caption
+        detailLabel.adjustsFontForContentSizeCategory = true
+        detailLabel.textColor = Theme.Colors.secondaryLabel
         detailLabel.numberOfLines = 0
 
         switch card.state {
         case .loading:
             valueLabel.text = "불러오는 중…"
-            valueLabel.textColor = .secondaryLabel
+            valueLabel.textColor = Theme.Colors.secondaryLabel
         case .failed:
             valueLabel.text = "정보 없음"
-            valueLabel.textColor = .secondaryLabel
+            valueLabel.textColor = Theme.Colors.secondaryLabel
         case .loaded(let content):
             valueLabel.text = content.headline
             valueLabel.textColor = Self.color(for: content.badge)
@@ -81,30 +99,32 @@ final class PinInsightContentView: UIView {
         let textStack = UIStackView(arrangedSubviews: [titleLabel, valueLabel])
         if !(detailLabel.text ?? "").isEmpty { textStack.addArrangedSubview(detailLabel) }
         textStack.axis = .vertical
-        textStack.spacing = 2
+        textStack.spacing = Theme.Spacing.xxs
 
         let row = UIStackView(arrangedSubviews: [icon, textStack])
         row.axis = .horizontal
-        row.spacing = 12
+        row.spacing = Theme.Spacing.md
         row.alignment = .center
-        row.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(row)
-        NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: 24),
-            row.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
-            row.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            row.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
-            row.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
-        ])
-        return container
+        row.isLayoutMarginsRelativeArrangement = true
+        row.directionalLayoutMargins = .init(
+            top: Theme.Spacing.md, leading: 0, bottom: Theme.Spacing.md, trailing: 0
+        )
+        return row
+    }
+
+    private func makeSeparator() -> UIView {
+        let line = UIView()
+        line.backgroundColor = Theme.Colors.separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+        line.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
+        return line
     }
 
     private static func color(for badge: CardBadgeLevel?) -> UIColor {
         switch badge {
-        case .good:    return .systemGreen
-        case .normal:  return .label
-        case .caution: return .systemOrange
-        case .neutral, .none: return .label
+        case .good:    return Theme.Colors.success
+        case .caution: return .systemOrange   // 주의색 — Theme 토큰 없음(의미색 유지)
+        case .normal, .neutral, .none: return Theme.Colors.label
         }
     }
 }
