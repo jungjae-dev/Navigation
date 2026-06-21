@@ -16,7 +16,10 @@ final class PinInsightContentView: UIView {
 
     private func setup() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.showsVerticalScrollIndicator = true
+        // 드로어 교체 애니메이션(UIView.animate) 중 layoutIfNeeded가 스크롤 인디케이터/인셋을
+        // 재계산하며 무한 재귀(additive animation)로 메인 스레드가 멈추는 것을 방지.
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.contentInsetAdjustmentBehavior = .never
         addSubview(scrollView)
 
         stack.axis = .vertical

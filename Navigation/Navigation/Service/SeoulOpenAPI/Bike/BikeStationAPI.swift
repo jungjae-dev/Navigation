@@ -25,7 +25,7 @@ struct BikeStationAPI {
                     do {
                         return try await self.fetchPage(start: start, end: end)
                     } catch {
-                        bikeLogger.warning("fetchPage \(start)-\(end) 실패: \(error.localizedDescription, privacy: .public)")
+                        print("[Bike] fetchPage \(start)-\(end) FAILED: \(error)")
                         return []
                     }
                 }
@@ -44,6 +44,7 @@ struct BikeStationAPI {
                 dedup[s.stationId] = s
             }
         }
+        print("[Bike] fetchAll total=\(dedup.count)")
         return Array(dedup.values)
     }
 
