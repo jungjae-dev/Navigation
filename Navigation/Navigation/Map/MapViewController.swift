@@ -40,6 +40,10 @@ final class MapViewController: UIViewController {
     /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
     var onEmptyMapTapped: (() -> Void)?
 
+    /// 롱프레스로 핀을 찍었을 때 (동네 인사이트 진입)
+    var onLongPressDropped: ((CLLocationCoordinate2D) -> Void)?
+    private var insightPin: MKPointAnnotation?
+
     /// 현재 표시 중인 따릉이 정류소 annotations
     private var bikeAnnotations: [BikeAnnotation] = []
     /// 따릉이 표시 ON/OFF (외부에서 설정)
@@ -108,6 +112,35 @@ final class MapViewController: UIViewController {
             self?.userLocationPresenter.userDidInteractWithMap()
         }
 
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        mapView.addGestureRecognizer(longPress)
+    }
+
+    // MARK: - Insight Long Press
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, !isNavigationMode else { return }
+        let point = gesture.location(in: mapView)
+        let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
+        print("[Insight] 1. longPress at \(coordinate.latitude),\(coordinate.longitude)")
+        dropInsightPin(at: coordinate)
+        onLongPressDropped?(coordinate)
+    }
+
+    /// 인사이트 핀 표시(이전 핀 교체)
+    func dropInsightPin(at coordinate: CLLocationCoordinate2D) {
+        clearInsightPin()
+        let pin = MKPointAnnotation()
+        pin.coordinate = coordinate
+        mapView.addAnnotation(pin)
+        insightPin = pin
+    }
+
+    func clearInsightPin() {
+        if let pin = insightPin {
+            mapView.removeAnnotation(pin)
+            insightPin = nil
+        }
     }
 
     private var pendingEmptyTapCheck: DispatchWorkItem?

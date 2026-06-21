@@ -39,19 +39,29 @@ final class SeoulAPIClient {
             throw SeoulAPIError.network("Invalid URL: \(urlString)")
         }
 
-        seoulAPILogger.debug("GET \(service)/\(startIndex)/\(endIndex, privacy: .public)\(extraPaths.isEmpty ? "" : "/\(extraPaths.joined(separator: "/"))", privacy: .public)")
+        print("[SeoulAPI] → \(service)")
+        let start = Date()
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = 10
 
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
         } catch {
+            let elapsed = Date().timeIntervalSince(start)
+            print("[SeoulAPI] ✗ \(service) NETWORK FAIL after \(String(format: "%.1f", elapsed))s: \(error)")
             throw SeoulAPIError.network(error.localizedDescription)
         }
 
+        let elapsed = Date().timeIntervalSince(start)
         guard let http = response as? HTTPURLResponse else {
+            print("[SeoulAPI] ✗ \(service) bad response")
             throw SeoulAPIError.network("Bad response")
         }
+
+        print("[SeoulAPI] ← \(service) HTTP \(http.statusCode) \(data.count)B in \(String(format: "%.1f", elapsed))s")
 
         guard (200..<300).contains(http.statusCode) else {
             throw SeoulAPIError.http(http.statusCode)

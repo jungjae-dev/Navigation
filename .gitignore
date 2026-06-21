@@ -30,3 +30,6 @@ Secrets.xcconfig
 
 # Claude Code runtime
 .claude/scheduled_tasks.lock
+
+# specs are point-in-time artifacts (kept local, not tracked)
+specs/
