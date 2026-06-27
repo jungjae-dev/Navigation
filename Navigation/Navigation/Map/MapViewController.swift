@@ -47,9 +47,12 @@ final class MapViewController: UIViewController {
 
     /// 현재 표시 중인 실시간 혼잡 마커 annotations (영역 중심)
     private var congestionAnnotations: [CongestionAnnotation] = []
-    /// 혼잡 면 색칠 폴리곤 + 색
+    /// 혼잡 면 색칠 폴리곤 + 색 + 소속 place(예측 재색칠용)
     private var congestionPolygons: [MKPolygon] = []
     private var congestionPolygonColors: [MKPolygon: UIColor] = [:]
+    private var congestionPolygonPlace: [MKPolygon: CongestionPlace] = [:]
+    /// 시간 offset (0=지금, N=+N시간 예측)
+    private var congestionOffset: Int = 0
 
     /// 현재 표시 중인 따릉이 정류소 annotations
     private var bikeAnnotations: [BikeAnnotation] = []
@@ -503,17 +506,19 @@ final class MapViewController: UIViewController {
     // MARK: - Live Congestion
 
     /// 실시간 혼잡 영역 색칠 + 중심 마커 (빈 배열이면 제거). unknown 장소는 제외.
+    /// 현재 offset 기준 색으로 그림 (offset 0 = 실시간).
     func setCongestion(_ places: [CongestionPlace]) {
         clearCongestion()
         var anns: [CongestionAnnotation] = []
         var polys: [MKPolygon] = []
         for place in places where place.liveLevel.isDisplayable {
-            anns.append(CongestionAnnotation(place: place, level: place.liveLevel))
-            let color = place.liveLevel.markerColor
+            let level = place.level(atOffset: congestionOffset)
+            anns.append(CongestionAnnotation(place: place, level: level))
             for ring in place.rings where ring.count >= 3 {
                 var coords = ring
                 let poly = MKPolygon(coordinates: &coords, count: coords.count)
-                congestionPolygonColors[poly] = color
+                congestionPolygonColors[poly] = level.markerColor
+                congestionPolygonPlace[poly] = place
                 polys.append(poly)
             }
         }
@@ -523,12 +528,36 @@ final class MapViewController: UIViewController {
         mapView.addAnnotations(anns)
     }
 
+    /// 예측 슬라이더 — offset 변경 시 면/마커 색을 그 시각 예측으로 재색칠 (재요청 없음, US2)
+    func updateCongestion(offset: Int) {
+        congestionOffset = offset
+        for poly in congestionPolygons {
+            guard let place = congestionPolygonPlace[poly] else { continue }
+            let color = place.level(atOffset: offset).markerColor
+            congestionPolygonColors[poly] = color
+            if let r = mapView.renderer(for: poly) as? MKPolygonRenderer {
+                r.fillColor = color.withAlphaComponent(0.35)
+                r.strokeColor = color.withAlphaComponent(0.85)
+                r.setNeedsDisplay()
+            }
+        }
+        for ann in congestionAnnotations {
+            let level = ann.place.level(atOffset: offset)
+            ann.level = level
+            if let v = mapView.view(for: ann) as? MKMarkerAnnotationView {
+                v.markerTintColor = level.markerColor
+            }
+        }
+    }
+
     /// 실시간 혼잡 영역·마커 모두 제거
     func clearCongestion() {
+        congestionOffset = 0
         if !congestionPolygons.isEmpty {
             mapView.removeOverlays(congestionPolygons)
             congestionPolygons = []
             congestionPolygonColors.removeAll()
+            congestionPolygonPlace.removeAll()
         }
         guard !congestionAnnotations.isEmpty else { return }
         mapView.removeAnnotations(congestionAnnotations)

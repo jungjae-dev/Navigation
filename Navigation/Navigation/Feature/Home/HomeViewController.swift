@@ -17,10 +17,12 @@ final class HomeViewController: UIViewController {
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
 
-    // 실시간 혼잡(Live Pulse) — citydata 라이브 마커 (MVP 슬라이스: 토글 ON → 가시영역 혼잡 마커)
+    // 실시간 혼잡(Live Pulse) — citydata 라이브 면색칠 + 예측 슬라이더
     private let hotspotCatalog = HotspotCatalog(bundle: .main)
     private lazy var citydataService = hotspotCatalog.map { CitydataService(catalog: $0) }
     private var isLivePulseOn = false
+    private var livePulsePanel: UIView?
+    private weak var livePulseLabel: UILabel?
 
     // MARK: - Init
 
@@ -162,14 +164,16 @@ final class HomeViewController: UIViewController {
 
         guard isLivePulseOn else {
             mapViewController.clearCongestion()
+            hideLivePulseSlider()
             return
         }
         guard let service = citydataService else {
-            print("[LivePulse] ✗ 카탈로그/서비스 nil — hotspots.json 번들 누락 의심")
+            print("[LivePulse] ✗ 카탈로그/서비스 nil — hotspot_areas.json 번들 누락 의심")
             isLivePulseOn = false
             mapControlButtons.updateLivePulseState(isOn: false)
             return
         }
+        showLivePulseSlider()
         let rect = mapViewController.mapView.visibleMapRect
         let center = mapViewController.mapView.region.center
         print("[LivePulse] 지도 중심=(\(String(format: "%.4f", center.latitude)), \(String(format: "%.4f", center.longitude)))")
@@ -192,6 +196,78 @@ final class HomeViewController: UIViewController {
             self.mapViewController.setCongestion(places)
             if shouldFit { self.mapViewController.fitCongestion() }
             print("[LivePulse] setCongestion 적용 (마커 \(places.filter { $0.liveLevel.isDisplayable }.count)개)")
+        }
+    }
+
+    // MARK: - Live Pulse 예측 슬라이더 (지금→+12h)
+
+    private func showLivePulseSlider() {
+        guard livePulsePanel == nil else { return }
+        let panel = UIView()
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        panel.backgroundColor = Theme.Card.backgroundColor.withAlphaComponent(0.95)
+        panel.layer.cornerRadius = Theme.Card.cornerRadius
+        panel.layer.shadowColor = Theme.Shadow.color
+        panel.layer.shadowOpacity = Theme.Shadow.opacity
+        panel.layer.shadowOffset = Theme.Shadow.offset
+        panel.layer.shadowRadius = Theme.Shadow.radius
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.textColor = .label
+        label.textAlignment = .center
+
+        let slider = UISlider()
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.minimumValue = 0
+        slider.maximumValue = 12
+        slider.value = 0
+        slider.minimumTrackTintColor = Theme.Colors.primary
+        slider.addTarget(self, action: #selector(livePulseOffsetChanged(_:)), for: .valueChanged)
+
+        panel.addSubview(label)
+        panel.addSubview(slider)
+        view.addSubview(panel)
+
+        NSLayoutConstraint.activate([
+            panel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            panel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            panel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+
+            label.topAnchor.constraint(equalTo: panel.topAnchor, constant: 10),
+            label.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: 14),
+            label.trailingAnchor.constraint(equalTo: panel.trailingAnchor, constant: -14),
+
+            slider.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 6),
+            slider.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: 14),
+            slider.trailingAnchor.constraint(equalTo: panel.trailingAnchor, constant: -14),
+            slider.bottomAnchor.constraint(equalTo: panel.bottomAnchor, constant: -10),
+        ])
+
+        livePulsePanel = panel
+        livePulseLabel = label
+        updateLivePulseLabel(offset: 0)
+    }
+
+    private func hideLivePulseSlider() {
+        livePulsePanel?.removeFromSuperview()
+        livePulsePanel = nil
+    }
+
+    @objc private func livePulseOffsetChanged(_ slider: UISlider) {
+        let offset = Int(slider.value.rounded())
+        slider.value = Float(offset)  // 정수 스냅
+        updateLivePulseLabel(offset: offset)
+        mapViewController.updateCongestion(offset: offset)
+    }
+
+    private func updateLivePulseLabel(offset: Int) {
+        let hour = (Calendar.current.component(.hour, from: Date()) + offset) % 24
+        if offset == 0 {
+            livePulseLabel?.text = "지금 (\(hour)시) · 실시간 혼잡"
+        } else {
+            livePulseLabel?.text = "+\(offset)시간 → \(hour)시 예측"
         }
     }
 
