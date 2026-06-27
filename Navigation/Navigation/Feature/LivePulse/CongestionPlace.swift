@@ -12,7 +12,8 @@ struct CongestionForecastPoint: Sendable {
 /// 한 핫스팟의 표시 단위 — citydata 응답 + 번들 좌표 병합 (data-model §1)
 struct CongestionPlace: Sendable, Identifiable {
     let areaName: String
-    let coordinate: CLLocationCoordinate2D
+    let coordinate: CLLocationCoordinate2D      // 영역 중심 (탭 마커)
+    let rings: [[CLLocationCoordinate2D]]        // 면 색칠용 폴리곤
     let liveLevel: CongestionLevel
     let baseTime: String          // PPLTN_TIME (신선도, FR-003)
     let pplMin: Int?

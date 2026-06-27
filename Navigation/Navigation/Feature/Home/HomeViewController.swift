@@ -17,6 +17,11 @@ final class HomeViewController: UIViewController {
     let drawerManager = DrawerContainerManager()
     private var cancellables = Set<AnyCancellable>()
 
+    // 실시간 혼잡(Live Pulse) — citydata 라이브 마커 (MVP 슬라이스: 토글 ON → 가시영역 혼잡 마커)
+    private let hotspotCatalog = HotspotCatalog(bundle: .main)
+    private lazy var citydataService = hotspotCatalog.map { CitydataService(catalog: $0) }
+    private var isLivePulseOn = false
+
     // MARK: - Init
 
     init(viewModel: HomeViewModel, mapViewController: MapViewController) {
@@ -96,6 +101,9 @@ final class HomeViewController: UIViewController {
         buttons.onPOILayerTapped = { [weak self] in
             self?.handlePOILayerTapped()
         }
+        buttons.onLivePulseTapped = { [weak self] in
+            self?.toggleLivePulse()
+        }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
@@ -143,6 +151,48 @@ final class HomeViewController: UIViewController {
     private func updatePOIButtonState() {
         let hasActive = bikeViewModel.isLayerOn || busViewModel.isLayerOn
         mapControlButtons.updatePOILayerState(hasActiveLayer: hasActive)
+    }
+
+    // MARK: - Live Pulse (실시간 혼잡)
+
+    private func toggleLivePulse() {
+        isLivePulseOn.toggle()
+        mapControlButtons.updateLivePulseState(isOn: isLivePulseOn)
+        print("[LivePulse] toggle → on=\(isLivePulseOn), catalog=\(hotspotCatalog != nil), service=\(citydataService != nil)")
+
+        guard isLivePulseOn else {
+            mapViewController.clearCongestion()
+            return
+        }
+        guard let service = citydataService else {
+            print("[LivePulse] ✗ 카탈로그/서비스 nil — hotspots.json 번들 누락 의심")
+            isLivePulseOn = false
+            mapControlButtons.updateLivePulseState(isOn: false)
+            return
+        }
+        let rect = mapViewController.mapView.visibleMapRect
+        let center = mapViewController.mapView.region.center
+        print("[LivePulse] 지도 중심=(\(String(format: "%.4f", center.latitude)), \(String(format: "%.4f", center.longitude)))")
+
+        var names = hotspotCatalog?.visibleAreaNames(in: rect) ?? []
+        var shouldFit = false
+        if names.isEmpty {
+            // 가시영역에 핫스팟 없음(지도가 서울 도심 밖) → 전체 시드 로드 + 카메라 맞춤
+            names = hotspotCatalog?.hotspots.map(\.areaName) ?? []
+            shouldFit = true
+            print("[LivePulse] 가시영역 0곳 → 전체 \(names.count)곳 로드 + 카메라 맞춤")
+        } else {
+            print("[LivePulse] 가시영역 핫스팟 \(names.count)곳: \(names)")
+        }
+
+        Task { [weak self] in
+            let places = await service.fetch(areaNames: names)
+            print("[LivePulse] fetch 완료 places=\(places.count) levels=\(places.map { $0.liveLevel.displayName })")
+            guard let self, self.isLivePulseOn else { return }
+            self.mapViewController.setCongestion(places)
+            if shouldFit { self.mapViewController.fitCongestion() }
+            print("[LivePulse] setCongestion 적용 (마커 \(places.filter { $0.liveLevel.isDisplayable }.count)개)")
+        }
     }
 
     private func handlePOILayerTapped() {

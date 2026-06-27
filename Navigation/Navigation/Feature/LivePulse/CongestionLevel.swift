@@ -1,4 +1,4 @@
-import Foundation
+import UIKit
 
 /// 혼잡 단계 (citydata `AREA_CONGEST_LVL` / `FCST_CONGEST_LVL`)
 /// 원문 표기에 공백 변형("약간 붐빔")이 있어 공백 제거 후 매칭.
@@ -31,4 +31,15 @@ enum CongestionLevel: Int, CaseIterable, Sendable {
 
     /// 표시 대상 여부 (unknown은 마커 미표시, FR-011)
     var isDisplayable: Bool { self != .unknown }
+
+    /// 마커 색 (FR-013 — 디자인 토큰화는 T022 Polish에서 Theme.Palette 경유로 정리)
+    var markerColor: UIColor {
+        switch self {
+        case .busy: return .systemRed
+        case .slightlyBusy: return .systemOrange
+        case .normal: return .systemYellow
+        case .relaxed: return .systemGreen
+        case .unknown: return .systemGray
+        }
+    }
 }

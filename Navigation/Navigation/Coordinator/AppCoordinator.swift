@@ -23,6 +23,7 @@ final class AppCoordinator: NSObject, Coordinator {
 
     private var mapViewController: MapViewController!
     private var homeViewController: HomeViewController!
+    private let congestionService = CitydataService()  // 마커 탭 상세(풀 citydata) 전용
     private var homeViewModel: HomeViewModel!
     private var homeDrawerVC: HomeDrawerViewController?
     private var currentDrawer: SearchResultDrawerViewController?
@@ -116,6 +117,10 @@ final class AppCoordinator: NSObject, Coordinator {
 
         mapVC.onBikeStationSelected = { [weak self] station in
             self?.showBikeStationDetail(station)
+        }
+
+        mapVC.onCongestionSelected = { [weak self] place in
+            self?.showCongestionDetail(place)
         }
 
         mapVC.onBusStopSelected = { [weak self] busStop in
@@ -252,6 +257,18 @@ final class AppCoordinator: NSObject, Coordinator {
             BikeAppLauncher.openRent()
         }
         showMapItemDetail(content: content)
+    }
+
+    /// 실시간 혼잡 마커 탭 → 상세 카드(풀 citydata: 인구·연령·성별·예측·날씨·주차·따릉이)
+    private func showCongestionDetail(_ place: CongestionPlace) {
+        guard navigationController.topViewController === homeViewController else { return }
+
+        let content = CongestionContent(place: place)
+        showMapItemDetail(content: content)   // 우선 가벼운 데이터로 표시
+        Task { [weak self] in
+            let detail = await self?.congestionService.fetchDetail(areaName: place.areaName)
+            content.setDetail(detail)          // 풀 citydata 도착 시 채움
+        }
     }
 
     /// 따릉이 정류소까지 도보 길찾기 — 상세 시트 닫고 RoutePreview 표시

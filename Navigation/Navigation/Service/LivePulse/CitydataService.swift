@@ -8,23 +8,24 @@ private let livePulseLogger = Logger(subsystem: "nav.api", category: "LivePulse"
 /// 좌표는 번들 HotspotCatalog에서 병합(응답에 좌표 없음, R2).
 final class CitydataService {
 
-    private let catalog: HotspotCatalog
+    private let catalog: HotspotCatalog?
     private let ttl: TimeInterval
     private var cache: [String: (place: CongestionPlace, at: Date)] = [:]
 
-    init(catalog: HotspotCatalog, ttl: TimeInterval = 300) {  // 원천 갱신 ≈5분
+    init(catalog: HotspotCatalog? = nil, ttl: TimeInterval = 300) {  // 원천 갱신 ≈5분
         self.catalog = catalog
         self.ttl = ttl
     }
 
     /// 가시 영역(rect) 안의 핫스팟만 로딩 (FR-007a)
     func loadVisible(in rect: MKMapRect, now: Date = Date()) async -> [CongestionPlace] {
-        await fetch(areaNames: catalog.visibleAreaNames(in: rect), now: now)
+        await fetch(areaNames: catalog?.visibleAreaNames(in: rect) ?? [], now: now)
     }
 
     /// 장소별 병렬 호출. TTL 유효분은 캐시 사용, 실패 장소는 스킵(부분 실패 허용, FR-012).
     func fetch(areaNames: [String], now: Date = Date()) async -> [CongestionPlace] {
-        await withTaskGroup(of: CongestionPlace?.self) { group in
+        print("[LivePulse] fetch 시작 — \(areaNames.count)곳 \(areaNames)")
+        return await withTaskGroup(of: CongestionPlace?.self) { group in
             for name in areaNames {
                 if let c = cache[name], now.timeIntervalSince(c.at) < ttl {
                     group.addTask { c.place }
@@ -43,8 +44,27 @@ final class CitydataService {
         }
     }
 
+    /// 마커 탭 — 풀 citydata 1곳 (인구 상세 + 날씨 + 주차/따릉이). 좌표 불필요(카탈로그 무관).
+    func fetchDetail(areaName: String) async -> CitydataDetail? {
+        let encoded = areaName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? areaName
+        do {
+            let resp: CitydataFullResponse = try await SeoulAPIClient.shared.request(
+                service: "citydata",
+                startIndex: 1,
+                endIndex: 5,
+                extraPaths: [encoded],
+                responseType: CitydataFullResponse.self
+            )
+            print("[LivePulse] 상세 \(areaName) — 주차 \(resp.cityData?.parkingLotCount ?? 0)곳, 따릉이 \(resp.cityData?.bikeAvailable ?? 0)대")
+            return resp.cityData
+        } catch {
+            print("[LivePulse] ✗ 상세 \(areaName) 실패: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     private func fetchOne(areaName: String) async -> CongestionPlace? {
-        guard let hotspot = catalog.hotspot(named: areaName) else { return nil }
+        guard let hotspot = catalog?.hotspot(named: areaName) else { return nil }
         // 장소명은 한글·중점(·)·공백 포함 → path 인코딩 필수
         let encoded = areaName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? areaName
         do {
@@ -56,12 +76,13 @@ final class CitydataService {
                 responseType: CitydataResponse.self
             )
             guard let raw = response.places?.first else {
-                livePulseLogger.info("citydata 빈 응답: \(areaName, privacy: .public)")
+                print("[LivePulse] ✗ 빈 응답: \(areaName) result=\(response.result?.code ?? "nil")")
                 return nil
             }
+            print("[LivePulse] ✓ \(areaName) = \(raw.congestLevel) (예측 \(raw.forecast?.count ?? 0)개)")
             return Self.merge(raw, hotspot: hotspot)
         } catch {
-            livePulseLogger.error("citydata 실패 \(areaName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            print("[LivePulse] ✗ \(areaName) 실패: \(error.localizedDescription)")
             return nil
         }
     }
@@ -78,6 +99,7 @@ final class CitydataService {
         return CongestionPlace(
             areaName: raw.areaName,
             coordinate: hotspot.coordinate,
+            rings: hotspot.polygonRings,
             liveLevel: CongestionLevel(rawText: raw.congestLevel),
             baseTime: raw.pplTime,
             pplMin: raw.pplMin.flatMap(Int.init),
