@@ -1035,6 +1035,7 @@ extension MapViewController: MKMapViewDelegate {
         let isOurs = annotation is POIAnnotation
             || annotation is BikeAnnotation
             || annotation is SearchResultAnnotation
+            || annotation is CongestionAnnotation
         guard isOurs else {
             mapTapLogger.debug("[MAP] didDeselect \(self.annotationKind(annotation), privacy: .public) → 무시 (custom 아님)")
             return

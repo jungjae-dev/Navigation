@@ -8,14 +8,44 @@ final class CongestionContent: MapItemContent {
 
     let place: CongestionPlace
     private let hosting: UIHostingController<CongestionDetailView>
+    // 드로어 높이 변경에 맞춰 늘어나고 스크롤되도록 UIScrollView로 감싼다 (핀 인사이트/버스 카드와 동일 패턴)
+    private let containerView = UIView()
+    private let scrollView = UIScrollView()
 
     init(place: CongestionPlace) {
         self.place = place
         hosting = UIHostingController(rootView: CongestionDetailView(place: place, detail: nil, loading: true))
         hosting.view.backgroundColor = .clear
+        setupScrollContainer()
     }
 
-    /// 풀 citydata 도착 반영
+    private func setupScrollContainer() {
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.contentInsetAdjustmentBehavior = .never
+        containerView.addSubview(scrollView)
+
+        let host = hosting.view!
+        host.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(host)
+
+        let frame = scrollView.frameLayoutGuide
+        let content = scrollView.contentLayoutGuide
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+
+            host.topAnchor.constraint(equalTo: content.topAnchor),
+            host.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            host.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            host.widthAnchor.constraint(equalTo: frame.widthAnchor),
+        ])
+    }
+
+    /// 풀 citydata 도착 반영 (rootView 재할당 → intrinsic 높이 재계산 → 스크롤 콘텐츠 갱신)
     func setDetail(_ detail: CitydataDetail?) {
         hosting.rootView = CongestionDetailView(place: place, detail: detail, loading: false)
     }
@@ -24,7 +54,7 @@ final class CongestionContent: MapItemContent {
     var iconImage: UIImage? { UIImage(systemName: "waveform.path.ecg") }
     var title: String { place.areaName }
     var identifier: String { "congestion-\(place.areaName)" }
-    var contentView: UIView { hosting.view }
+    var contentView: UIView { containerView }
     var footerActions: [MapItemAction] { [] }
 }
 

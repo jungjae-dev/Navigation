@@ -262,6 +262,8 @@ final class AppCoordinator: NSObject, Coordinator {
     /// 실시간 혼잡 마커 탭 → 상세 카드(풀 citydata: 인구·연령·성별·예측·날씨·주차·따릉이)
     private func showCongestionDetail(_ place: CongestionPlace) {
         guard navigationController.topViewController === homeViewController else { return }
+        // 다른 POI와 동일 — 선택한 구역 중심으로 지도 이동 (드로어 layoutMargins가 위로 보정)
+        mapViewController.mapView.setCenter(place.coordinate, animated: true)
 
         let content = CongestionContent(place: place)
         showMapItemDetail(content: content)   // 우선 가벼운 데이터로 표시
