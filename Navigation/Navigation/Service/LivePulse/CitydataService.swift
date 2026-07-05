@@ -22,26 +22,33 @@ final class CitydataService {
         await fetch(areaNames: catalog?.visibleAreaNames(in: rect) ?? [], now: now)
     }
 
-    /// 장소별 병렬 호출. TTL 유효분은 캐시 사용, 실패 장소는 스킵(부분 실패 허용, FR-012).
-    func fetch(areaNames: [String], now: Date = Date()) async -> [CongestionPlace] {
-        print("[LivePulse] fetch 시작 — \(areaNames.count)곳 \(areaNames)")
-        return await withTaskGroup(of: CongestionPlace?.self) { group in
-            for name in areaNames {
-                if let c = cache[name], now.timeIntervalSince(c.at) < ttl {
-                    group.addTask { c.place }
-                    continue
+    /// 장소별 호출 (최대 `maxConcurrent`씩 배치 — 서버 정중). TTL 유효분은 캐시,
+    /// 실패 장소는 스킵(부분 실패 허용, FR-012).
+    func fetch(areaNames: [String], now: Date = Date(), maxConcurrent: Int = 10) async -> [CongestionPlace] {
+        var result: [CongestionPlace] = []
+        var index = 0
+        while index < areaNames.count {
+            let end = min(index + maxConcurrent, areaNames.count)
+            let slice = Array(areaNames[index..<end])
+            index = end
+            let batch = await withTaskGroup(of: CongestionPlace?.self) { group in
+                for name in slice {
+                    if let c = cache[name], now.timeIntervalSince(c.at) < ttl {
+                        group.addTask { c.place }
+                    } else {
+                        group.addTask { [weak self] in await self?.fetchOne(areaName: name) }
+                    }
                 }
-                group.addTask { [weak self] in await self?.fetchOne(areaName: name) }
+                var out: [CongestionPlace] = []
+                for await p in group where p != nil { out.append(p!) }
+                return out
             }
-            var result: [CongestionPlace] = []
-            for await place in group {
-                if let place {
-                    result.append(place)
-                    cache[place.areaName] = (place, now)
-                }
+            for p in batch {
+                cache[p.areaName] = (p, now)
+                result.append(p)
             }
-            return result
         }
+        return result
     }
 
     /// 마커 탭 — 풀 citydata 1곳 (인구 상세 + 날씨 + 주차/따릉이). 좌표 불필요(카탈로그 무관).
@@ -75,14 +82,10 @@ final class CitydataService {
                 extraPaths: [encoded],
                 responseType: CitydataResponse.self
             )
-            guard let raw = response.places?.first else {
-                print("[LivePulse] ✗ 빈 응답: \(areaName) result=\(response.result?.code ?? "nil")")
-                return nil
-            }
-            print("[LivePulse] ✓ \(areaName) = \(raw.congestLevel) (예측 \(raw.forecast?.count ?? 0)개)")
+            guard let raw = response.places?.first else { return nil }
             return Self.merge(raw, hotspot: hotspot)
         } catch {
-            print("[LivePulse] ✗ \(areaName) 실패: \(error.localizedDescription)")
+            livePulseLogger.debug("citydata 실패 \(areaName, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

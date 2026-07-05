@@ -139,7 +139,6 @@ final class MapControlButtonsView: UIView {
     }
 
     @objc private func livePulseTapped() {
-        print("[LivePulse] 버튼 탭 — onLivePulseTapped=\(onLivePulseTapped != nil)")
         onLivePulseTapped?()
     }
 

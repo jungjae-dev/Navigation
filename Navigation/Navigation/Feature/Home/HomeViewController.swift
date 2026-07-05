@@ -160,42 +160,53 @@ final class HomeViewController: UIViewController {
     private func toggleLivePulse() {
         isLivePulseOn.toggle()
         mapControlButtons.updateLivePulseState(isOn: isLivePulseOn)
-        print("[LivePulse] toggle → on=\(isLivePulseOn), catalog=\(hotspotCatalog != nil), service=\(citydataService != nil)")
 
         guard isLivePulseOn else {
             mapViewController.clearCongestion()
             hideLivePulseSlider()
+            restoreOverlayLayers()   // 따릉이·버스 복원
             return
         }
         guard let service = citydataService else {
-            print("[LivePulse] ✗ 카탈로그/서비스 nil — hotspot_areas.json 번들 누락 의심")
             isLivePulseOn = false
             mapControlButtons.updateLivePulseState(isOn: false)
             return
         }
+        hideOverlayLayers()          // 진입 시 겹치는 POI 레이어 임시 OFF (배타)
         showLivePulseSlider()
-        let rect = mapViewController.mapView.visibleMapRect
-        let center = mapViewController.mapView.region.center
-        print("[LivePulse] 지도 중심=(\(String(format: "%.4f", center.latitude)), \(String(format: "%.4f", center.longitude)))")
 
+        let rect = mapViewController.mapView.visibleMapRect
         var names = hotspotCatalog?.visibleAreaNames(in: rect) ?? []
         var shouldFit = false
         if names.isEmpty {
-            // 가시영역에 핫스팟 없음(지도가 서울 도심 밖) → 전체 시드 로드 + 카메라 맞춤
+            // 지도가 서울 도심 밖 → 전체 로드 + 카메라 맞춤
             names = hotspotCatalog?.hotspots.map(\.areaName) ?? []
             shouldFit = true
-            print("[LivePulse] 가시영역 0곳 → 전체 \(names.count)곳 로드 + 카메라 맞춤")
-        } else {
-            print("[LivePulse] 가시영역 핫스팟 \(names.count)곳: \(names)")
         }
+        print("[LivePulse] 진입 — \(names.count)곳 로드")
 
         Task { [weak self] in
             let places = await service.fetch(areaNames: names)
-            print("[LivePulse] fetch 완료 places=\(places.count) levels=\(places.map { $0.liveLevel.displayName })")
             guard let self, self.isLivePulseOn else { return }
             self.mapViewController.setCongestion(places)
             if shouldFit { self.mapViewController.fitCongestion() }
-            print("[LivePulse] setCongestion 적용 (마커 \(places.filter { $0.liveLevel.isDisplayable }.count)개)")
+            print("[LivePulse] 표시 \(places.count)곳")
+        }
+    }
+
+    /// 진입 시 겹치는 POI 레이어(따릉이·버스) 시각적 임시 숨김 (토글 설정값은 보존, FR-008)
+    private func hideOverlayLayers() {
+        mapViewController.clearBikeStations()
+        mapViewController.clearBusStops()
+    }
+
+    /// 종료 시 레이어 설정대로 복원
+    private func restoreOverlayLayers() {
+        if bikeViewModel.isLayerOn {
+            mapViewController.setBikeStations(BikeStationCache.shared.stations.value)
+        }
+        if busViewModel.isLayerOn {
+            mapViewController.setBusStops(busViewModel.busStopsPublisher.value)
         }
     }
 

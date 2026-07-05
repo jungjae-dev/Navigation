@@ -41,6 +41,7 @@ struct CongestionLevelTests {
         CongestionPlace(
             areaName: "테스트",
             coordinate: CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0),
+            rings: [],
             liveLevel: live,
             baseTime: "2026-06-26 10:20",
             pplMin: 1000, pplMax: 2000,
@@ -71,11 +72,11 @@ struct CongestionLevelTests {
 
     @Test func catalogFiltersVisibleArea() {
         let cat = HotspotCatalog(hotspots: [
-            Hotspot(areaName: "강남역", areaCode: "POI014", lat: 37.49795, lon: 127.02762),
-            Hotspot(areaName: "광화문·덕수궁", areaCode: "POI009", lat: 37.571, lon: 126.9769),
+            Hotspot(areaName: "강남역", areaCode: "POI014", category: "인구밀집지역", center: [37.49795, 127.02762], rings: []),
+            Hotspot(areaName: "광화문·덕수궁", areaCode: "POI009", category: "고궁·문화유산", center: [37.571, 126.9769], rings: []),
         ])
         // 전 세계 영역 → 모두 포함
-        #expect(cat.visibleAreaNames(in: .world).count == 2)
+        #expect(cat.visibleAreaNames(in: MKMapRect.world).count == 2)
 
         // 강남역 좌표를 감싸는 작은 영역 → 강남역만 (광화문 제외)
         let p = MKMapPoint(CLLocationCoordinate2D(latitude: 37.49795, longitude: 127.02762))
