@@ -9,6 +9,9 @@ final class HomeViewController: UIViewController {
     private var mapControlButtons: MapControlButtonsView!
     private(set) var mapControlBottomConstraint: NSLayoutConstraint!
     private var compassButton: MKCompassButton!
+    private var layerButtons: MapLayerButtonsView!   // 좌측 데이터 레이어 (따릉이·버스·혼잡)
+    /// 애플 지도 로고·법적표기 위로 버튼을 띄우는 하단 여백
+    private let mapAttributionClearance: CGFloat = 28
 
     private let viewModel: HomeViewModel
     private let bikeViewModel = BikeViewModel()
@@ -45,6 +48,7 @@ final class HomeViewController: UIViewController {
         setupMapChild()
         setupCompassButton()
         setupMapControlButtons()
+        setupLayerButtons()
         setupDrawerContainer()
         bindViewModel()
         handleInitialPermission()
@@ -83,7 +87,7 @@ final class HomeViewController: UIViewController {
 
         mapControlBottomConstraint = buttons.bottomAnchor.constraint(
             equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-            constant: -(200 + Theme.Spacing.md)
+            constant: -(200 + Theme.Spacing.md + mapAttributionClearance)
         )
 
         NSLayoutConstraint.activate([
@@ -99,28 +103,34 @@ final class HomeViewController: UIViewController {
         buttons.onMapModeTapped = { [weak self] in
             self?.handleMapModeTapped()
         }
-        buttons.onBikeRefreshTapped = { [weak self] in
-            self?.handleBikeRefreshTapped()
-        }
-        buttons.onPOILayerTapped = { [weak self] in
-            self?.handlePOILayerTapped()
-        }
-        buttons.onLivePulseTapped = { [weak self] in
-            self?.toggleLivePulse()
-        }
 
         mapViewController.onTrackingModeChanged = { [weak self] mode in
             self?.mapControlButtons.updateCurrentLocationIcon(for: mode)
         }
+    }
 
-        // 따릉이 레이어 ON/OFF → 버튼 시각 상태 갱신 + 지도 마커 동기화
+    /// 좌측 데이터 레이어 버튼 (따릉이·버스 = 오버레이 | 실시간 혼잡 = 모드).
+    /// 우측 지도조작 버튼과 세로 위치를 맞춤(bottom 동기).
+    private func setupLayerButtons() {
+        let bar = MapLayerButtonsView()
+        self.layerButtons = bar
+        view.addSubview(bar)
+        NSLayoutConstraint.activate([
+            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            bar.bottomAnchor.constraint(equalTo: mapControlButtons.bottomAnchor),
+        ])
+        bar.onBike = { [weak self] in Task { await self?.bikeViewModel.toggleLayer() } }
+        bar.onBus = { [weak self] in self?.busViewModel.toggleLayer() }
+        bar.onCongestion = { [weak self] in self?.toggleLivePulse() }
+        bar.onBikeRefresh = { [weak self] in self?.handleBikeRefreshTapped() }
+
+        // 따릉이 레이어 ON/OFF → 버튼 상태 + 지도 마커 동기화
         bikeViewModel.$isLayerOn
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isOn in
                 guard let self else { return }
-                self.mapControlButtons.updateBikeLayerState(isOn: isOn)
+                self.layerButtons.setBike(on: isOn)
                 if isOn {
-                    // 캐시에 데이터가 있으면 즉시 마커 표시 (재 fetch 안 함)
                     self.mapViewController.setBikeStations(BikeStationCache.shared.stations.value)
                 } else {
                     self.mapViewController.clearBikeStations()
@@ -128,7 +138,7 @@ final class HomeViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 캐시 변경 시 마커 동기화 (단, 레이어 ON 일 때만)
+        // 캐시 변경 시 마커 동기화 (레이어 ON 일 때만)
         BikeStationCache.shared.stations
             .receive(on: DispatchQueue.main)
             .sink { [weak self] stations in
@@ -145,23 +155,18 @@ final class HomeViewController: UIViewController {
                 guard let self else { return }
                 if isOn { self.mapViewController.setBusStops(stops) }
                 else { self.mapViewController.clearBusStops() }
-                self.updatePOIButtonState()
+                self.layerButtons.setBus(on: isOn)
             }
             .store(in: &cancellables)
 
         // 따릉이 정류소 마커 탭은 AppCoordinator 가 직접 mapViewController.onBikeStationSelected 처리
     }
 
-    private func updatePOIButtonState() {
-        let hasActive = bikeViewModel.isLayerOn || busViewModel.isLayerOn
-        mapControlButtons.updatePOILayerState(hasActiveLayer: hasActive)
-    }
-
     // MARK: - Live Pulse (실시간 혼잡)
 
     private func toggleLivePulse() {
         isLivePulseOn.toggle()
-        mapControlButtons.updateLivePulseState(isOn: isLivePulseOn)
+        layerButtons.setCongestion(on: isLivePulseOn)
 
         guard isLivePulseOn else {
             mapViewController.clearCongestion()
@@ -172,7 +177,7 @@ final class HomeViewController: UIViewController {
         }
         guard let service = citydataService, let catalog = hotspotCatalog else {
             isLivePulseOn = false
-            mapControlButtons.updateLivePulseState(isOn: false)
+            layerButtons.setCongestion(on: false)
             return
         }
         hideOverlayLayers()          // 진입 시 겹치는 POI 레이어 임시 OFF (배타)
@@ -316,33 +321,11 @@ final class HomeViewController: UIViewController {
         return "\(period) \(h12)시"
     }
 
-    private func handlePOILayerTapped() {
-        let alert = UIAlertController(title: "지도 레이어", message: nil, preferredStyle: .actionSheet)
-
-        let bikeTitle = bikeViewModel.isLayerOn ? "✓ 따릉이" : "따릉이"
-        alert.addAction(UIAlertAction(title: bikeTitle, style: .default) { [weak self] _ in
-            Task { await self?.bikeViewModel.toggleLayer() }
-        })
-
-        let busTitle = busViewModel.isLayerOn ? "✓ 버스 정류소" : "버스 정류소"
-        alert.addAction(UIAlertAction(title: busTitle, style: .default) { [weak self] _ in
-            self?.busViewModel.toggleLayer()
-        })
-
-        alert.addAction(UIAlertAction(title: "닫기", style: .cancel))
-
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = mapControlButtons
-            popover.sourceRect = mapControlButtons.bounds
-        }
-        present(alert, animated: true)
-    }
-
     private func handleBikeRefreshTapped() {
-        mapControlButtons.setBikeRefreshing(true)
+        layerButtons.setBikeRefreshing(true)
         Task { [weak self] in
             await self?.bikeViewModel.fetchAll()
-            self?.mapControlButtons.setBikeRefreshing(false)
+            self?.layerButtons.setBikeRefreshing(false)
         }
     }
 
@@ -395,7 +378,7 @@ final class HomeViewController: UIViewController {
 
     func updateMapControlBottomOffset(_ height: CGFloat) {
         UIView.animate(withDuration: 0.3) {
-            self.mapControlBottomConstraint.constant = -(height + Theme.Spacing.md)
+            self.mapControlBottomConstraint.constant = -(height + Theme.Spacing.md + self.mapAttributionClearance)
             self.view.layoutIfNeeded()
         }
     }
