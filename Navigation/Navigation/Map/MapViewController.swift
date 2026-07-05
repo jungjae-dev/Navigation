@@ -35,6 +35,7 @@ final class MapViewController: UIViewController {
 
     /// Callback when a 따릉이 station marker is tapped.
     var onBikeStationSelected: ((BikeStation) -> Void)?
+    var onCongestionSelected: ((CongestionPlace) -> Void)?
     var onBusStopSelected: ((BusStop) -> Void)?
 
     /// Callback when an empty area of the map is tapped (no annotation / no built-in feature).
@@ -43,6 +44,15 @@ final class MapViewController: UIViewController {
     /// 롱프레스로 핀을 찍었을 때 (동네 인사이트 진입)
     var onLongPressDropped: ((CLLocationCoordinate2D) -> Void)?
     private var insightPin: MKPointAnnotation?
+
+    /// 현재 표시 중인 실시간 혼잡 마커 annotations (영역 중심)
+    private var congestionAnnotations: [CongestionAnnotation] = []
+    /// 혼잡 면 색칠 폴리곤 + 색 + 소속 place(예측 재색칠용)
+    private var congestionPolygons: [MKPolygon] = []
+    private var congestionPolygonColors: [MKPolygon: UIColor] = [:]
+    private var congestionPolygonPlace: [MKPolygon: CongestionPlace] = [:]
+    /// 시간 offset (0=지금, N=+N시간 예측)
+    private var congestionOffset: Int = 0
 
     /// 현재 표시 중인 따릉이 정류소 annotations
     private var bikeAnnotations: [BikeAnnotation] = []
@@ -493,6 +503,94 @@ final class MapViewController: UIViewController {
         }
     }
 
+    // MARK: - Live Congestion
+
+    /// 실시간 혼잡 영역 색칠 + 중심 마커 (빈 배열이면 제거). unknown 장소는 제외.
+    /// 현재 offset 기준 색으로 그림 (offset 0 = 실시간).
+    func setCongestion(_ places: [CongestionPlace]) {
+        clearCongestion()
+        var anns: [CongestionAnnotation] = []
+        var polys: [MKPolygon] = []
+        for place in places where place.liveLevel.isDisplayable {
+            let level = place.level(atOffset: congestionOffset)
+            anns.append(CongestionAnnotation(place: place, level: level))
+            for ring in place.rings where ring.count >= 3 {
+                var coords = ring
+                let poly = MKPolygon(coordinates: &coords, count: coords.count)
+                congestionPolygonColors[poly] = level.markerColor
+                congestionPolygonPlace[poly] = place
+                polys.append(poly)
+            }
+        }
+        congestionAnnotations = anns
+        congestionPolygons = polys
+        mapView.addOverlays(polys, level: .aboveRoads)
+        mapView.addAnnotations(anns)
+    }
+
+    /// 점진적 로딩 — 배치를 기존 위에 추가(깜빡임 없음). 현재 offset 색으로.
+    func addCongestion(_ places: [CongestionPlace]) {
+        var anns: [CongestionAnnotation] = []
+        var polys: [MKPolygon] = []
+        for place in places where place.liveLevel.isDisplayable {
+            let level = place.level(atOffset: congestionOffset)
+            anns.append(CongestionAnnotation(place: place, level: level))
+            for ring in place.rings where ring.count >= 3 {
+                var coords = ring
+                let poly = MKPolygon(coordinates: &coords, count: coords.count)
+                congestionPolygonColors[poly] = level.markerColor
+                congestionPolygonPlace[poly] = place
+                polys.append(poly)
+            }
+        }
+        congestionAnnotations.append(contentsOf: anns)
+        congestionPolygons.append(contentsOf: polys)
+        mapView.addOverlays(polys, level: .aboveRoads)
+        mapView.addAnnotations(anns)
+    }
+
+    /// 예측 슬라이더 — offset 변경 시 면/마커 색을 그 시각 예측으로 재색칠 (재요청 없음, US2)
+    func updateCongestion(offset: Int) {
+        congestionOffset = offset
+        for poly in congestionPolygons {
+            guard let place = congestionPolygonPlace[poly] else { continue }
+            let color = place.level(atOffset: offset).markerColor
+            congestionPolygonColors[poly] = color
+            if let r = mapView.renderer(for: poly) as? MKPolygonRenderer {
+                r.fillColor = color.withAlphaComponent(0.35)
+                r.strokeColor = color.withAlphaComponent(0.85)
+                r.setNeedsDisplay()
+            }
+        }
+        for ann in congestionAnnotations {
+            let level = ann.place.level(atOffset: offset)
+            ann.level = level
+            if let v = mapView.view(for: ann) as? MKMarkerAnnotationView {
+                v.markerTintColor = level.markerColor
+            }
+        }
+    }
+
+    /// 실시간 혼잡 영역·마커 모두 제거
+    func clearCongestion() {
+        congestionOffset = 0
+        if !congestionPolygons.isEmpty {
+            mapView.removeOverlays(congestionPolygons)
+            congestionPolygons = []
+            congestionPolygonColors.removeAll()
+            congestionPolygonPlace.removeAll()
+        }
+        guard !congestionAnnotations.isEmpty else { return }
+        mapView.removeAnnotations(congestionAnnotations)
+        congestionAnnotations = []
+    }
+
+    /// 혼잡 마커가 모두 보이도록 카메라 맞춤 (데모/가시영역 밖일 때)
+    func fitCongestion() {
+        guard !congestionAnnotations.isEmpty else { return }
+        mapView.showAnnotations(congestionAnnotations, animated: true)
+    }
+
     // MARK: - Bike Stations
 
     /// 따릉이 정류소 데이터 설정 (실제 표시는 줌 레벨에 따라 결정)
@@ -759,6 +857,19 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation { return nil }
 
+        if let congestion = annotation as? CongestionAnnotation {
+            let identifier = "Congestion"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            view.annotation = annotation
+            view.markerTintColor = congestion.level.markerColor
+            view.glyphImage = UIImage(systemName: "person.2.fill")
+            view.canShowCallout = true
+            view.displayPriority = .required
+            view.collisionMode = .circle
+            return view
+        }
+
         // 우리 user location annotation
         if let view = userLocationPresenter.makeAnnotationView(for: annotation) {
             return view
@@ -853,6 +964,14 @@ extension MapViewController: MKMapViewDelegate {
     }
 
     func mapView(_ mapView: MKMapView, rendererFor overlay: any MKOverlay) -> MKOverlayRenderer {
+        if let polygon = overlay as? MKPolygon, let color = congestionPolygonColors[polygon] {
+            let renderer = MKPolygonRenderer(polygon: polygon)
+            renderer.fillColor = color.withAlphaComponent(0.35)
+            renderer.strokeColor = color.withAlphaComponent(0.85)
+            renderer.lineWidth = 1.5
+            return renderer
+        }
+
         if let polyline = overlay as? MKPolyline {
             // 대중교통 노선 폴리라인 — 방향 구분 + 진행방향 화살표
             if let title = polyline.title, title.hasPrefix("transit_route") {
@@ -886,6 +1005,11 @@ extension MapViewController: MKMapViewDelegate {
         // annotation/feature 가 선택되었으므로 빈 곳 탭 디바운스 취소
         pendingEmptyTapCheck?.cancel()
         pendingEmptyTapCheck = nil
+
+        if let congestion = annotation as? CongestionAnnotation {
+            onCongestionSelected?(congestion.place)
+            return
+        }
 
         if let bikeAnnotation = annotation as? BikeAnnotation {
             bikeMapLogger.info("✓ Bike station tapped: \(bikeAnnotation.station.stationId, privacy: .public) \(bikeAnnotation.station.stationName, privacy: .public)")
@@ -932,6 +1056,7 @@ extension MapViewController: MKMapViewDelegate {
         let isOurs = annotation is POIAnnotation
             || annotation is BikeAnnotation
             || annotation is SearchResultAnnotation
+            || annotation is CongestionAnnotation
         guard isOurs else {
             mapTapLogger.debug("[MAP] didDeselect \(self.annotationKind(annotation), privacy: .public) → 무시 (custom 아님)")
             return

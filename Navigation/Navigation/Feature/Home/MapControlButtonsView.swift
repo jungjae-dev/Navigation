@@ -9,6 +9,7 @@ final class MapControlButtonsView: UIView {
     var onMapModeTapped: (() -> Void)?
     var onBikeRefreshTapped: (() -> Void)?
     var onPOILayerTapped: (() -> Void)?
+    var onLivePulseTapped: (() -> Void)?
 
     // MARK: - UI
 
@@ -24,6 +25,7 @@ final class MapControlButtonsView: UIView {
     private let mapModeButton = UIButton(type: .system)
     private let bikeRefreshButton = UIButton(type: .system)
     private let poiLayerButton = UIButton(type: .system)
+    private let livePulseButton = UIButton(type: .system)
 
     // MARK: - Init
 
@@ -53,6 +55,10 @@ final class MapControlButtonsView: UIView {
         // POI 레이어 버튼 — 따릉이/버스 토글 팝업 진입
         configureButton(poiLayerButton, iconName: "square.3.layers.3d")
         stackView.addArrangedSubview(poiLayerButton)
+
+        // 실시간 혼잡(Live Pulse) 진입 버튼
+        configureButton(livePulseButton, iconName: "waveform.path.ecg")
+        stackView.addArrangedSubview(livePulseButton)
 
         // 새로고침 버튼 — 따릉이 ON 일 때만 노출. stackView 바깥에서 POI 버튼 좌측에 별도 배치
         configureButton(bikeRefreshButton, iconName: "arrow.clockwise")
@@ -97,6 +103,7 @@ final class MapControlButtonsView: UIView {
         mapModeButton.addTarget(self, action: #selector(mapModeTapped), for: .touchUpInside)
         bikeRefreshButton.addTarget(self, action: #selector(bikeRefreshTapped), for: .touchUpInside)
         poiLayerButton.addTarget(self, action: #selector(poiLayerTapped), for: .touchUpInside)
+        livePulseButton.addTarget(self, action: #selector(livePulseTapped), for: .touchUpInside)
     }
 
     private func setupAccessibility() {
@@ -129,6 +136,15 @@ final class MapControlButtonsView: UIView {
 
     @objc private func poiLayerTapped() {
         onPOILayerTapped?()
+    }
+
+    @objc private func livePulseTapped() {
+        onLivePulseTapped?()
+    }
+
+    /// 실시간 혼잡 모드 ON/OFF 시각 상태
+    func updateLivePulseState(isOn: Bool) {
+        livePulseButton.tintColor = isOn ? Theme.Colors.primary : Theme.Colors.secondaryLabel
     }
 
     // MARK: - State Updates

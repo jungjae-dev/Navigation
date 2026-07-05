@@ -1,0 +1,120 @@
+import Foundation
+import MapKit
+import OSLog
+
+private let livePulseLogger = Logger(subsystem: "nav.api", category: "LivePulse")
+
+/// 서울 실시간 도시데이터(citydata_ppltn) 장소별 호출 + TTL 캐시 + 부분 실패 허용 (research R3).
+/// 좌표는 번들 HotspotCatalog에서 병합(응답에 좌표 없음, R2).
+final class CitydataService {
+
+    private let catalog: HotspotCatalog?
+    private let ttl: TimeInterval
+    private var cache: [String: (place: CongestionPlace, at: Date)] = [:]
+
+    init(catalog: HotspotCatalog? = nil, ttl: TimeInterval = 300) {  // 원천 갱신 ≈5분
+        self.catalog = catalog
+        self.ttl = ttl
+    }
+
+    /// 가시 영역(rect) 안의 핫스팟만 로딩 (FR-007a)
+    func loadVisible(in rect: MKMapRect, now: Date = Date()) async -> [CongestionPlace] {
+        await fetch(areaNames: catalog?.visibleAreaNames(in: rect) ?? [], now: now)
+    }
+
+    /// 장소별 호출 (최대 `maxConcurrent`씩 배치 — 서버 정중). TTL 유효분은 캐시,
+    /// 실패 장소는 스킵(부분 실패 허용, FR-012).
+    /// `onBatch`: 각 배치가 도착할 때마다 그 배치의 장소들을 전달(점진적 렌더링). MainActor에서 호출됨.
+    func fetch(
+        areaNames: [String],
+        now: Date = Date(),
+        maxConcurrent: Int = 10,
+        onBatch: (([CongestionPlace]) -> Void)? = nil
+    ) async -> [CongestionPlace] {
+        var result: [CongestionPlace] = []
+        var index = 0
+        while index < areaNames.count {
+            let end = min(index + maxConcurrent, areaNames.count)
+            let slice = Array(areaNames[index..<end])
+            index = end
+            let batch = await withTaskGroup(of: CongestionPlace?.self) { group in
+                for name in slice {
+                    if let c = cache[name], now.timeIntervalSince(c.at) < ttl {
+                        group.addTask { c.place }
+                    } else {
+                        group.addTask { [weak self] in await self?.fetchOne(areaName: name) }
+                    }
+                }
+                var out: [CongestionPlace] = []
+                for await p in group where p != nil { out.append(p!) }
+                return out
+            }
+            for p in batch {
+                cache[p.areaName] = (p, now)
+                result.append(p)
+            }
+            if !batch.isEmpty { onBatch?(batch) }
+        }
+        return result
+    }
+
+    /// 마커 탭 — 풀 citydata 1곳 (인구 상세 + 날씨 + 주차/따릉이). 좌표 불필요(카탈로그 무관).
+    func fetchDetail(areaName: String) async -> CitydataDetail? {
+        let encoded = areaName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? areaName
+        do {
+            let resp: CitydataFullResponse = try await SeoulAPIClient.shared.request(
+                service: "citydata",
+                startIndex: 1,
+                endIndex: 5,
+                extraPaths: [encoded],
+                responseType: CitydataFullResponse.self
+            )
+            print("[LivePulse] 상세 \(areaName) — 주차 \(resp.cityData?.parkingLotCount ?? 0)곳, 따릉이 \(resp.cityData?.bikeAvailable ?? 0)대")
+            return resp.cityData
+        } catch {
+            print("[LivePulse] ✗ 상세 \(areaName) 실패: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func fetchOne(areaName: String) async -> CongestionPlace? {
+        guard let hotspot = catalog?.hotspot(named: areaName) else { return nil }
+        // 장소명은 한글·중점(·)·공백 포함 → path 인코딩 필수
+        let encoded = areaName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? areaName
+        do {
+            let response: CitydataResponse = try await SeoulAPIClient.shared.request(
+                service: "citydata_ppltn",
+                startIndex: 1,
+                endIndex: 1,
+                extraPaths: [encoded],
+                responseType: CitydataResponse.self
+            )
+            guard let raw = response.places?.first else { return nil }
+            return Self.merge(raw, hotspot: hotspot)
+        } catch {
+            livePulseLogger.debug("citydata 실패 \(areaName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private static func merge(_ raw: CitydataPlace, hotspot: Hotspot) -> CongestionPlace {
+        let forecast = (raw.forecast ?? []).map {
+            CongestionForecastPoint(
+                time: $0.time,
+                level: CongestionLevel(rawText: $0.level),
+                pplMin: $0.pplMin.flatMap(Int.init),
+                pplMax: $0.pplMax.flatMap(Int.init)
+            )
+        }
+        return CongestionPlace(
+            areaName: raw.areaName,
+            coordinate: hotspot.coordinate,
+            rings: hotspot.polygonRings,
+            liveLevel: CongestionLevel(rawText: raw.congestLevel),
+            baseTime: raw.pplTime,
+            pplMin: raw.pplMin.flatMap(Int.init),
+            pplMax: raw.pplMax.flatMap(Int.init),
+            forecast: forecast
+        )
+    }
+}
