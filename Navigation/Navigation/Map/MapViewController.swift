@@ -528,6 +528,27 @@ final class MapViewController: UIViewController {
         mapView.addAnnotations(anns)
     }
 
+    /// 점진적 로딩 — 배치를 기존 위에 추가(깜빡임 없음). 현재 offset 색으로.
+    func addCongestion(_ places: [CongestionPlace]) {
+        var anns: [CongestionAnnotation] = []
+        var polys: [MKPolygon] = []
+        for place in places where place.liveLevel.isDisplayable {
+            let level = place.level(atOffset: congestionOffset)
+            anns.append(CongestionAnnotation(place: place, level: level))
+            for ring in place.rings where ring.count >= 3 {
+                var coords = ring
+                let poly = MKPolygon(coordinates: &coords, count: coords.count)
+                congestionPolygonColors[poly] = level.markerColor
+                congestionPolygonPlace[poly] = place
+                polys.append(poly)
+            }
+        }
+        congestionAnnotations.append(contentsOf: anns)
+        congestionPolygons.append(contentsOf: polys)
+        mapView.addOverlays(polys, level: .aboveRoads)
+        mapView.addAnnotations(anns)
+    }
+
     /// 예측 슬라이더 — offset 변경 시 면/마커 색을 그 시각 예측으로 재색칠 (재요청 없음, US2)
     func updateCongestion(offset: Int) {
         congestionOffset = offset

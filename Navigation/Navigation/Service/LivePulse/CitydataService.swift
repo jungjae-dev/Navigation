@@ -24,7 +24,13 @@ final class CitydataService {
 
     /// 장소별 호출 (최대 `maxConcurrent`씩 배치 — 서버 정중). TTL 유효분은 캐시,
     /// 실패 장소는 스킵(부분 실패 허용, FR-012).
-    func fetch(areaNames: [String], now: Date = Date(), maxConcurrent: Int = 10) async -> [CongestionPlace] {
+    /// `onBatch`: 각 배치가 도착할 때마다 그 배치의 장소들을 전달(점진적 렌더링). MainActor에서 호출됨.
+    func fetch(
+        areaNames: [String],
+        now: Date = Date(),
+        maxConcurrent: Int = 10,
+        onBatch: (([CongestionPlace]) -> Void)? = nil
+    ) async -> [CongestionPlace] {
         var result: [CongestionPlace] = []
         var index = 0
         while index < areaNames.count {
@@ -47,6 +53,7 @@ final class CitydataService {
                 cache[p.areaName] = (p, now)
                 result.append(p)
             }
+            if !batch.isEmpty { onBatch?(batch) }
         }
         return result
     }

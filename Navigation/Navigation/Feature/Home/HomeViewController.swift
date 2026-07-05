@@ -23,6 +23,8 @@ final class HomeViewController: UIViewController {
     private var isLivePulseOn = false
     private var livePulsePanel: UIView?
     private weak var livePulseLabel: UILabel?
+    private var livePulsePlaces: [String: CongestionPlace] = [:]
+    private var livePulseOffset = 0
 
     // MARK: - Init
 
@@ -165,32 +167,40 @@ final class HomeViewController: UIViewController {
             mapViewController.clearCongestion()
             hideLivePulseSlider()
             restoreOverlayLayers()   // 따릉이·버스 복원
+            livePulsePlaces.removeAll()
             return
         }
-        guard let service = citydataService else {
+        guard let service = citydataService, let catalog = hotspotCatalog else {
             isLivePulseOn = false
             mapControlButtons.updateLivePulseState(isOn: false)
             return
         }
         hideOverlayLayers()          // 진입 시 겹치는 POI 레이어 임시 OFF (배타)
+        mapViewController.clearCongestion()
+        livePulsePlaces.removeAll()
+        livePulseOffset = 0
         showLivePulseSlider()
 
-        let rect = mapViewController.mapView.visibleMapRect
-        var names = hotspotCatalog?.visibleAreaNames(in: rect) ?? []
-        var shouldFit = false
-        if names.isEmpty {
-            // 지도가 서울 도심 밖 → 전체 로드 + 카메라 맞춤
-            names = hotspotCatalog?.hotspots.map(\.areaName) ?? []
-            shouldFit = true
-        }
-        print("[LivePulse] 진입 — \(names.count)곳 로드")
+        // 121곳 고정 소집합 → 전체 로드(5분 캐시). 배치 도착마다 점진 렌더링(빈 화면 방지).
+        let allNames = catalog.hotspots.map(\.areaName)
+        let total = allNames.count
+        let fit = catalog.visibleAreaNames(in: mapViewController.mapView.visibleMapRect).isEmpty
+        livePulseLabel?.text = "불러오는 중 0/\(total)…"
 
         Task { [weak self] in
-            let places = await service.fetch(areaNames: names)
+            _ = await service.fetch(areaNames: allNames, maxConcurrent: 15, onBatch: { [weak self] batch in
+                guard let self, self.isLivePulseOn else { return }
+                for p in batch { self.livePulsePlaces[p.areaName] = p }
+                self.mapViewController.addCongestion(batch)
+                self.livePulseLabel?.text = "불러오는 중 \(self.livePulsePlaces.count)/\(total)…"
+            })
             guard let self, self.isLivePulseOn else { return }
-            self.mapViewController.setCongestion(places)
-            if shouldFit { self.mapViewController.fitCongestion() }
-            print("[LivePulse] 표시 \(places.count)곳")
+            if fit { self.mapViewController.fitCongestion() }
+            if self.livePulsePlaces.isEmpty {
+                self.livePulseLabel?.text = "실시간 데이터를 불러올 수 없어요 · 다시 시도"  // FR-012
+            } else {
+                self.updateLivePulseLabel(offset: self.livePulseOffset)  // 기준시각(FR-003)
+            }
         }
     }
 
@@ -225,7 +235,7 @@ final class HomeViewController: UIViewController {
 
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.font = .systemFont(ofSize: 16, weight: .bold)
         label.textColor = .label
         label.textAlignment = .center
 
@@ -237,8 +247,23 @@ final class HomeViewController: UIViewController {
         slider.minimumTrackTintColor = Theme.Colors.primary
         slider.addTarget(self, action: #selector(livePulseOffsetChanged(_:)), for: .valueChanged)
 
+        // 시각 눈금 (지금 → +12h를 실제 시각으로) — 직관성
+        let ticks = UIStackView()
+        ticks.translatesAutoresizingMaskIntoConstraints = false
+        ticks.axis = .horizontal
+        ticks.distribution = .equalSpacing
+        let nowHour = Calendar.current.component(.hour, from: Date())
+        for offset in [0, 4, 8, 12] {   // 4곳 — AM/PM 표기 공간 확보
+            let t = UILabel()
+            t.font = .systemFont(ofSize: 12, weight: .semibold)
+            t.textColor = .label
+            t.text = offset == 0 ? "지금" : Self.koreanHour((nowHour + offset) % 24)
+            ticks.addArrangedSubview(t)
+        }
+
         panel.addSubview(label)
         panel.addSubview(slider)
+        panel.addSubview(ticks)
         view.addSubview(panel)
 
         NSLayoutConstraint.activate([
@@ -253,7 +278,12 @@ final class HomeViewController: UIViewController {
             slider.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 6),
             slider.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: 14),
             slider.trailingAnchor.constraint(equalTo: panel.trailingAnchor, constant: -14),
-            slider.bottomAnchor.constraint(equalTo: panel.bottomAnchor, constant: -10),
+
+            // 눈금은 슬라이더 트랙 폭에 맞춰 (thumb 반경 고려해 살짝 안쪽)
+            ticks.topAnchor.constraint(equalTo: slider.bottomAnchor, constant: 2),
+            ticks.leadingAnchor.constraint(equalTo: slider.leadingAnchor, constant: 4),
+            ticks.trailingAnchor.constraint(equalTo: slider.trailingAnchor, constant: -4),
+            ticks.bottomAnchor.constraint(equalTo: panel.bottomAnchor, constant: -8),
         ])
 
         livePulsePanel = panel
@@ -269,17 +299,21 @@ final class HomeViewController: UIViewController {
     @objc private func livePulseOffsetChanged(_ slider: UISlider) {
         let offset = Int(slider.value.rounded())
         slider.value = Float(offset)  // 정수 스냅
+        livePulseOffset = offset
         updateLivePulseLabel(offset: offset)
         mapViewController.updateCongestion(offset: offset)
     }
 
     private func updateLivePulseLabel(offset: Int) {
         let hour = (Calendar.current.component(.hour, from: Date()) + offset) % 24
-        if offset == 0 {
-            livePulseLabel?.text = "지금 (\(hour)시) · 실시간 혼잡"
-        } else {
-            livePulseLabel?.text = "+\(offset)시간 → \(hour)시 예측"
-        }
+        livePulseLabel?.text = offset == 0 ? "지금 \(Self.koreanHour(hour))" : "\(Self.koreanHour(hour)) 예측"
+    }
+
+    /// 24시 → "오전/오후 N시" (0시=오전 12시, 12시=오후 12시)
+    private static func koreanHour(_ h: Int) -> String {
+        let period = h < 12 ? "오전" : "오후"
+        let h12 = h % 12 == 0 ? 12 : h % 12
+        return "\(period) \(h12)시"
     }
 
     private func handlePOILayerTapped() {
