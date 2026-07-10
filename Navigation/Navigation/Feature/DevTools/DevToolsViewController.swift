@@ -30,12 +30,14 @@ final class DevToolsViewController: UIViewController {
 
     private enum FilesRow: Int, CaseIterable {
         case manageFiles = 0
+        case parkingLogs = 1
     }
 
     private enum DebugRow: Int, CaseIterable {
         case overlay = 0
         case mapMatchVisualization = 1
         case predictiveDisplay = 2
+        case parkingDebug = 3
     }
 
     // MARK: - UI
@@ -176,6 +178,43 @@ final class DevToolsViewController: UIViewController {
 
     @objc private func mapMatchDebugSwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setMapMatchDebugEnabled(sender.isOn)
+    }
+
+    @objc private func parkingDebugSwitchChanged(_ sender: UISwitch) {
+        DevToolsSettings.shared.setParkingDebugEnabled(sender.isOn)
+    }
+
+    // MARK: - Parking Logs Export (DR-003, T042)
+
+    private func parkingLogFiles() -> [URL] {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = docs.appendingPathComponent("ParkingLogs", isDirectory: true)
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.contentModificationDateKey]
+        )) ?? []
+        return files
+            .filter { $0.pathExtension == "ndjson" }
+            .sorted { lhs, rhs in
+                let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return lhsDate > rhsDate
+            }
+    }
+
+    private func shareParkingLogs() {
+        let files = parkingLogFiles()
+        guard !files.isEmpty else {
+            let alert = UIAlertController(
+                title: "주차 관측 로그 없음",
+                message: "내 차 찾기 디버그를 켠 상태로 스캔/되찾기를 실행하면 로그가 기록됩니다.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "확인", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        let activity = UIActivityViewController(activityItems: files, applicationActivities: nil)
+        present(activity, animated: true)
     }
 
     @objc private func predictiveDisplaySwitchChanged(_ sender: UISwitch) {
@@ -354,6 +393,12 @@ extension DevToolsViewController: UITableViewDataSource {
                 config.image = UIImage(systemName: "doc.text.fill")
                 config.imageProperties.tintColor = .systemOrange
                 cell.accessoryType = .disclosureIndicator
+
+            case .parkingLogs:
+                config.text = "주차 관측 로그 내보내기"
+                config.secondaryText = "\(parkingLogFiles().count)개 (.ndjson)"
+                config.image = UIImage(systemName: "square.and.arrow.up")
+                config.imageProperties.tintColor = .systemIndigo
             }
 
         case .lbsProvider:
@@ -413,6 +458,19 @@ extension DevToolsViewController: UITableViewDataSource {
                 toggle.addTarget(self, action: #selector(predictiveDisplaySwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
                 cell.selectionStyle = .none
+
+            case .parkingDebug:
+                config.text = "내 차 찾기 디버그"
+                config.secondaryText = "AR 시각화 + 관측 레코딩 (요약 화면 경과시간 5탭으로도 토글)"
+                config.image = UIImage(systemName: "parkingsign.circle")
+                config.imageProperties.tintColor = .systemIndigo
+
+                let toggle = UISwitch()
+                toggle.isOn = DevToolsSettings.shared.parkingDebugEnabled.value
+                toggle.onTintColor = Theme.Colors.primary
+                toggle.addTarget(self, action: #selector(parkingDebugSwitchChanged), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
             }
         }
 
@@ -449,8 +507,11 @@ extension DevToolsViewController: UITableViewDelegate {
 
         case .files:
             guard let row = FilesRow(rawValue: indexPath.row) else { return }
-            if row == .manageFiles {
+            switch row {
+            case .manageFiles:
                 onShowFileList?()
+            case .parkingLogs:
+                shareParkingLogs()
             }
 
         case .debug:

@@ -140,6 +140,12 @@ final class ParkingSummaryViewController: UIViewController {
         photoImageView.addGestureRecognizer(
             UITapGestureRecognizer(target: self, action: #selector(photoTapped))
         )
+
+        // 히든 제스처: 경과시간 라벨 5회 탭 → 디버그 토글 (DR-005, T037)
+        let debugTap = UITapGestureRecognizer(target: self, action: #selector(debugGestureFired))
+        debugTap.numberOfTapsRequired = 5
+        detailLabel.isUserInteractionEnabled = true
+        detailLabel.addGestureRecognizer(debugTap)
         startButton.addTarget(self, action: #selector(startTapped), for: .touchUpInside)
         foundButton.addTarget(self, action: #selector(foundTapped), for: .touchUpInside)
         newButton.addTarget(self, action: #selector(newTapped), for: .touchUpInside)
@@ -206,6 +212,35 @@ final class ParkingSummaryViewController: UIViewController {
     }
 
     // MARK: - Actions
+
+    @objc private func debugGestureFired() {
+        let enabled = !DevToolsSettings.shared.parkingDebugEnabled.value
+        DevToolsSettings.shared.setParkingDebugEnabled(enabled)
+        showDebugToast(enabled: enabled)
+    }
+
+    private func showDebugToast(enabled: Bool) {
+        let toast = UILabel()
+        toast.text = "  주차 디버그 \(enabled ? "ON" : "OFF")  "
+        toast.font = Theme.Fonts.footnote
+        toast.textColor = .white
+        toast.backgroundColor = UIColor.black.withAlphaComponent(0.8)
+        toast.layer.cornerRadius = 12
+        toast.clipsToBounds = true
+        toast.textAlignment = .center
+        toast.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(toast)
+        NSLayoutConstraint.activate([
+            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toast.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -Theme.Spacing.xl),
+            toast.heightAnchor.constraint(equalToConstant: 32),
+        ])
+        UIView.animate(withDuration: 0.3, delay: 1.5, options: []) {
+            toast.alpha = 0
+        } completion: { _ in
+            toast.removeFromSuperview()
+        }
+    }
 
     @objc private func photoTapped() {
         guard let url = viewModel.activeSession.value?.photoURLs.first else { return }

@@ -36,6 +36,19 @@ struct GridEstimate: Equatable, Sendable {
     let residualRMS: Double
     let confidence: Confidence
     let observationCount: Int
+    /// 디버그 시각화용 피팅 모델 (DR-001) — 관측 인덱스의 예측 위치 재계산에 사용
+    var origin: SIMD2<Double>? = nil
+    var zoneVec: SIMD2<Double>? = nil
+    var numVec: SIMD2<Double>? = nil
+
+    /// 피팅 모델로 관측 인덱스의 예측 위치 계산 — 잔차선·고스트 격자점 (DR-001)
+    func predictedPosition(zoneIndex: Int?, number: Int?) -> SIMD2<Double>? {
+        guard let origin else { return nil }
+        var position = origin
+        if let zi = zoneIndex, let zv = zoneVec { position += Double(zi) * zv }
+        if let n = number, let nv = numVec { position += Double(n) * nv }
+        return position
+    }
 }
 
 /// 도착 확정 조건 — 일시적 오인식 1회로 확정 금지 (FR-013).
@@ -113,7 +126,8 @@ struct GridEstimator: Sendable {
                 return makeResult(stage: .degraded, target: nil, residual: residual, count: usable.count)
             }
             let target = affine.predict(zoneIndex: zi, number: n)
-            return makeResult(stage: .gridGuidance, target: target, residual: residual, count: usable.count)
+            return makeResult(stage: .gridGuidance, target: target, residual: residual, count: usable.count,
+                              origin: affine.origin, zoneVec: affine.zoneVec, numVec: affine.numVec)
         }
 
         return estimate1D(usable, targetZoneIndex: targetZoneIndex, targetNumber: targetNumber)
@@ -149,7 +163,8 @@ struct GridEstimator: Sendable {
                                   residual: fit.residualRMS, count: usable.count)
             }
             return makeResult(stage: .axisGuidance(axis: .number), target: fit.predict(Double(n)),
-                              residual: fit.residualRMS, count: usable.count)
+                              residual: fit.residualRMS, count: usable.count,
+                              origin: fit.base - fit.meanIndex * fit.direction, numVec: fit.direction)
         }
 
         // 같은 번호, 구역만 다름 → 구역축
@@ -171,7 +186,8 @@ struct GridEstimator: Sendable {
                                   residual: fit.residualRMS, count: usable.count)
             }
             return makeResult(stage: .axisGuidance(axis: .zone), target: fit.predict(Double(zi)),
-                              residual: fit.residualRMS, count: usable.count)
+                              residual: fit.residualRMS, count: usable.count,
+                              origin: fit.base - fit.meanIndex * fit.direction, zoneVec: fit.direction)
         }
 
         // 구역·번호 모두 다름(혼합축) — 변위 분해 불가 (FR-009c)
@@ -197,13 +213,24 @@ struct GridEstimator: Sendable {
         }
     }
 
-    private func makeResult(stage: GridEstimate.Stage, target: SIMD2<Double>?, residual: Double, count: Int) -> GridEstimate {
+    private func makeResult(
+        stage: GridEstimate.Stage,
+        target: SIMD2<Double>?,
+        residual: Double,
+        count: Int,
+        origin: SIMD2<Double>? = nil,
+        zoneVec: SIMD2<Double>? = nil,
+        numVec: SIMD2<Double>? = nil
+    ) -> GridEstimate {
         GridEstimate(
             stage: stage,
             targetPosition: target,
             residualRMS: residual,
             confidence: confidence(residual: residual, count: count),
-            observationCount: count
+            observationCount: count,
+            origin: origin,
+            zoneVec: zoneVec,
+            numVec: numVec
         )
     }
 

@@ -142,6 +142,11 @@ final class ParkingARViewController: UIViewController {
     private var torchOn = false
     private var frameCounter = 0
 
+    // 디버그 도구 (DR-001/002/003) — 토글 off면 전부 nil = 비용 0 (DR-005)
+    private var debugOverlay: ParkingDebugOverlayView?
+    private var debugEntities: ParkingDebugEntities?
+    private var arDebugOptionsOn = false
+
     init(viewModel: ParkingARViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -182,6 +187,8 @@ final class ParkingARViewController: UIViewController {
         arView.session.pause()
         setTorch(on: false)
         viewModel.cancelTasks()
+        viewModel.recorder?.sessionEnd(by: "screen-exit")
+        viewModel.recorder = nil
     }
 
     // MARK: - Setup
@@ -267,6 +274,25 @@ final class ParkingARViewController: UIViewController {
         manualSuggestionButton.addAction(UIAction { [weak self] _ in self?.onRequestManualEntry?() }, for: .touchUpInside)
         photoButton.addAction(UIAction { [weak self] _ in self?.onShowPhotoFallback?() }, for: .touchUpInside)
         arrivedConfirmButton.addAction(UIAction { [weak self] _ in self?.onArrivedConfirm?() }, for: .touchUpInside)
+
+        // 히든 제스처: 상단 안내 문구 5회 탭 → 디버그 토글 (DR-005, T037 — 첫 등록처럼 허브를 안 거치는 흐름 대응)
+        let debugTap = UITapGestureRecognizer(target: self, action: #selector(debugGestureFired))
+        debugTap.numberOfTapsRequired = 5
+        guidanceLabel.isUserInteractionEnabled = true
+        guidanceLabel.addGestureRecognizer(debugTap)
+    }
+
+    @objc private func debugGestureFired() {
+        let enabled = !DevToolsSettings.shared.parkingDebugEnabled.value
+        DevToolsSettings.shared.setParkingDebugEnabled(enabled)
+        bannerLabel.text = "  주차 디버그 \(enabled ? "ON" : "OFF")  "
+        bannerLabel.isHidden = false
+        UIView.animate(withDuration: 0.3, delay: 1.5, options: []) {
+            self.bannerLabel.alpha = 0
+        } completion: { _ in
+            self.bannerLabel.isHidden = true
+            self.bannerLabel.alpha = 1
+        }
     }
 
     private var isScanMode: Bool {
@@ -311,6 +337,69 @@ final class ParkingARViewController: UIViewController {
                 self?.showBanner(banner)
             }
             .store(in: &cancellables)
+
+        DevToolsSettings.shared.parkingDebugEnabled
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                self?.setDebugEnabled(enabled)
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Debug (DR-001/002/003/005)
+
+    private func setDebugEnabled(_ enabled: Bool) {
+        if enabled {
+            guard debugOverlay == nil else { return }
+            let overlay = ParkingDebugOverlayView(frame: view.bounds)
+            overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            overlay.onToggleARDebugOptions = { [weak self] in self?.toggleARDebugOptions() }
+            view.insertSubview(overlay, belowSubview: closeButton)
+            debugOverlay = overlay
+            debugEntities = ParkingDebugEntities(arView: arView)
+
+            viewModel.debugStrip
+                .receive(on: DispatchQueue.main)
+                .sink { [weak overlay] text in overlay?.updateStrip(text) }
+                .store(in: &cancellables)
+
+            startRecorderIfNeeded()
+        } else {
+            viewModel.recorder?.sessionEnd(by: "debug-off")
+            viewModel.recorder = nil
+            debugOverlay?.removeFromSuperview()
+            debugOverlay = nil
+            debugEntities?.removeAll()
+            debugEntities = nil
+            arView.debugOptions = []
+            arDebugOptionsOn = false
+        }
+    }
+
+    private func startRecorderIfNeeded() {
+        guard viewModel.recorder == nil, viewModel.isDebugEnabled else { return }
+        switch viewModel.mode {
+        case .scan:
+            viewModel.recorder = ParkingEventRecorder(mode: "scan", target: nil)
+        case .find(let record):
+            viewModel.recorder = ParkingEventRecorder(mode: "find", target: record)
+        }
+    }
+
+    private func toggleARDebugOptions() {
+        arDebugOptionsOn.toggle()
+        arView.debugOptions = arDebugOptionsOn ? [.showFeaturePoints, .showWorldOrigin] : []
+    }
+
+    private func updateDebugEntities() {
+        guard let debugEntities else { return }
+        debugEntities.syncCodeLabels(viewModel.observations)
+        if let estimate = viewModel.lastEstimate {
+            let referenceY = (arView.session.currentFrame?.camera.transform.columns.3.y ?? 0) - 1.0
+            debugEntities.updateTarget(estimate.targetPosition, referenceY: referenceY)
+            debugEntities.updateModel(estimate: estimate, observations: viewModel.observations)
+        }
     }
 
     // MARK: - Find HUD (T025/T026) — GuidanceState의 순수 함수
@@ -401,6 +490,7 @@ final class ParkingARViewController: UIViewController {
         arView.session.delegate = self
         arView.session.run(configuration)
         viewModel.sessionDidStart()
+        startRecorderIfNeeded()
         logger.info("[ParkingFinder] AR session start mode=\(self.isScanMode ? "scan" : "find")")
     }
 
@@ -414,6 +504,7 @@ final class ParkingARViewController: UIViewController {
             let position = simd_float3(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
             let forward = -simd_float3(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
             viewModel.updateDevicePose(position: position, forward: forward)
+            debugEntities?.addTrailPoint(position)
         }
     }
 
@@ -421,12 +512,43 @@ final class ParkingARViewController: UIViewController {
         guard let frame = arView.session.currentFrame else { return }
         for recognition in recognitions {
             let position = raycastPosition(for: recognition.boundingBox, frame: frame)
-            viewModel.addRecognition(
+            let verdict = viewModel.addRecognition(
                 text: recognition.text,
                 confidence: recognition.confidence,
                 position: position
             )
+            if let debugOverlay {
+                let rect = viewRect(for: recognition.boundingBox, frame: frame)
+                switch verdict {
+                case .accepted, .arrivalProgress:
+                    debugOverlay.flashBox(rect, accepted: true, reason: nil)
+                case .rejected(let reason):
+                    debugOverlay.flashBox(rect, accepted: false, reason: reason)
+                case .ignored:
+                    break
+                }
+            }
         }
+        if debugEntities != nil {
+            updateDebugEntities()
+        }
+    }
+
+    /// Vision 정규 bbox → 화면 rect (인식 박스 표시용) — raycastPosition과 동일 변환
+    private func viewRect(for boundingBox: CGRect, frame: ARFrame) -> CGRect {
+        let viewportSize = arView.bounds.size
+        let transform = frame.displayTransform(for: .portrait, viewportSize: viewportSize)
+        let corner1 = CGPoint(x: 1 - boundingBox.maxY, y: 1 - boundingBox.maxX).applying(transform)
+        let corner2 = CGPoint(x: 1 - boundingBox.minY, y: 1 - boundingBox.minX).applying(transform)
+        let origin = CGPoint(
+            x: min(corner1.x, corner2.x) * viewportSize.width,
+            y: min(corner1.y, corner2.y) * viewportSize.height
+        )
+        let size = CGSize(
+            width: abs(corner1.x - corner2.x) * viewportSize.width,
+            height: abs(corner1.y - corner2.y) * viewportSize.height
+        )
+        return CGRect(origin: origin, size: size)
     }
 
     /// Vision 정규 bbox(세로 방향 이미지, 원점 좌하단) 중심 → 화면 좌표 → raycast.
