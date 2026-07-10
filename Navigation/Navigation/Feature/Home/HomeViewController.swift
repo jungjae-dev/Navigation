@@ -387,11 +387,11 @@ final class HomeViewController: UIViewController {
 
     // MARK: - Map Control Position (called by coordinator)
 
+    /// 드로어 높이 콜백으로 매 프레임 호출됨. 자체 애니메이션을 걸지 않고 constant만 갱신 →
+    /// 드래그 중엔 드로어 본체와 같은 레이아웃 패스에서 1:1로 따라오고(시차 제거),
+    /// 스냅 시엔 드로어의 스프링 애니메이션 블록 안에서 호출돼 함께 애니메이션된다.
     func updateMapControlBottomOffset(_ height: CGFloat) {
-        UIView.animate(withDuration: 0.3) {
-            self.mapControlBottomConstraint.constant = -(height + Theme.Spacing.md + self.mapAttributionClearance)
-            self.view.layoutIfNeeded()
-        }
+        mapControlBottomConstraint.constant = -(height + Theme.Spacing.md + mapAttributionClearance)
     }
 
     func updateMapInsets(top: CGFloat, bottom: CGFloat) {
