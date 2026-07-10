@@ -459,8 +459,8 @@ final class DrawerContainerManager: NSObject {
 
         animateTransition(in: parent, animated: true) {
             self.drawerStack[self.topIndex].heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+            self.onHeightChanged?(targetHeight)   // 스프링 블록 안에서 호출 → 버튼/inset이 함께 애니메이션
         } completion: {
-            self.onHeightChanged?(targetHeight)
             completion?()
         }
     }
@@ -475,8 +475,8 @@ final class DrawerContainerManager: NSObject {
 
         animateTransition(in: parent, animated: true) {
             self.drawerStack[self.topIndex].heightConstraint.constant = targetHeight + parent.view.safeAreaInsets.bottom
+            self.onHeightChanged?(targetHeight)   // 스프링 블록 안에서 호출 → 버튼/inset이 함께 애니메이션
         } completion: {
-            self.onHeightChanged?(targetHeight)
         }
     }
 
