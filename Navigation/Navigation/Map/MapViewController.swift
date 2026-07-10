@@ -738,6 +738,32 @@ final class MapViewController: UIViewController {
         }
     }
 
+    // MARK: - Layer Auto-Zoom
+
+    /// 따릉이 마커가 보이는 줌 레벨로 필요 시 확대 (중심 유지, 이미 충분히 확대면 no-op)
+    func zoomToShowBikeStations() {
+        zoomInIfNeeded(maxLatitudeDelta: Self.bikeMaxLatitudeDelta)
+    }
+
+    /// 버스 마커가 보이는 줌 레벨로 필요 시 확대 (중심 유지, 이미 충분히 확대면 no-op)
+    func zoomToShowBusStops() {
+        zoomInIfNeeded(maxLatitudeDelta: Self.busMaxLatitudeDelta)
+    }
+
+    /// 현재 줌이 임계값보다 축소돼 있으면 임계값 이하로 확대 (중심 유지). 확대만, 축소는 안 함.
+    /// 마커 표시 자체는 애니메이션 종료 후 `regionDidChangeAnimated` → visibility 갱신이 담당.
+    private func zoomInIfNeeded(maxLatitudeDelta: Double) {
+        let span = mapView.region.span
+        guard span.latitudeDelta > maxLatitudeDelta else { return }
+        // 임계값보다 살짝 더 확대해 경계 흔들림(latΔ ≈ 임계값) 방지
+        let ratio = (maxLatitudeDelta * 0.9) / span.latitudeDelta
+        let newSpan = MKCoordinateSpan(
+            latitudeDelta: span.latitudeDelta * ratio,
+            longitudeDelta: span.longitudeDelta * ratio
+        )
+        mapView.setRegion(MKCoordinateRegion(center: mapView.region.center, span: newSpan), animated: true)
+    }
+
     // MARK: - Route Focus Mode
 
     /// 노선 정보 보기 중 — 선택 정류장 외 버스/따릉이 마커를 숨겨 노선만 부각

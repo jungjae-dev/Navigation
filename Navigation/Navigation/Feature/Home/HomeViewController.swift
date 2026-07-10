@@ -119,8 +119,19 @@ final class HomeViewController: UIViewController {
             bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
             bar.bottomAnchor.constraint(equalTo: mapControlButtons.bottomAnchor),
         ])
-        bar.onBike = { [weak self] in Task { await self?.bikeViewModel.toggleLayer() } }
-        bar.onBus = { [weak self] in self?.busViewModel.toggleLayer() }
+        bar.onBike = { [weak self] in
+            Task {
+                guard let self else { return }
+                await self.bikeViewModel.toggleLayer()
+                // 켤 때 현재 줌이 정류소 표출 레벨보다 멀면 보이는 레벨로 확대 (중심 유지)
+                if self.bikeViewModel.isLayerOn { self.mapViewController.zoomToShowBikeStations() }
+            }
+        }
+        bar.onBus = { [weak self] in
+            guard let self else { return }
+            self.busViewModel.toggleLayer()
+            if self.busViewModel.isLayerOn { self.mapViewController.zoomToShowBusStops() }
+        }
         bar.onCongestion = { [weak self] in self?.toggleLivePulse() }
         bar.onBikeRefresh = { [weak self] in self?.handleBikeRefreshTapped() }
 
