@@ -52,6 +52,11 @@ final class AppCoordinator: NSObject, Coordinator {
     /// 가상 주행 진행 중인 driver (안내 lifecycle에 종속)
     private var activeVirtualDriveDriver: VirtualDriveDriver?
 
+    // MARK: - Parking Finder (모듈 수명 = present 동안)
+
+    private var parkingFinderViewModel: ParkingFinderViewModel?
+    private var parkingNav: UINavigationController?
+
     // MARK: - Init
 
     init(window: UIWindow) {
@@ -214,27 +219,86 @@ final class AppCoordinator: NSObject, Coordinator {
     // MARK: - Parking Finder Flow
 
     /// 진입 분기 (UI 계약): 활성 기록 있음 → 요약(허브) / 없음+권한 가능 → 스캔 등록 / 없음+권한 거부 → 수동 폼.
-    /// 화면은 US1~US3에서 구현 — 현재는 분기 결과를 표시하는 자리표시 화면으로 배선 검증.
     private func showParkingFinder() {
-        let active = DataService.shared.fetchActiveParkingSession()
+        let finderVM = ParkingFinderViewModel()
+        parkingFinderViewModel = finderVM
+
         let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
         let cameraUsable = cameraStatus == .authorized || cameraStatus == .notDetermined
 
+        let nav = UINavigationController()
+        nav.modalPresentationStyle = .fullScreen
+        parkingNav = nav
+
         let entry: String
-        if active != nil {
+        let root: UIViewController
+        if finderVM.hasActiveSession {
             entry = "summary"
+            root = makeParkingSummary(finderVM, justSaved: false)
         } else if cameraUsable {
             entry = "scan"
+            root = makeParkingScan(finderVM)
         } else {
             entry = "manual"
+            root = makeParkingManualPlaceholder()   // T031에서 ParkingManualEntryViewController로 교체
         }
-        coordLogger.info("[ParkingFinder] entry: active-record=\(active != nil), camera=\(String(describing: cameraStatus.rawValue)) → \(entry)")
+        coordLogger.info("[ParkingFinder] entry: active-record=\(finderVM.hasActiveSession), camera=\(cameraStatus.rawValue) → \(entry)")
 
-        // TODO(US1/US3): entry에 따라 ParkingSummary/ParkingAR(.scan)/ParkingManualEntry로 교체
+        nav.setViewControllers([root], animated: false)
+        navigationController.present(nav, animated: true)
+    }
+
+    private func makeParkingScan(_ finderVM: ParkingFinderViewModel) -> UIViewController {
+        let arVM = ParkingARViewModel(mode: .scan)
+        let arVC = ParkingARViewController(viewModel: arVM)
+        arVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        arVC.onSaved = { [weak self] record in
+            guard let self else { return }
+            finderVM.adopt(record)
+            self.parkingNav?.setViewControllers(
+                [self.makeParkingSummary(finderVM, justSaved: true)],
+                animated: true
+            )
+        }
+        arVC.onRequestManualEntry = { [weak self] in
+            guard let self else { return }
+            self.parkingNav?.setViewControllers([self.makeParkingManualPlaceholder()], animated: true)
+        }
+        return arVC
+    }
+
+    private func makeParkingSummary(_ finderVM: ParkingFinderViewModel, justSaved: Bool) -> UIViewController {
+        let summaryVC = ParkingSummaryViewController(viewModel: finderVM, justSaved: justSaved)
+        summaryVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        summaryVC.onCompleted = { [weak self] in self?.dismissParkingFinder() }
+        summaryVC.onShowPhoto = { [weak self] url in
+            let viewer = UINavigationController(
+                rootViewController: ParkingPhotoViewerViewController(photoURL: url)
+            )
+            self?.parkingNav?.present(viewer, animated: true)
+        }
+        summaryVC.onNewRegistration = { [weak self] in
+            guard let self else { return }
+            self.parkingNav?.setViewControllers([self.makeParkingScan(finderVM)], animated: true)
+        }
+        summaryVC.onStartGuidance = { [weak self] record in
+            guard let self else { return }
+            let arVM = ParkingARViewModel(mode: .find(target: record))
+            let arVC = ParkingARViewController(viewModel: arVM)
+            arVC.onClose = { [weak self] in
+                self?.parkingNav?.popViewController(animated: true)
+            }
+            self.parkingNav?.pushViewController(arVC, animated: true)
+        }
+        return summaryVC
+    }
+
+    private func makeParkingManualPlaceholder() -> UIViewController {
+        // TODO(T031/US3): ParkingManualEntryViewController로 교체
         let placeholder = UIViewController()
         placeholder.view.backgroundColor = Theme.Colors.background
         let label = UILabel()
-        label.text = "내 차 찾기 — \(entry) 화면 준비 중"
+        label.text = "직접 입력 화면 준비 중"
         label.font = Theme.Fonts.headline
         label.textColor = Theme.Colors.secondaryLabel
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -247,15 +311,14 @@ final class AppCoordinator: NSObject, Coordinator {
             systemItem: .close,
             primaryAction: UIAction { [weak self] _ in self?.dismissParkingFinder() }
         )
-
-        let nav = UINavigationController(rootViewController: placeholder)
-        nav.modalPresentationStyle = .fullScreen
-        navigationController.present(nav, animated: true)
+        return placeholder
     }
 
     private func dismissParkingFinder() {
         navigationController.dismiss(animated: true) { [weak self] in
             self?.homeDrawerVC?.refreshParkingEntry()
+            self?.parkingFinderViewModel = nil
+            self?.parkingNav = nil
         }
     }
 

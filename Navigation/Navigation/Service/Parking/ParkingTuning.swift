@@ -1,0 +1,35 @@
+import Foundation
+
+/// 현장 튜닝 대상 임계값 (research "현장 튜닝 항목" 표).
+/// 초기값은 설계 추정치 — 실주차장 DR-003 로그 기반으로 조정한다(T045).
+enum ParkingTuning {
+
+    /// Vision 인식 신뢰도 하한 — 미만은 후보에서 기각
+    static let ocrMinConfidence: Float = 0.6
+
+    /// 동일 코드 반복 관측 확정 횟수 (오인식 완화, R4)
+    static let confirmHits = 2
+
+    /// 스캔 등록: 첫 확정 코드 이후 자동 저장까지 안정화 유예 (FR-002 — 인접 대기 아님)
+    static let saveStabilization: TimeInterval = 3.0
+
+    /// 스캔 등록: 코드 무확보 시 수동 입력 전환 안내까지 (FR-004)
+    static let scanTimeout: TimeInterval = 15.0
+
+    /// 자동 저장 사진 최대 장수 (코드 확정 시점 프레임)
+    static let maxAutoPhotos = 2
+
+    /// 격자 모순 감지 잔차 임계 (m) — max(고정값, 추정 기둥 간격 × 계수) (FR-012)
+    static let residualLimitFloor: Double = 3.0
+    static let residualSpacingFactor: Double = 0.7
+
+    /// 강등 후 안내 복귀에 필요한 연속 정합 관측 수
+    static let recoveryConsistentCount = 2
+
+    /// 도착 확정: 목표 코드 연속 인식 횟수·최소 간격 (FR-013)
+    static let arrivalConsecutive = 2
+    static let arrivalMinInterval: TimeInterval = 1.0
+
+    /// raycast 연속 실패 → 근접/손전등 안내 배너 (FR-015)
+    static let raycastFailBannerAfter = 3
+}
