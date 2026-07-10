@@ -238,6 +238,97 @@ final class DataService {
         save()
     }
 
+    // MARK: - Parking (FR-019/020/021)
+
+    func fetchActiveParkingSession() -> ParkingSessionRecord? {
+        guard let context = modelContext else { return nil }
+
+        let activeRaw = ParkingSessionRecord.Status.active.rawValue
+        let descriptor = FetchDescriptor<ParkingSessionRecord>(
+            predicate: #Predicate { $0.statusRaw == activeRaw }
+        )
+
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            print("[DataService] fetchActiveParkingSession error: \(error)")
+            return nil
+        }
+    }
+
+    /// 신규 활성 세션 저장. 기존 활성 세션이 있으면 대체(사진 파일 포함 삭제) — 활성은 항상 ≤1.
+    func saveParkingSession(_ record: ParkingSessionRecord) {
+        guard let context = modelContext else { return }
+
+        if let existing = fetchActiveParkingSession() {
+            deleteParkingSession(existing)
+            print("[ParkingFinder] replaced active session (old removed, photos deleted)")
+        }
+
+        context.insert(record)
+        save()
+    }
+
+    /// 완료 처리 + 보관 정책: 완료 기록은 최근 1건만 남기고 이전 완료 기록(사진 포함) 삭제.
+    func completeParkingSession(_ record: ParkingSessionRecord, by trigger: String) {
+        guard let context = modelContext else { return }
+
+        record.status = .completed
+        record.completedAt = Date()
+
+        let completedRaw = ParkingSessionRecord.Status.completed.rawValue
+        let descriptor = FetchDescriptor<ParkingSessionRecord>(
+            predicate: #Predicate { $0.statusRaw == completedRaw },
+            sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
+        )
+        if let completed = try? context.fetch(descriptor) {
+            for old in completed.dropFirst() {
+                deleteParkingSession(old)
+            }
+        }
+
+        save()
+        print("[ParkingFinder] session completed by=\(trigger), retained=1")
+    }
+
+    /// 목표 코드 즉시 수정 (FR-002a): 인접 코드 중 하나를 새 목표로 교체.
+    /// 이전 목표는 인접으로 강등 — 거리는 대칭이라 그대로 유효, 그 외 인접의 거리는 미지로 초기화.
+    func swapParkingTarget(_ record: ParkingSessionRecord, to neighbor: NeighborCode) {
+        let oldTarget = NeighborCode(
+            codeRaw: record.targetCodeRaw,
+            zoneToken: record.zoneToken,
+            numberValue: record.numberValue,
+            distanceToTarget: neighbor.distanceToTarget
+        )
+
+        record.targetCodeRaw = neighbor.codeRaw
+        record.zoneToken = neighbor.zoneToken
+        record.numberValue = neighbor.numberValue
+
+        var updated: [NeighborCode] = [oldTarget]
+        for other in record.neighbors where other.codeRaw != neighbor.codeRaw {
+            updated.append(NeighborCode(
+                codeRaw: other.codeRaw,
+                zoneToken: other.zoneToken,
+                numberValue: other.numberValue,
+                distanceToTarget: nil
+            ))
+        }
+        record.neighbors = updated
+
+        save()
+        print("[ParkingFinder] target swapped to \(neighbor.codeRaw)")
+    }
+
+    private func deleteParkingSession(_ record: ParkingSessionRecord) {
+        guard let context = modelContext else { return }
+        for url in record.photoURLs {
+            try? FileManager.default.removeItem(at: url)
+        }
+        context.delete(record)
+        save()
+    }
+
     // MARK: - Private
 
     private func save() {
