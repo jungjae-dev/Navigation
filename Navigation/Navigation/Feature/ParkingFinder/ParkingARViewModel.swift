@@ -29,11 +29,29 @@ final class ParkingARViewModel {
         let targetCode: String
     }
 
+    /// 되찾기 안내 상태 — HUD는 이 상태의 순수 함수 (FR-010, UI 계약)
+    enum GuidanceState: Equatable {
+        case searching
+        case needMore(message: String)
+        case guiding(stageLabel: String, arrowRadians: Double, distanceMeters: Double, confidence: GridEstimate.Confidence)
+        case degraded(targetCode: String)
+        case arrived
+    }
+
+    /// 상태와 직교하는 배너 (data-model)
+    enum Banner: Equatable {
+        case floorMismatch(message: String)
+        case trackingLimited
+        case anchorFailing
+    }
+
     // MARK: - Outputs (상태)
 
     let mode: Mode
     /// 확정된 코드 목록 — 스캔 진행 칩·요약 화면 후보 목록
     let confirmedCodes = CurrentValueSubject<[String], Never>([])
+    let guidanceState = CurrentValueSubject<GuidanceState, Never>(.searching)
+    let banner = CurrentValueSubject<Banner?, Never>(nil)
 
     // MARK: - Outputs (이벤트 — VC 배선)
 
@@ -52,8 +70,30 @@ final class ParkingARViewModel {
     private var pendingFloorSave: PendingSave?
     private var saved = false
 
+    // find 전용
+    private var estimator = GridEstimator()
+    private var arrivalTracker = ArrivalTracker()
+    private var cachedTargetPosition: SIMD2<Double>?
+    private var raycastFailStreak = 0
+    private var lastStateKey = ""
+    private var lastEstimate: GridEstimate?
+    private var lastDevicePosition: SIMD2<Double>?
+    private var lastDeviceForward: SIMD2<Double>?
+    private var neighborLogged: Set<String> = []
+    private var floorReminderShown = false
+    private let targetParsedCode: ParsedCode?
+
     init(mode: Mode) {
         self.mode = mode
+        if case .find(let record) = mode {
+            targetParsedCode = PillarCodeParser.parse(record.targetCodeRaw)
+            if record.templateSkeleton == PillarCodeParser.rawSkeleton {
+                // 파싱 불가 세션: 격자 안내 불가 — 근접확인 모드 고정 (FR-016, T034)
+                guidanceState.send(.degraded(targetCode: record.targetCodeRaw))
+            }
+        } else {
+            targetParsedCode = nil
+        }
     }
 
     // MARK: - Session lifecycle
@@ -75,6 +115,18 @@ final class ParkingARViewModel {
         confirmedCodes.send([])
         saveTask?.cancel()
         saveTask = nil
+        estimator.reset()
+        arrivalTracker.reset()
+        cachedTargetPosition = nil
+        lastEstimate = nil
+        raycastFailStreak = 0
+        if case .find(let record) = mode {
+            if record.templateSkeleton == PillarCodeParser.rawSkeleton {
+                guidanceState.send(.degraded(targetCode: record.targetCodeRaw))
+            } else {
+                guidanceState.send(.searching)
+            }
+        }
         logger.info("[ParkingFinder] observations invalidated (session interrupted)")
     }
 
@@ -83,9 +135,27 @@ final class ParkingARViewModel {
     /// VC가 OCR 인식 + raycast 결과를 주입.
     /// - position: raycast 성공 시 세션 월드 좌표, 실패 시 nil
     func addRecognition(text: String, confidence: Float, position: simd_float3?) {
-        guard !saved, confidence >= ParkingTuning.ocrMinConfidence else { return }
-        guard let parsed = PillarCodeParser.parse(text) else { return }
+        guard confidence >= ParkingTuning.ocrMinConfidence else { return }
 
+        switch mode {
+        case .scan:
+            handleScanRecognition(text: text, position: position)
+        case .find(let record):
+            handleFindRecognition(text: text, position: position, record: record)
+        }
+    }
+
+    private func handleScanRecognition(text: String, position: simd_float3?) {
+        guard !saved, let parsed = PillarCodeParser.parse(text) else { return }
+
+        if upsertObservation(parsed, position: position) {
+            codeConfirmed(parsed.raw)
+        }
+    }
+
+    /// 관측 누적 — 확정 순간(hit == confirmHits)이면 true (FR-011 재앵커 포함)
+    @discardableResult
+    private func upsertObservation(_ parsed: ParsedCode, position: simd_float3?) -> Bool {
         let key = parsed.raw
         var observation = observations[key] ?? Observation(
             parsed: parsed, position: nil, hits: 0, firstSeenAt: Date(), lastSeenAt: Date()
@@ -93,13 +163,10 @@ final class ParkingARViewModel {
         observation.hits += 1
         observation.lastSeenAt = Date()
         if let position {
-            observation.position = position   // 재관측 시 최신 위치로 갱신 (FR-011 재앵커)
+            observation.position = position   // 재관측 시 최신 위치로 갱신
         }
         observations[key] = observation
-
-        if observation.hits == ParkingTuning.confirmHits {
-            codeConfirmed(key)
-        }
+        return observation.hits == ParkingTuning.confirmHits
     }
 
     private func codeConfirmed(_ code: String) {
@@ -208,5 +275,171 @@ final class ParkingARViewModel {
     func cancelTasks() {
         saveTask?.cancel()
         timeoutTask?.cancel()
+    }
+
+    // MARK: - Find: 되찾기 파이프라인 (T024/T027, FR-008~016)
+
+    private func handleFindRecognition(text: String, position: simd_float3?, record: ParkingSessionRecord) {
+        guard guidanceState.value != .arrived else { return }
+
+        // 도착 판정 — 위치·파싱 성공 여부와 무관 (FR-013/015)
+        let normalized = PillarCodeParser.normalized(text)
+        if normalized == record.targetCodeRaw {
+            if arrivalTracker.registerTargetSighting() {
+                logState(to: "arrived", trigger: "target \(ParkingTuning.arrivalConsecutive) consecutive")
+                guidanceState.send(.arrived)
+            }
+            return
+        }
+
+        guard let parsed = PillarCodeParser.parse(text) else { return }
+
+        // 오검출 필터 — 등록 템플릿 구조 일치만 채택 (FR-008)
+        guard PillarCodeParser.matchesTemplate(parsed, skeleton: record.templateSkeleton) else {
+            logger.info("[ParkingFinder] rejected '\(parsed.raw)' reason=skeleton-mismatch")
+            return
+        }
+
+        // 층 확인 (FR-014) — 다른 층 관측은 격자 오염 방지 위해 제외
+        if let candidateFloor = parsed.floorToken, let recordFloor = record.floorToken,
+           candidateFloor != recordFloor {
+            banner.send(.floorMismatch(message: "여기는 \(candidateFloor) — \(recordFloor)로 이동하세요"))
+            logger.info("[ParkingFinder] floor mismatch: seen=\(candidateFloor) target=\(recordFloor)")
+            return
+        }
+        if parsed.floorToken == nil, let recordFloor = record.floorToken,
+           record.floorSource == .manual, !floorReminderShown {
+            floorReminderShown = true
+            banner.send(.floorMismatch(message: "\(recordFloor)에 주차하셨습니다"))
+        }
+
+        // 저장 인접 코드 목격 → 근접 신호 (FR-013a)
+        if record.neighbors.contains(where: { $0.codeRaw == parsed.raw }),
+           !neighborLogged.contains(parsed.raw) {
+            neighborLogged.insert(parsed.raw)
+            estimator.markNeighborSighted()
+            logger.info("[ParkingFinder] neighbor sighted: \(parsed.raw) → confidence boost")
+        }
+
+        // 위치 파악 실패 관측: 층·도착 확인엔 이미 사용됨, 격자엔 미포함 (FR-015)
+        if position == nil {
+            raycastFailStreak += 1
+            if raycastFailStreak >= ParkingTuning.raycastFailBannerAfter {
+                banner.send(.anchorFailing)
+            }
+        } else {
+            raycastFailStreak = 0
+        }
+
+        if upsertObservation(parsed, position: position) {
+            confirmedCodes.send(confirmedCodes.value + [parsed.raw])
+        }
+
+        // 파싱 불가 세션은 근접확인 모드 고정 — 격자 추정 생략 (FR-016)
+        guard record.templateSkeleton != PillarCodeParser.rawSkeleton else { return }
+        runEstimate(record: record)
+    }
+
+    private func runEstimate(record: ParkingSessionRecord) {
+        let gridObservations = observations.values
+            .filter { $0.hits >= ParkingTuning.confirmHits }
+            .compactMap { observation -> GridObservation? in
+                guard let p = observation.position, observation.parsed.isGridUsable else { return nil }
+                return GridObservation(
+                    codeRaw: observation.parsed.raw,
+                    zoneIndex: observation.parsed.zoneIndex,
+                    numberValue: observation.parsed.numberValue,
+                    position: SIMD2(Double(p.x), Double(p.z))
+                )
+            }
+
+        let estimate = estimator.estimate(
+            observations: gridObservations,
+            targetZoneIndex: targetParsedCode?.zoneIndex,
+            targetNumber: targetParsedCode?.numberValue
+        )
+        lastEstimate = estimate
+        cachedTargetPosition = estimate.targetPosition
+        logger.info("[ParkingFinder] grid updated: stage=\(String(describing: estimate.stage)) obs=\(estimate.observationCount) residual=\(String(format: "%.1f", estimate.residualRMS))m conf=\(estimate.confidence.rawValue)")
+        publishState(record: record)
+    }
+
+    /// 트래킹 품질 저하 보고 (FR-015 — VC delegate에서 호출)
+    func reportTrackingLimited() {
+        banner.send(.trackingLimited)
+    }
+
+    /// VC가 프레임마다(스로틀) 호출 — 화살표는 기기 포즈의 함수 (data-model DeviceContext)
+    func updateDevicePose(position: simd_float3, forward: simd_float3) {
+        guard case .find(let record) = mode else { return }
+        lastDevicePosition = SIMD2(Double(position.x), Double(position.z))
+        let f = SIMD2(Double(forward.x), Double(forward.z))
+        lastDeviceForward = simd_length(f) > 1e-6 ? simd_normalize(f) : nil
+        if case .guiding = guidanceState.value {
+            publishState(record: record)
+        }
+    }
+
+    private func publishState(record: ParkingSessionRecord) {
+        guard guidanceState.value != .arrived, let estimate = lastEstimate else { return }
+
+        let newState: GuidanceState
+        switch estimate.stage {
+        case .searching:
+            newState = .searching
+        case .needMoreObservation(let missing):
+            let message = missing == .zone
+                ? "다른 구역의 기둥을 비춰주세요"
+                : "같은 구역의 다른 번호 기둥을 비춰주세요"
+            newState = .needMore(message: message)
+        case .degraded:
+            newState = .degraded(targetCode: record.targetCodeRaw)
+        case .axisGuidance, .gridGuidance:
+            guard let target = cachedTargetPosition,
+                  let devicePos = lastDevicePosition,
+                  let forward = lastDeviceForward else {
+                newState = .searching
+                break
+            }
+            let toTarget = target - devicePos
+            let distance = simd_length(toTarget)
+            let direction = distance > 1e-6 ? toTarget / distance : forward
+            // 부호 규약: 전방 기준 시계방향(+) — 화면 회전값으로 직접 사용. 현장 검증(D2) 대상
+            let arrow = atan2(
+                forward.x * direction.y - forward.y * direction.x,
+                simd_dot(forward, direction)
+            )
+            let label = estimate.stage == .gridGuidance ? "격자 안내" : "축 안내"
+            newState = .guiding(
+                stageLabel: label,
+                arrowRadians: arrow,
+                distanceMeters: distance,
+                confidence: estimate.confidence
+            )
+        }
+
+        logTransitionIfNeeded(to: newState)
+        if newState != guidanceState.value {
+            guidanceState.send(newState)
+        }
+    }
+
+    private func logTransitionIfNeeded(to state: GuidanceState) {
+        let key: String
+        switch state {
+        case .searching: key = "searching"
+        case .needMore: key = "needMore"
+        case .guiding(let label, _, _, _): key = label
+        case .degraded: key = "degraded"
+        case .arrived: key = "arrived"
+        }
+        if key != lastStateKey {
+            logState(to: key, trigger: "obs=\(lastEstimate?.observationCount ?? 0)")
+        }
+    }
+
+    private func logState(to key: String, trigger: String) {
+        logger.info("[ParkingFinder] state: \(self.lastStateKey.isEmpty ? "-" : self.lastStateKey) → \(key) (\(trigger))")
+        lastStateKey = key
     }
 }

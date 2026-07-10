@@ -29,6 +29,11 @@ enum PillarCodeParser {
 
     // MARK: - Parse
 
+    /// 파싱 불가 코드(RAW 세션)의 원문 완전 일치 비교용 정규화
+    static func normalized(_ text: String) -> String {
+        normalize(text)
+    }
+
     static func parse(_ text: String) -> ParsedCode? {
         let normalized = normalize(text)
         guard !normalized.isEmpty, normalized.count <= 12 else { return nil }

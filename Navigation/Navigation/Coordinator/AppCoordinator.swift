@@ -288,6 +288,17 @@ final class AppCoordinator: NSObject, Coordinator {
             arVC.onClose = { [weak self] in
                 self?.parkingNav?.popViewController(animated: true)
             }
+            arVC.onArrivedConfirm = { [weak self] in
+                finderVM.complete(by: "target-recognition")
+                self?.dismissParkingFinder()
+            }
+            arVC.onShowPhotoFallback = { [weak self] in
+                guard let url = record.photoURLs.first else { return }
+                let viewer = UINavigationController(
+                    rootViewController: ParkingPhotoViewerViewController(photoURL: url)
+                )
+                self?.parkingNav?.present(viewer, animated: true)
+            }
             self.parkingNav?.pushViewController(arVC, animated: true)
         }
         return summaryVC

@@ -16,6 +16,8 @@ final class ParkingARViewController: UIViewController {
     var onClose: (() -> Void)?
     var onSaved: ((ParkingSessionRecord) -> Void)?
     var onRequestManualEntry: (() -> Void)?
+    var onArrivedConfirm: (() -> Void)?
+    var onShowPhotoFallback: (() -> Void)?
 
     // MARK: - UI
 
@@ -49,7 +51,76 @@ final class ParkingARViewController: UIViewController {
 
     private lazy var torchButton = makeRoundButton(systemName: "flashlight.off.fill")
     private lazy var manualButton = makeRoundButton(systemName: "keyboard")
+    private lazy var photoButton = makeRoundButton(systemName: "photo")
     private lazy var closeButton = makeRoundButton(systemName: "xmark")
+
+    // find HUD (T025) — GuidanceState의 순수 함수
+    private let arrowImageView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(systemName: "location.north.fill"))
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.tintColor = .white
+        imageView.contentMode = .scaleAspectFit
+        imageView.isHidden = true
+        return imageView
+    }()
+
+    private let guidanceInfoLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 22, weight: .bold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        label.layer.cornerRadius = 12
+        label.clipsToBounds = true
+        label.isHidden = true
+        return label
+    }()
+
+    private let bannerLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.subheadline
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        label.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.85)
+        label.layer.cornerRadius = 10
+        label.clipsToBounds = true
+        label.isHidden = true
+        return label
+    }()
+
+    private let arrivedOverlay: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.75)
+        view.isHidden = true
+        return view
+    }()
+
+    private let arrivedLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 34, weight: .bold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        return label
+    }()
+
+    private let arrivedConfirmButton: UIButton = {
+        var config = UIButton.Configuration.filled()
+        config.title = "✓ 찾았어요"
+        config.baseBackgroundColor = Theme.Colors.accent
+        config.baseForegroundColor = .white
+        config.cornerStyle = .capsule
+        config.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 32, bottom: 14, trailing: 32)
+        let button = UIButton(configuration: config)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
 
     private let manualSuggestionButton: UIButton = {
         var config = UIButton.Configuration.filled()
@@ -69,6 +140,7 @@ final class ParkingARViewController: UIViewController {
     private let scanner = CodeScannerService()
     private var cancellables = Set<AnyCancellable>()
     private var torchOn = false
+    private var frameCounter = 0
 
     init(viewModel: ParkingARViewModel) {
         self.viewModel = viewModel
@@ -121,10 +193,17 @@ final class ParkingARViewController: UIViewController {
         view.addSubview(arView)
         view.addSubview(guidanceLabel)
         view.addSubview(codesLabel)
+        view.addSubview(bannerLabel)
+        view.addSubview(arrowImageView)
+        view.addSubview(guidanceInfoLabel)
         view.addSubview(closeButton)
         view.addSubview(torchButton)
         view.addSubview(manualButton)
+        view.addSubview(photoButton)
         view.addSubview(manualSuggestionButton)
+        view.addSubview(arrivedOverlay)
+        arrivedOverlay.addSubview(arrivedLabel)
+        arrivedOverlay.addSubview(arrivedConfirmButton)
 
         NSLayoutConstraint.activate([
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
@@ -149,15 +228,45 @@ final class ParkingARViewController: UIViewController {
 
             manualSuggestionButton.bottomAnchor.constraint(equalTo: torchButton.topAnchor, constant: -Theme.Spacing.lg),
             manualSuggestionButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+
+            photoButton.bottomAnchor.constraint(equalTo: torchButton.bottomAnchor),
+            photoButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.xl),
+
+            bannerLabel.topAnchor.constraint(equalTo: codesLabel.bottomAnchor, constant: Theme.Spacing.sm),
+            bannerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            bannerLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
+            bannerLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+
+            arrowImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            arrowImageView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
+            arrowImageView.widthAnchor.constraint(equalToConstant: 96),
+            arrowImageView.heightAnchor.constraint(equalToConstant: 96),
+
+            guidanceInfoLabel.topAnchor.constraint(equalTo: arrowImageView.bottomAnchor, constant: Theme.Spacing.md),
+            guidanceInfoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            guidanceInfoLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
+            guidanceInfoLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+
+            arrivedOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            arrivedOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            arrivedOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            arrivedOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            arrivedLabel.centerXAnchor.constraint(equalTo: arrivedOverlay.centerXAnchor),
+            arrivedLabel.centerYAnchor.constraint(equalTo: arrivedOverlay.centerYAnchor, constant: -40),
+            arrivedConfirmButton.topAnchor.constraint(equalTo: arrivedLabel.bottomAnchor, constant: Theme.Spacing.xl),
+            arrivedConfirmButton.centerXAnchor.constraint(equalTo: arrivedOverlay.centerXAnchor),
         ])
 
         guidanceLabel.text = "  주변 기둥의 위치 표지판을 비춰주세요  "
         manualButton.isHidden = !isScanMode
+        photoButton.isHidden = isScanMode
 
         closeButton.addAction(UIAction { [weak self] _ in self?.handleClose() }, for: .touchUpInside)
         torchButton.addAction(UIAction { [weak self] _ in self?.toggleTorch() }, for: .touchUpInside)
         manualButton.addAction(UIAction { [weak self] _ in self?.onRequestManualEntry?() }, for: .touchUpInside)
         manualSuggestionButton.addAction(UIAction { [weak self] _ in self?.onRequestManualEntry?() }, for: .touchUpInside)
+        photoButton.addAction(UIAction { [weak self] _ in self?.onShowPhotoFallback?() }, for: .touchUpInside)
+        arrivedConfirmButton.addAction(UIAction { [weak self] _ in self?.onArrivedConfirm?() }, for: .touchUpInside)
     }
 
     private var isScanMode: Bool {
@@ -184,6 +293,78 @@ final class ParkingARViewController: UIViewController {
         viewModel.onSuggestManualEntry = { [weak self] in
             guard let self, self.isScanMode else { return }
             self.manualSuggestionButton.isHidden = false
+        }
+
+        viewModel.guidanceState
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.renderGuidance(state)
+            }
+            .store(in: &cancellables)
+
+        viewModel.banner
+            .compactMap { $0 }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] banner in
+                self?.showBanner(banner)
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Find HUD (T025/T026) — GuidanceState의 순수 함수
+
+    private func renderGuidance(_ state: ParkingARViewModel.GuidanceState) {
+        guard !isScanMode else { return }
+        let targetCode: String = {
+            if case .find(let record) = viewModel.mode { return record.targetCodeRaw }
+            return ""
+        }()
+
+        arrowImageView.isHidden = true
+        guidanceInfoLabel.isHidden = true
+        arrivedOverlay.isHidden = true
+
+        switch state {
+        case .searching:
+            guidanceLabel.text = "  \(targetCode) · 주변 기둥을 비춰주세요  "
+
+        case .needMore(let message):
+            guidanceLabel.text = "  \(message)  "
+
+        case .guiding(let stageLabel, let arrowRadians, let distance, let confidence):
+            guidanceLabel.text = "  \(targetCode) 찾는 중  "
+            arrowImageView.isHidden = false
+            arrowImageView.transform = CGAffineTransform(rotationAngle: arrowRadians)
+            guidanceInfoLabel.isHidden = false
+            let dots = ["●○○", "●●○", "●●●"][confidence.rawValue]
+            guidanceInfoLabel.text = "  ~\(Int(distance.rounded()))m 이 방향\n\(stageLabel) · 신뢰도 \(dots)  "
+
+        case .degraded:
+            guidanceLabel.text = "  번호 배치가 불규칙해요\n주변 기둥에서 \(targetCode) 를 직접 확인하세요  "
+
+        case .arrived:
+            arrivedOverlay.isHidden = false
+            arrivedLabel.text = "🎉 도착!\n\(targetCode)"
+            setTorch(on: false)
+        }
+    }
+
+    private func showBanner(_ banner: ParkingARViewModel.Banner) {
+        let text: String
+        switch banner {
+        case .floorMismatch(let message): text = "  \(message)  "
+        case .trackingLimited: text = "  천천히 움직여주세요  "
+        case .anchorFailing: text = "  기둥에 더 가까이 가거나 손전등을 켜보세요  "
+        }
+        bannerLabel.text = text
+        bannerLabel.isHidden = false
+        UIView.animate(withDuration: 0.3, delay: 3.5, options: []) {
+            self.bannerLabel.alpha = 0
+        } completion: { _ in
+            self.bannerLabel.isHidden = true
+            self.bannerLabel.alpha = 1
         }
     }
 
@@ -225,6 +406,15 @@ final class ParkingARViewController: UIViewController {
 
     private func handleFrame(_ frame: ARFrame) {
         scanner.process(frame: frame)
+
+        guard !isScanMode else { return }
+        frameCounter += 1
+        if frameCounter % 6 == 0 {   // 화살표 갱신 ~10Hz
+            let transform = frame.camera.transform
+            let position = simd_float3(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
+            let forward = -simd_float3(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
+            viewModel.updateDevicePose(position: position, forward: forward)
+        }
     }
 
     private func handleRecognitions(_ recognitions: [CodeScannerService.Recognition]) {
@@ -374,6 +564,15 @@ extension ParkingARViewController: ARSessionDelegate {
     nonisolated func sessionWasInterrupted(_ session: ARSession) {
         MainActor.assumeIsolated {
             logger.info("[ParkingFinder] AR session interrupted")
+        }
+    }
+
+    nonisolated func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+        MainActor.assumeIsolated {
+            if case .limited = camera.trackingState {
+                logger.info("[ParkingFinder] tracking limited")
+                viewModel.reportTrackingLimited()
+            }
         }
     }
 
