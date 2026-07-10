@@ -23,6 +23,25 @@ final class HomeDrawerViewController: UIViewController {
         return view
     }()
 
+    private lazy var parkingButton: UIButton = {
+        var config = UIButton.Configuration.gray()
+        config.image = UIImage(systemName: "parkingsign.circle.fill")
+        config.imagePadding = Theme.Spacing.sm
+        config.baseForegroundColor = Theme.Colors.label
+        config.baseBackgroundColor = Theme.Colors.secondaryBackground
+        config.cornerStyle = .large
+        config.contentInsets = NSDirectionalEdgeInsets(
+            top: Theme.Spacing.md, leading: Theme.Spacing.lg,
+            bottom: Theme.Spacing.md, trailing: Theme.Spacing.lg
+        )
+        config.titleAlignment = .leading
+        let button = UIButton(configuration: config)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.contentHorizontalAlignment = .leading
+        button.tintColor = Theme.Colors.accent
+        return button
+    }()
+
     private lazy var collectionView: UICollectionView = {
         let layout = createCompositionalLayout()
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -48,6 +67,7 @@ final class HomeDrawerViewController: UIViewController {
     var onRecentSearchTapped: ((SearchHistory) -> Void)?
     var onSearchBarTapped: (() -> Void)?
     var onSettingsTapped: (() -> Void)?
+    var onParkingFinderTapped: (() -> Void)?
 
     // MARK: - Init
 
@@ -66,6 +86,33 @@ final class HomeDrawerViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         bindViewModel()
+        refreshParkingEntry()
+    }
+
+    /// 내 차 찾기 버튼의 제목/부제 갱신 — 활성 주차 기록이 있으면 코드·경과 시간 부제 표시.
+    /// 코디네이터가 ParkingFinder 모듈 dismiss 후에도 호출한다.
+    func refreshParkingEntry() {
+        var config = parkingButton.configuration
+        config?.attributedTitle = AttributedString(
+            "내 차 찾기",
+            attributes: AttributeContainer([.font: Theme.Fonts.headline])
+        )
+        if let active = DataService.shared.fetchActiveParkingSession() {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.locale = Locale(identifier: "ko_KR")
+            formatter.unitsStyle = .short
+            let elapsed = formatter.localizedString(for: active.createdAt, relativeTo: Date())
+            config?.attributedSubtitle = AttributedString(
+                "\(active.targetCodeRaw) · \(elapsed) 주차",
+                attributes: AttributeContainer([
+                    .font: Theme.Fonts.footnote,
+                    .foregroundColor: Theme.Colors.secondaryLabel,
+                ])
+            )
+        } else {
+            config?.attributedSubtitle = nil
+        }
+        parkingButton.configuration = config
     }
 
     // MARK: - Setup
@@ -76,6 +123,7 @@ final class HomeDrawerViewController: UIViewController {
         view.addSubview(searchBarView)
         view.addSubview(settingsButton)
         view.addSubview(separator)
+        view.addSubview(parkingButton)
         view.addSubview(collectionView)
 
         NSLayoutConstraint.activate([
@@ -93,9 +141,16 @@ final class HomeDrawerViewController: UIViewController {
             separator.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             separator.heightAnchor.constraint(equalToConstant: 0.5),
 
-            collectionView.topAnchor.constraint(
+            parkingButton.topAnchor.constraint(
                 equalTo: separator.bottomAnchor,
                 constant: Theme.Drawer.Layout.contentTopPadding
+            ),
+            parkingButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            parkingButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            collectionView.topAnchor.constraint(
+                equalTo: parkingButton.bottomAnchor,
+                constant: Theme.Spacing.md
             ),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -107,6 +162,11 @@ final class HomeDrawerViewController: UIViewController {
             self?.onSearchBarTapped?()
         }
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+        parkingButton.addTarget(self, action: #selector(parkingTapped), for: .touchUpInside)
+    }
+
+    @objc private func parkingTapped() {
+        onParkingFinderTapped?()
     }
 
     @objc private func settingsTapped() {

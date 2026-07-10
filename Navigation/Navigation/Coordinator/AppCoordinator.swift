@@ -2,6 +2,7 @@ import UIKit
 import MapKit
 import Combine
 import CoreLocation
+import AVFoundation
 import OSLog
 
 private let coordLogger = Logger(subsystem: "nav.ui", category: "AppCoordinator")
@@ -180,6 +181,10 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showSettings()
         }
 
+        drawerVC.onParkingFinderTapped = { [weak self] in
+            self?.showParkingFinder()
+        }
+
         drawerManager.pushDrawer(
             drawerVC,
             detents: standardDetents(),
@@ -204,6 +209,54 @@ final class AppCoordinator: NSObject, Coordinator {
             detents: standardDetents(),
             initialDetent: homeInitialDetent()
         )
+    }
+
+    // MARK: - Parking Finder Flow
+
+    /// 진입 분기 (UI 계약): 활성 기록 있음 → 요약(허브) / 없음+권한 가능 → 스캔 등록 / 없음+권한 거부 → 수동 폼.
+    /// 화면은 US1~US3에서 구현 — 현재는 분기 결과를 표시하는 자리표시 화면으로 배선 검증.
+    private func showParkingFinder() {
+        let active = DataService.shared.fetchActiveParkingSession()
+        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        let cameraUsable = cameraStatus == .authorized || cameraStatus == .notDetermined
+
+        let entry: String
+        if active != nil {
+            entry = "summary"
+        } else if cameraUsable {
+            entry = "scan"
+        } else {
+            entry = "manual"
+        }
+        coordLogger.info("[ParkingFinder] entry: active-record=\(active != nil), camera=\(String(describing: cameraStatus.rawValue)) → \(entry)")
+
+        // TODO(US1/US3): entry에 따라 ParkingSummary/ParkingAR(.scan)/ParkingManualEntry로 교체
+        let placeholder = UIViewController()
+        placeholder.view.backgroundColor = Theme.Colors.background
+        let label = UILabel()
+        label.text = "내 차 찾기 — \(entry) 화면 준비 중"
+        label.font = Theme.Fonts.headline
+        label.textColor = Theme.Colors.secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        placeholder.view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: placeholder.view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: placeholder.view.centerYAnchor),
+        ])
+        placeholder.navigationItem.leftBarButtonItem = UIBarButtonItem(
+            systemItem: .close,
+            primaryAction: UIAction { [weak self] _ in self?.dismissParkingFinder() }
+        )
+
+        let nav = UINavigationController(rootViewController: placeholder)
+        nav.modalPresentationStyle = .fullScreen
+        navigationController.present(nav, animated: true)
+    }
+
+    private func dismissParkingFinder() {
+        navigationController.dismiss(animated: true) { [weak self] in
+            self?.homeDrawerVC?.refreshParkingEntry()
+        }
     }
 
     // MARK: - POI Detail Flow
