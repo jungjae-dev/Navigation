@@ -240,7 +240,7 @@ final class AppCoordinator: NSObject, Coordinator {
             root = makeParkingScan(finderVM)
         } else {
             entry = "manual"
-            root = makeParkingManualPlaceholder()   // T031에서 ParkingManualEntryViewController로 교체
+            root = makeParkingManualEntry(finderVM)
         }
         coordLogger.info("[ParkingFinder] entry: active-record=\(finderVM.hasActiveSession), camera=\(cameraStatus.rawValue) → \(entry)")
 
@@ -262,7 +262,7 @@ final class AppCoordinator: NSObject, Coordinator {
         }
         arVC.onRequestManualEntry = { [weak self] in
             guard let self else { return }
-            self.parkingNav?.setViewControllers([self.makeParkingManualPlaceholder()], animated: true)
+            self.parkingNav?.setViewControllers([self.makeParkingManualEntry(finderVM)], animated: true)
         }
         return arVC
     }
@@ -283,6 +283,11 @@ final class AppCoordinator: NSObject, Coordinator {
         }
         summaryVC.onStartGuidance = { [weak self] record in
             guard let self else { return }
+            guard AVCaptureDevice.authorizationStatus(for: .video) != .denied,
+                  AVCaptureDevice.authorizationStatus(for: .video) != .restricted else {
+                self.presentCameraSettingsAlert()   // 수동 등록·열람은 계속 가능 (FR-017)
+                return
+            }
             let arVM = ParkingARViewModel(mode: .find(target: record))
             let arVC = ParkingARViewController(viewModel: arVM)
             arVC.onClose = { [weak self] in
@@ -304,25 +309,34 @@ final class AppCoordinator: NSObject, Coordinator {
         return summaryVC
     }
 
-    private func makeParkingManualPlaceholder() -> UIViewController {
-        // TODO(T031/US3): ParkingManualEntryViewController로 교체
-        let placeholder = UIViewController()
-        placeholder.view.backgroundColor = Theme.Colors.background
-        let label = UILabel()
-        label.text = "직접 입력 화면 준비 중"
-        label.font = Theme.Fonts.headline
-        label.textColor = Theme.Colors.secondaryLabel
-        label.translatesAutoresizingMaskIntoConstraints = false
-        placeholder.view.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: placeholder.view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: placeholder.view.centerYAnchor),
-        ])
-        placeholder.navigationItem.leftBarButtonItem = UIBarButtonItem(
-            systemItem: .close,
-            primaryAction: UIAction { [weak self] _ in self?.dismissParkingFinder() }
+    private func makeParkingManualEntry(_ finderVM: ParkingFinderViewModel) -> UIViewController {
+        let manualVC = ParkingManualEntryViewController()
+        manualVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        manualVC.onSaved = { [weak self] record in
+            guard let self else { return }
+            finderVM.adopt(record)
+            self.parkingNav?.setViewControllers(
+                [self.makeParkingSummary(finderVM, justSaved: true)],
+                animated: true
+            )
+        }
+        return manualVC
+    }
+
+    /// 카메라 권한 거부 상태에서 카메라 기능 진입 시 설정 이동 안내 (FR-017)
+    private func presentCameraSettingsAlert() {
+        let alert = UIAlertController(
+            title: "카메라 권한이 필요해요",
+            message: "기둥 코드를 인식하려면 설정에서 카메라를 허용해주세요. 코드 입력과 저장 정보 확인은 카메라 없이도 가능합니다.",
+            preferredStyle: .alert
         )
-        return placeholder
+        alert.addAction(UIAlertAction(title: "닫기", style: .cancel))
+        alert.addAction(UIAlertAction(title: "설정 열기", style: .default) { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        })
+        parkingNav?.present(alert, animated: true)
     }
 
     private func dismissParkingFinder() {
