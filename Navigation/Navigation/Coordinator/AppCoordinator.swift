@@ -860,6 +860,14 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showRecordingFileList()
         }
 
+        devToolsVC.onShowParkingLogs = { [weak self] in
+            let logListVC = ParkingLogListViewController()
+            logListVC.onDismiss = { [weak self] in
+                self?.navigationController.popViewController(animated: true)
+            }
+            self?.navigationController.pushViewController(logListVC, animated: true)
+        }
+
         navigationController.pushViewController(devToolsVC, animated: true)
     }
 

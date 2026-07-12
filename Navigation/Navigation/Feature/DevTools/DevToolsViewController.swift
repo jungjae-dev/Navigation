@@ -57,6 +57,7 @@ final class DevToolsViewController: UIViewController {
     var onDismiss: (() -> Void)?
     var onShowFileList: (() -> Void)?
     var onSelectRecordingFile: (() -> Void)?
+    var onShowParkingLogs: (() -> Void)?
 
     // MARK: - Init
 
@@ -186,36 +187,7 @@ final class DevToolsViewController: UIViewController {
 
     // MARK: - Parking Logs Export (DR-003, T042)
 
-    private func parkingLogFiles() -> [URL] {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let dir = docs.appendingPathComponent("ParkingLogs", isDirectory: true)
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.contentModificationDateKey]
-        )) ?? []
-        return files
-            .filter { $0.pathExtension == "ndjson" }
-            .sorted { lhs, rhs in
-                let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                return lhsDate > rhsDate
-            }
-    }
 
-    private func shareParkingLogs() {
-        let files = parkingLogFiles()
-        guard !files.isEmpty else {
-            let alert = UIAlertController(
-                title: "주차 관측 로그 없음",
-                message: "내 차 찾기 디버그를 켠 상태로 스캔/되찾기를 실행하면 로그가 기록됩니다.",
-                preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "확인", style: .default))
-            present(alert, animated: true)
-            return
-        }
-        let activity = UIActivityViewController(activityItems: files, applicationActivities: nil)
-        present(activity, animated: true)
-    }
 
     @objc private func predictiveDisplaySwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setPredictiveDisplayEnabled(sender.isOn)
@@ -395,10 +367,11 @@ extension DevToolsViewController: UITableViewDataSource {
                 cell.accessoryType = .disclosureIndicator
 
             case .parkingLogs:
-                config.text = "주차 관측 로그 내보내기"
-                config.secondaryText = "\(parkingLogFiles().count)개 (.ndjson)"
-                config.image = UIImage(systemName: "square.and.arrow.up")
+                config.text = "주차 관측 로그"
+                config.secondaryText = "\(ParkingLogListViewController.logFiles().count)개 (.ndjson)"
+                config.image = UIImage(systemName: "parkingsign.circle")
                 config.imageProperties.tintColor = .systemIndigo
+                cell.accessoryType = .disclosureIndicator
             }
 
         case .lbsProvider:
@@ -511,7 +484,7 @@ extension DevToolsViewController: UITableViewDelegate {
             case .manageFiles:
                 onShowFileList?()
             case .parkingLogs:
-                shareParkingLogs()
+                onShowParkingLogs?()
             }
 
         case .debug:
