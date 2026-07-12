@@ -34,7 +34,7 @@ final class ParkingARViewModel {
         case searching
         case needMore(message: String)
         case guiding(stageLabel: String, arrowRadians: Double, distanceMeters: Double, confidence: GridEstimate.Confidence)
-        case degraded(targetCode: String)
+        case degraded(targetCode: String, hint: String?)
         case arrived
     }
 
@@ -99,6 +99,8 @@ final class ParkingARViewModel {
     private var neighborLogged: Set<String> = []
     private var floorReminderShown = false
     private let targetParsedCode: ParsedCode?
+    private var gradientHint = NumberGradientHint()
+    private var lastGradientMessage: String?
 
     init(mode: Mode) {
         self.mode = mode
@@ -106,7 +108,7 @@ final class ParkingARViewModel {
             targetParsedCode = PillarCodeParser.parse(record.targetCodeRaw)
             if record.templateSkeleton == PillarCodeParser.rawSkeleton {
                 // 파싱 불가 세션: 격자 안내 불가 — 근접확인 모드 고정 (FR-016, T034)
-                guidanceState.send(.degraded(targetCode: record.targetCodeRaw))
+                guidanceState.send(.degraded(targetCode: record.targetCodeRaw, hint: nil))
             }
         } else {
             targetParsedCode = nil
@@ -137,9 +139,11 @@ final class ParkingARViewModel {
         cachedTargetPosition = nil
         lastEstimate = nil
         raycastFailStreak = 0
+        gradientHint.reset()
+        lastGradientMessage = nil
         if case .find(let record) = mode {
             if record.templateSkeleton == PillarCodeParser.rawSkeleton {
-                guidanceState.send(.degraded(targetCode: record.targetCodeRaw))
+                guidanceState.send(.degraded(targetCode: record.targetCodeRaw, hint: nil))
             } else {
                 guidanceState.send(.searching)
             }
@@ -384,6 +388,16 @@ final class ParkingARViewModel {
             confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0
         )
 
+        // 번호 그라디언트 힌트 갱신 (FR-012) — 같은 구역(또는 둘 다 구역 없음)의 확정 관측만
+        if let targetNumber = targetParsedCode?.numberValue,
+           let observedNumber = parsed.numberValue,
+           parsed.zoneToken == targetParsedCode?.zoneToken,
+           (observations[parsed.raw]?.hits ?? 0) >= ParkingTuning.confirmHits {
+            lastGradientMessage = gradientHint.hint(
+                targetNumber: targetNumber, observedNumber: observedNumber
+            )
+        }
+
         // 파싱 불가 세션은 근접확인 모드 고정 — 격자 추정 생략 (FR-016)
         guard record.templateSkeleton != PillarCodeParser.rawSkeleton else {
             return .accepted(code: parsed.raw)
@@ -460,7 +474,7 @@ final class ParkingARViewModel {
                 : "같은 구역의 다른 번호 기둥을 비춰주세요"
             newState = .needMore(message: message)
         case .degraded:
-            newState = .degraded(targetCode: record.targetCodeRaw)
+            newState = .degraded(targetCode: record.targetCodeRaw, hint: lastGradientMessage)
         case .axisGuidance, .gridGuidance:
             guard let target = cachedTargetPosition,
                   let devicePos = lastDevicePosition,

@@ -430,8 +430,14 @@ final class ParkingARViewController: UIViewController {
             let dots = ["●○○", "●●○", "●●●"][confidence.rawValue]
             guidanceInfoLabel.text = "  ~\(Int(distance.rounded()))m 이 방향\n\(stageLabel) · 신뢰도 \(dots)  "
 
-        case .degraded:
-            guidanceLabel.text = "  번호 배치가 불규칙해요\n주변 기둥에서 \(targetCode) 를 직접 확인하세요  "
+        case .degraded(_, let hint):
+            if let hint {
+                guidanceLabel.text = "  \(hint)  "
+                guidanceInfoLabel.isHidden = false
+                guidanceInfoLabel.text = "  배치가 불규칙해 방향 대신\n번호 힌트로 안내 중  "
+            } else {
+                guidanceLabel.text = "  번호 배치가 불규칙해요\n주변 기둥에서 \(targetCode) 를 직접 확인하세요  "
+            }
 
         case .arrived:
             arrivedOverlay.isHidden = false
