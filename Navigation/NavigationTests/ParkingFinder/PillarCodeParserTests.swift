@@ -122,6 +122,21 @@ struct PillarCodeParserTests {
         #expect(!PillarCodeParser.matchesTemplate(candidate, skeleton: PillarCodeParser.rawSkeleton))
     }
 
+    // MARK: - 선행 0 정규화 (260712 현장 로그: "09"/"9" 표기 흔들림)
+
+    @Test func stripsLeadingZerosInNumbers() {
+        #expect(PillarCodeParser.parse("09")?.raw == "9")
+        #expect(PillarCodeParser.parse("09")?.numberValue == 9)
+        #expect(PillarCodeParser.parse("B02-A-03")?.raw == "B2-A-3")
+        #expect(PillarCodeParser.normalized("09") == PillarCodeParser.normalized("9"))
+    }
+
+    @Test func zeroAloneIsPreserved() {
+        // 단독 0은 유지 ("A-0" 같은 코드 방어)
+        #expect(PillarCodeParser.normalized("A-0") == "A-0")
+        #expect(PillarCodeParser.parse("10")?.raw == "10")   // 0이 선행이 아니면 그대로
+    }
+
     // MARK: - OCR 오인식 관련 경계
 
     @Test func gridUsableRequiresZoneOrNumber() {

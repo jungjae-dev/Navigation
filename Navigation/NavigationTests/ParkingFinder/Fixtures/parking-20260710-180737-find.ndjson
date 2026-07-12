@@ -1,0 +1,432 @@
+{"mode":"find","target":{"skeleton":"N","raw":"9","floor":"B1"},"lidar":true,"e":"sessionStart","neighbors":[],"device":"iPhone","t":0.002}
+{"t":0.55600000000000005,"e":"devicePose","pos":[0,0,0],"heading":[-0.17299999999999999,-0.98499999999999999]}
+{"t":1.0069999999999999,"reason":"low-conf","e":"candidateRejected","raw":"N?? ~N80"}
+{"t":1.0069999999999999,"reason":"low-conf","e":"candidateRejected","raw":"독작볼 출행 시이"}
+{"t":1.3400000000000001,"raw":"옥서실 통생 제장","e":"candidateRejected","reason":"low-conf"}
+{"t":1.341,"raw":"094 ~ 23시","e":"candidateRejected","reason":"low-conf"}
+{"t":1.341,"raw":"18%","e":"candidateRejected","reason":"low-conf"}
+{"pos":[0.0040000000000000001,0.014999999999999999,0.017999999999999999],"e":"devicePose","t":1.6399999999999999,"heading":[-0.253,-0.96699999999999997]}
+{"e":"candidateRejected","reason":"low-conf","t":1.6899999999999999,"raw":"독시실 용생 시간"}
+{"e":"candidateRejected","reason":"low-conf","t":1.6910000000000001,"raw":"09시 ~ 234"}
+{"e":"candidateRejected","reason":"low-conf","t":1.6910000000000001,"raw":"10m"}
+{"e":"candidateRejected","reason":"low-conf","t":1.6919999999999999,"raw":"1800"}
+{"reason":"low-conf","raw":"독서질 손명 시간","t":2.0230000000000001,"e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","raw":"09시 ~ 23시","t":2.024}
+{"e":"candidateRejected","reason":"low-conf","raw":"8a","t":2.0249999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"180","t":2.0249999999999999}
+{"reason":"low-conf","t":2.3570000000000002,"raw":"180","e":"candidateRejected"}
+{"reason":"low-conf","t":2.3580000000000001,"raw":"독서실 문영 시간","e":"candidateRejected"}
+{"reason":"low-conf","t":2.3580000000000001,"raw":"09시 ~ 23시","e":"candidateRejected"}
+{"reason":"low-conf","t":2.359,"raw":"오무민 슬 평;","e":"candidateRejected"}
+{"e":"devicePose","t":2.6400000000000001,"heading":[-0.246,-0.96899999999999997],"pos":[0.002,-0.012999999999999999,-0]}
+{"e":"candidateRejected","reason":"low-conf","raw":"독서실 용불 사장","t":2.6899999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"09시 ~ 28시","t":2.6909999999999998}
+{"e":"candidateRejected","reason":"low-conf","raw":"10%g","t":2.6920000000000002}
+{"e":"candidateRejected","reason":"low-conf","raw":"1-100","t":2.6920000000000002}
+{"pos":[0.060999999999999999,-0.128,-0.0050000000000000001],"heading":[-0.056000000000000001,-0.998],"t":3.6400000000000001,"e":"devicePose"}
+{"t":4.6399999999999997,"e":"devicePose","heading":[0.48999999999999999,-0.872],"pos":[0.22,-0.14599999999999999,0.066000000000000003]}
+{"raw":"MLPSM) •U2(M) - K0P - BIR) - mM","reason":"low-conf","e":"candidateRejected","t":5.0419999999999998}
+{"raw":"L aw T-nune laa aMeaine te","reason":"low-conf","e":"candidateRejected","t":5.0430000000000001}
+{"raw":"\"\"","reason":"low-conf","e":"candidateRejected","t":5.0439999999999996}
+{"raw":"1.~","reason":"low-conf","e":"candidateRejected","t":5.0469999999999997}
+{"raw":"81","reason":"low-conf","e":"candidateRejected","t":5.0490000000000004}
+{"t":5.375,"raw":"# vth (es 다b","e":"candidateRejected","reason":"low-conf"}
+{"t":5.3760000000000003,"raw":"KSILJRC S BNG BO CS PIM","e":"candidateRejected","reason":"low-conf"}
+{"t":5.3769999999999998,"raw":"0 1~ 0me 2 - 082(P0EM) + 824제) - 180(S) ~ 0nlm - 0","e":"candidateRejected","reason":"low-conf"}
+{"t":5.3780000000000001,"raw":"3","e":"candidateRejected","reason":"low-conf"}
+{"heading":[0.496,-0.86799999999999999],"t":5.6399999999999997,"e":"devicePose","pos":[0.23799999999999999,-0.154,0.070000000000000007]}
+{"e":"candidateRejected","reason":"low-conf","t":5.9080000000000004,"raw":"\/elxtures\/n.ndy son 텍스처커"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9089999999999998,"raw":"000 B그 수g + NawlgettanTests\/Parkai"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9109999999999996,"raw":"명 + 라플라이 데스트 케이스를"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9119999999999999,"raw":"•1 TD4s 일치로 클님 (수 집징한 PotiroTuee"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9130000000000003,"raw":"연속 2믹스면 휴매 3호-15회) 상우를"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9139999999999997,"raw":"POeGN RIOCR d북도 Q특한차 바비비(3 2직)"}
+{"e":"candidateRejected","reason":"low-conf","t":5.915,"raw":"Service\/Parking\/ParelngTun ing.sxlft 로 으으고 함동 표그 기한 초비(물님 시유 추식)"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"•[) TOA DP [스파이크) 초 에 LDAM 실기게 데기 의의"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"+ 성공물 비고 수"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"는 업 손성 및 기능 영출성 전복"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"3부차를 부활 위치 안내 기능 튀겨"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"에속 전방의"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"다러므 정보는 이떻게 볼수 있아?"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"v0 꽉 18 살팩"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"1.키는 방법"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9160000000000004,"raw":"식울 손사"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9169999999999998,"raw":"아무거"}
+{"e":"candidateRejected","reason":"low-conf","t":5.9180000000000001,"raw":"20 1 - m 1 ~ (57(79번계) - (7(P) ~ 93(05) - B(MC) - 0M"}
+{"reason":"low-conf","raw":"L 05gw 7851-T0o3e Lata avsemsne wR","e":"candidateRejected","t":5.9189999999999996}
+{"reason":"low-conf","raw":"•번 위엔 Ute Osfmcn에 지장되여","e":"candidateRejected","t":5.9189999999999996}
+{"reason":"low-conf","raw":"2.꺼번 AR 화연에 보이는","e":"candidateRejected","t":5.9189999999999996}
+{"reason":"low-conf","raw":"백사 안나 • 광속 4[9후 21 •4","e":"candidateRejected","t":5.9189999999999996}
+{"reason":"low-conf","raw":"TI4A-TW47(원룸)폰 TI3(CH그 도카 이후가 효율리","e":"candidateRejected","t":5.9199999999999999}
+{"reason":"low-conf","raw":"1N: US1 G속 • LVP 상분, US3(7031-1933)은 U32 없이 텍스트 가능, U82는 U81 때","e":"candidateRejected","t":5.9210000000000003}
+{"reason":"low-conf","e":"candidateRejected","t":5.9219999999999997,"raw":"W 2,7922\/1023(후불70e US2 최선투 -기키 얻어리"}
+{"reason":"low-conf","e":"candidateRejected","t":5.923,"raw":"• PaM 2 70041 7005 (모늘 피석 서로 특탁)+이후 T004 ( 7000"}
+{"reason":"low-conf","e":"candidateRejected","t":5.9240000000000004,"raw":"•USt T011+T012 - T0131014순화 + 10174 70180 7019"}
+{"reason":"low-conf","e":"candidateRejected","t":5.9240000000000004,"raw":"• U울z 1023 • 1023 [구한채스를 매) 후 7004부터 6차"}
+{"reason":"low-conf","e":"candidateRejected","t":5.9249999999999998,"raw":"CPe 1038-7038 T 7939 \/7040"}
+{"reason":"low-conf","e":"candidateRejected","t":5.9260000000000002,"raw":"romn"}
+{"raw":"the cornet wons rlge","t":5.9290000000000003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"tftme 0","t":5.931,"e":"candidateRejected","reason":"low-conf"}
+{"e":"candidateRejected","t":5.9340000000000002,"reason":"low-conf","raw":"환\/A"}
+{"reason":"low-conf","t":6.242,"raw":"1은 B용저의 제스를 레비스를","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2430000000000003,"raw":"•T| 1048 영가의 품닝 Iy+ 담콤를 fethg","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2439999999999998,"raw":"SAUEh HOCN 선매를 중승간의 주화서(하에 한석+호가동록 연속 요치스럽 유벽 18-(6회) #수를","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2439999999999998,"raw":"YV 중크 기는 손립해님 식용 추의","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2450000000000001,"raw":"•11 T0A 1F (스하이리) 트동니","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2460000000000004,"raw":"thmd ed + C을 A!","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2480000000000002,"raw":"1카름 (ONaM 성품을 비울 수","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2489999999999997,"raw":"3로 코드 용 수입는 특한 후부-A세이로","e":"candidateRejected"}
+{"reason":"low-conf","t":6.25,"raw":"• T4용 S를 최류 (서천","e":"candidateRejected"}
+{"reason":"low-conf","t":6.25,"raw":"C 1• PuG D • H1(OPMR) • WHA) • SBAR) - SIN) • BN","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2510000000000003,"raw":"(02 188) ㅢ","e":"candidateRejected"}
+{"reason":"low-conf","t":6.2519999999999998,"raw":"L ww wwwwe bw avheaire vo","e":"candidateRejected"}
+{"t":6.2530000000000001,"reason":"low-conf","raw":"THA-T8)(E동)은 T84(타H그 드위) 어우서 00부","e":"candidateRejected"}
+{"t":6.2539999999999996,"reason":"low-conf","raw":"1U E족 • UD w US:(7081-1030)9 U8 비레 마스트 7능, U0p U0f 때","e":"candidateRejected"}
+{"reason":"low-conf","raw":"(eT0eA을 P & T000\/TOED\/주통기은 UBP 최민을 - P 일이 의","t":6.2549999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"• FHASE원 1084 + T80S (9N 파서 시품","t":6.258,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"1N\/109 *200R014 64 + 100 104 1mole","t":6.2610000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"USN TOP0T000(구동해스트 이)0 T0N4Y의","t":6.2629999999999999,"e":"candidateRejected"}
+{"e":"candidateRejected","t":6.266,"reason":"low-conf","raw":"•PE 7088178901 79897 1043"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"\""}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"전심 불거는 동양님 함국"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"지비쿠처를 사용 성적 하나 서능 수기"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"타려그 알라을 위깨에 음수 말려을"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"• 아그 설성용 비는 영성품 서울•"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"1. 거는 방법 (물종 아부"}
+{"e":"candidateRejected","t":6.2679999999999998,"reason":"low-conf","raw":"0F"}
+{"e":"candidateRejected","t":6.2690000000000001,"reason":"low-conf","raw":"Carteol 제h = 영정 해제"}
+{"e":"candidateRejected","t":6.2690000000000001,"reason":"low-conf","raw":"3.허법 AR 화던데 보아!"}
+{"e":"candidateRejected","t":6.4080000000000004,"reason":"low-conf","raw":"L- ww wrwe dut wsine se"}
+{"e":"candidateRejected","t":6.4100000000000001,"reason":"low-conf","raw":"TB1EA3 S휘I G용가 BOM"}
+{"e":"candidateRejected","t":6.4119999999999999,"reason":"low-conf","raw":"."}
+{"pos":[0.246,-0.20699999999999999,0.047],"heading":[0.52700000000000002,-0.84999999999999998],"e":"devicePose","t":6.641}
+{"raw":"MIN)E WI BE","t":6.7750000000000004,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"(4+87(89)8","t":6.7770000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"S\/ = 월 106용 9821-1904 이","t":6.7770000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"169","t":6.7779999999999996,"reason":"low-conf","e":"candidateRejected"}
+{"reason":"low-conf","t":7.3920000000000003,"raw":"003 로그수집 + RovigatieaTerta","e":"candidateRejected"}
+{"raw":"※•리콜에이 세스트 케비스트","reason":"low-conf","t":7.3940000000000001,"e":"candidateRejected"}
+{"raw":"• [] TO4S 월게운 유닝 (왕은 함류은 Pokingl","reason":"low-conf","t":7.3949999999999996,"e":"candidateRejected"}
+{"raw":"wwerch BTOCR 신리도 0.8만처 man(3m,간객~0.개V\/도착 연속 2회","reason":"low-conf","t":7.3970000000000002,"e":"candidateRejected"}
+{"raw":"Service\/Parking\/Parking funi","reason":"low-conf","t":7.3979999999999997,"e":"candidateRejected"}
+{"raw":"N,S1PE 로 모으고 현장 표의 기분 초핑(제닝 서용특색)","reason":"low-conf","t":7.3979999999999997,"e":"candidateRejected"}
+{"raw":"•[] T046 [P) [(스파이크) 중 비 LOAR 실기기 대기 - 비 LOAR 기름 (으)","reason":"low-conf","t":7.4000000000000004,"e":"candidateRejected"}
+{"e":"candidateRejected","raw":"wrchund 공선 + 필요 시 통백 문구 조핑 (스파이크 2)","t":7.4009999999999998,"reason":"low-conf"}
+{"reason":"low-conf","t":7.4029999999999996,"raw":"•[] T047 [P) [스파이크) 동 손왕 수집 대기 - 추차장 6-10곳 코드 물로 수입(를 효콘 유부스테레]","e":"candidateRejected"}
+{"reason":"low-conf","t":7.4050000000000002,"raw":"예부) +피서 스블레폰 테스트 보장 (스파이크3, 1044로그 정탕)","e":"candidateRejected"}
+{"reason":"low-conf","t":7.407,"raw":"•[] T048 최품 외귀 (사전 허귀 원료: 주차 텍스트 전부 prees MepMatcher-turo\/ype 각 1건 실팩","e":"candidateRejected"}
+{"reason":"low-conf","t":7.4080000000000004,"raw":"는 mah에도 혼자하는 기른 공봉 -본 기능 무관, 처용 회귀는 현장 세크포인트 후) -quchient 전제","e":"candidateRejected"}
+{"reason":"low-conf","t":7.4100000000000001,"raw":"(91-52-01-07)+ 5C-001~009 대조, 완료 기록 작성","e":"candidateRejected"}
+{"reason":"low-conf","t":7.4119999999999999,"raw":"ependoncles","e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","raw":"Mase 1 - Phase 2 ~ US1(P3단계) + US2(N) - U53(P5) - DR(P6) • 튜닝","t":7.4130000000000003}
+{"e":"candidateRejected","reason":"low-conf","raw":"(P7)","t":7.415}
+{"e":"candidateRejected","reason":"low-conf","raw":"(0S2 볼요) ㅢ","t":7.4160000000000004}
+{"e":"candidateRejected","reason":"low-conf","raw":"L 053m 783-73e 8514 ANSumaye w요","t":7.4160000000000004}
+{"t":7.4180000000000001,"raw":"T834면 U52(7824) 어후","reason":"low-conf","e":"candidateRejected"}
+{"t":7.4189999999999996,"raw":"DA(P8)은 053 하료 전배도 허수 가능(7136~1848은 특빔) -단 T841문 T822-1824 이","reason":"low-conf","e":"candidateRejected"}
+{"t":7.4210000000000003,"reason":"low-conf","raw":"T844~7847(한평)은 TB43(디H그 도구) 이후가 효움적","e":"candidateRejected"}
+{"t":7.4219999999999997,"reason":"low-conf","raw":"•스트리특팅상: UJS1 단톡= LVP 성업, US3(7031-1033)은 U82 없어 테스트 가능. US2는 U51팩","e":"candidateRejected"}
+{"t":7.4240000000000004,"reason":"low-conf","raw":"이의 건치」","e":"candidateRejected"}
+{"t":7.4249999999999998,"reason":"low-conf","raw":"• 손수 코어 선물 700%7006(파서)은 Phaee 2,7022\/71023(#제기)은 US2 최선두 - 기거 없어리","e":"candidateRejected"}
+{"t":7.4260000000000002,"reason":"low-conf","raw":"스크 소정(plag 구분 순서 PO 원치)","e":"candidateRejected"}
+{"t":7.4279999999999999,"reason":"low-conf","raw":"Porslel Example","e":"candidateRejected"}
+{"raw":"• Pess 2 T0041 7005 (드륨녹서 서 특림) +이후 7006+7007","reason":"low-conf","t":7.4290000000000003,"e":"candidateRejected"}
+{"raw":"• UST: T011 •7012 + 7013-7014 순차 + 7017 4 1018 \/ 1019","reason":"low-conf","t":7.431,"e":"candidateRejected"}
+{"raw":"• Uszt T022 | 7023 (구분 테스트 백) 후 1024부터 순차","reason":"low-conf","t":7.4320000000000004,"e":"candidateRejected"}
+{"raw":"•pe T030170040 703017040","reason":"low-conf","t":7.4340000000000002,"e":"candidateRejected"}
+{"raw":"OUTPU","reason":"low-conf","t":7.4349999999999996,"e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","raw":"DEBUO CONSOLE","t":7.4359999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"POR ORLAN","t":7.4379999999999997}
+{"e":"candidateRejected","reason":"low-conf","raw":"teote Coole net rad tre","t":7.4390000000000001}
+{"e":"candidateRejected","reason":"low-conf","raw":"+0","t":7.4390000000000001}
+{"e":"candidateRejected","reason":"low-conf","raw":"9040","t":7.4429999999999996}
+{"e":"candidateRejected","reason":"low-conf","raw":"•nc","t":7.4450000000000003}
+{"e":"candidateRejected","reason":"low-conf","raw":"3","t":7.4470000000000001}
+{"t":7.4489999999999998,"reason":"low-conf","raw":"ㄸ","e":"candidateRejected"}
+{"t":7.4509999999999996,"reason":"low-conf","raw":"E","e":"candidateRejected"}
+{"t":7.4530000000000003,"reason":"low-conf","raw":"ㅈ","e":"candidateRejected"}
+{"t":7.4550000000000001,"reason":"low-conf","raw":"L","e":"candidateRejected"}
+{"t":7.4569999999999999,"reason":"skeleton-mismatch","raw":"Z","e":"candidateRejected"}
+{"t":7.4569999999999999,"reason":"low-conf","raw":"K","e":"candidateRejected"}
+{"t":7.4589999999999996,"reason":"skeleton-mismatch","raw":"C","e":"candidateRejected"}
+{"t":7.46,"reason":"low-conf","raw":"요","e":"candidateRejected"}
+{"pos":[0.251,-0.224,0.033000000000000002],"e":"devicePose","heading":[0.51300000000000001,-0.85899999999999999],"t":7.7409999999999997}
+{"reason":"low-conf","t":7.8419999999999996,"e":"candidateRejected","raw":"Meall"}
+{"reason":"low-conf","t":7.8440000000000003,"e":"candidateRejected","raw":"ㅂ"}
+{"reason":"low-conf","t":7.8460000000000001,"e":"candidateRejected","raw":"control"}
+{"reason":"low-conf","t":7.8479999999999999,"e":"candidateRejected","raw":"•[) 7048 (P) [스파이크) 종 비LDAR 즐기기 대기 -해 L008 기를 (0)"}
+{"reason":"low-conf","t":7.8490000000000002,"e":"candidateRejected","raw":"rewechunnd 종산 + 필요시를매문구 초행 (스페이크 카)"}
+{"reason":"low-conf","t":7.8490000000000002,"e":"candidateRejected","raw":"• [) T047 (P] (스파이크) 그 형장 수입 대기 - 추시탕 6-10분 코드 표켓 수입(를 퇴한 용루스세"}
+{"reason":"low-conf","t":7.851,"e":"candidateRejected","raw":"어비) + 퍼서 스콜젝트 세스트 브랑 (스파이크 4, 1044 초3 종용)"}
+{"reason":"low-conf","t":7.851,"e":"candidateRejected","raw":"•[)1 T04s 화종 최귀 (시면 최커 함료: 후차 제스트 B부 eroeg Adeoulacher funotioa e 10 ar"}
+{"raw":"E maiv에도 존재하는 기준 중을 -분 기능 우관, 회를 회귀는 함량 제크로인트위!- 후","e":"candidateRejected","reason":"low-conf","t":7.8529999999999998}
+{"raw":"(51-8201-07)+ 8C-001-008 대로, 한료기록 착용","e":"candidateRejected","reason":"low-conf","t":7.8540000000000001}
+{"raw":"Dapindancks","e":"candidateRejected","reason":"low-conf","t":7.8559999999999999}
+{"raw":"Piuse 1 - Pase 2 - 051(P3단계) • U52(M4) - 053(P5) - DR(P) - 휴닝","e":"candidateRejected","reason":"low-conf","t":7.8579999999999997}
+{"raw":"(P기)","e":"candidateRejected","reason":"low-conf","t":7.859}
+{"raw":"(052 월1요) ㅢ","e":"candidateRejected","reason":"low-conf","t":7.8609999999999998}
+{"reason":"low-conf","t":7.8630000000000004,"raw":"T034만 US2(7824) 이후","e":"candidateRejected"}
+{"reason":"low-conf","t":7.8650000000000002,"raw":"OA(PO)E US2 분트 현애도 특수 가능(7836~1840원 특립) - 단 TM41은 7822•1824 이","e":"candidateRejected"}
+{"reason":"low-conf","t":7.8659999999999997,"raw":".","e":"candidateRejected"}
+{"reason":"low-conf","raw":"T844~1847(형정)톤 1843(디비그 도구) 이후가 효음록","e":"candidateRejected","t":7.8680000000000003}
+{"reason":"low-conf","raw":"• 스트러 특법상: U81 단톡= MYP 성림, US3\/10a1~1033)은 U82 원어 레스트 가능. US2는 U51대","e":"candidateRejected","t":7.8700000000000001}
+{"reason":"low-conf","raw":"어떠 폰데","e":"candidateRejected","t":7.8710000000000004}
+{"reason":"low-conf","raw":"• 순수 코어 선불: 100s\/1006(파서)은 Pfase 2,T022\/1023(후점7)은 U52 최선투-기기앞이라","e":"candidateRejected","t":7.8730000000000002}
+{"reason":"low-conf","raw":"스크 소비(어a) 구분 순서 PO 한해)","e":"candidateRejected","t":7.875}
+{"reason":"low-conf","raw":"Perotlel Examph","e":"candidateRejected","t":7.8760000000000003}
+{"reason":"low-conf","raw":"•Phes 2: 7004\/ 7006(모늘•미서 서특회) +이후 7006\/7007","e":"candidateRejected","t":7.8780000000000001}
+{"reason":"low-conf","raw":"• USt 7011 \/ 1012+ 1013-1014 순차 + 101717018 \/7019","e":"candidateRejected","t":7.8789999999999996}
+{"reason":"low-conf","raw":"•U82: 7022 ( 1023 (구브레스를 배) 총 1024부터 순차","e":"candidateRejected","t":7.8799999999999999}
+{"reason":"low-conf","raw":"• P8: 1038 \/ 7038 \/7039\/7040","e":"candidateRejected","t":7.8819999999999997}
+{"reason":"low-conf","raw":"OUTPUT","e":"candidateRejected","t":7.883}
+{"reason":"low-conf","raw":"CEAUN CONSOLE","t":7.8840000000000003,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"owlpettoo Leejjtzse gut mtl","t":7.8860000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"Tetsty Cante wet read tre nete rweattery","t":7.8869999999999996,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"Ne Aun bea Ae the correct ecoesy rigie","t":7.8890000000000002,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"+②","t":7.8890000000000002,"e":"candidateRejected"}
+{"pos":[0.40200000000000002,-0.438,-0.17899999999999999],"e":"codeObserved","t":7.8920000000000003,"parsed":{"floor":null,"zoneIdx":null,"zone":null,"num":2},"conf":1,"raw":"2","hit":1}
+{"confidence":1,"origin":null,"numVec":null,"residualRMS":0,"targetEst":null,"e":"gridUpdated","t":7.8920000000000003,"obs":0,"zoneVec":null,"stage":"searching"}
+{"to":"searching","e":"stateTransition","trigger":"obs=0","t":7.8929999999999998,"from":"-"}
+{"reason":"low-conf","raw":"W","e":"candidateRejected","t":7.8949999999999996}
+{"reason":"skeleton-mismatch","raw":"E","e":"candidateRejected","t":7.8970000000000002}
+{"reason":"skeleton-mismatch","raw":"R","e":"candidateRejected","t":7.9000000000000004}
+{"e":"candidateRejected","reason":"low-conf","t":7.9020000000000001,"raw":"ㅊ"}
+{"e":"candidateRejected","reason":"low-conf","t":7.9039999999999999,"raw":"S"}
+{"e":"candidateRejected","reason":"low-conf","t":7.9059999999999997,"raw":"0"}
+{"e":"candidateRejected","reason":"skeleton-mismatch","t":7.907,"raw":"Z"}
+{"raw":"CBMt","t":8.3759999999999994,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"N Met","t":8.3770000000000007,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Ioall","t":8.3780000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"•(] T046 IPI [스파이크) 종 비 LDAM 실기기 대기 - 비 LI0AR 기름 (8yCat 영성를 비르가","t":8.3780000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"wurchmd 광선 +월요 시 음백 문구 조정 (스파이크 2)","t":8.3800000000000008,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"• [] T047 (P) (스파이크) 홈 현장 수정 대기 - 추차장 6-10곳 코드 표맷 수침(를 료론 후쿠스테이크","t":8.3800000000000008,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"예부) +파서 스퀘레븐 레스트 보감 (스파이크 &, T044로 경용)","t":8.3810000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"•[] T048 최종 회귀 (사전 최귀 완료: 주차 비스트 전부 geeny, MapMatchar-Turnype 해 1천 들께","t":8.3810000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"는 maih에도 존지하는 기존 길발 -는 가능 무관, 최품 회귀는 현장 체크로인트 후) -quckstant 전재","t":8.3810000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"(S1-92-01-07)+ 50-001-000 대족, 완료기록 작성","t":8.3829999999999991,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Dependencles","t":8.3840000000000003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Phase 1 - Phase 2 • 051(P3단계) + U52(P4) + U53(P5) + DR(P6) • 중닝","t":8.3859999999999992,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"(P7)","t":8.3870000000000005,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"U53의 7831~1633은 U51의 AR\/Sumnary만 필요","t":8.3879999999999999,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"(US2 월요)","t":8.3889999999999993,"e":"candidateRejected","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3889999999999993,"raw":"T834만 U52(T824) 이후","reason":"low-conf"}
+{"e":"candidateRejected","t":8.391,"raw":"OR(P6)은 U52 원료 현에도 학수 가능(T836~1848은 특신) - 단 T841은 T822•7824 이","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3930000000000007,"raw":"Tu4A TE7 (한공)은 TW4B(디비그 호구) 이유가 흐출적","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3940000000000001,"raw":"+ 스트리 특항상: US1 단톡 = MVP 성법. US3(7031-1033)은 U52 원어 테스트 가능 U52는 US1대","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3960000000000008,"raw":"이터 관계,","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3979999999999997,"raw":"• 순수 코어 선방: T00s\/006(파서)은 Phuse 2,T022\/71023(후정기)은 US2 최선두 - 기기 없이 리","reason":"low-conf"}
+{"e":"candidateRejected","t":8.3989999999999991,"raw":"스크 소전(olkn) 구분 순서 PO 원혜)","reason":"low-conf"}
+{"raw":"MAOBLAMS","t":8.4009999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Parohlal Exampls","t":8.4030000000000005,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"• Phase 2: T004 1 1006 (모일-매서 서품 특티) + 이후 7006 \/T067","t":8.4039999999999999,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"•USt T011: 1012+ 7013-1014 순차 T017 \/ 7018\/ 7019","t":8.4060000000000006,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"• USz- T022 \/ 7023 (구분세스트 백) 후 1024부터 순식","t":8.407,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"• P8s 7006\/7038 \/ 1039 \/7040","t":8.4090000000000007,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"QUTRUT","t":8.4100000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"DEBUS CONSOLE","t":8.4120000000000008,"e":"candidateRejected","reason":"low-conf"}
+{"t":8.4130000000000003,"reason":"low-conf","raw":"TERLINL","e":"candidateRejected"}
+{"t":8.4149999999999991,"reason":"low-conf","raw":"PORTS","e":"candidateRejected"}
+{"t":8.4149999999999991,"reason":"low-conf","raw":"OITLENS","e":"candidateRejected"}
+{"raw":"w1112년4 plt wal","t":8.4160000000000004,"e":"candidateRejected","reason":"low-conf"}
+{"reason":"low-conf","t":8.4179999999999993,"raw":"tataly Caule oatf","e":"candidateRejected"}
+{"reason":"low-conf","t":8.4190000000000005,"raw":"⑨020","e":"candidateRejected"}
+{"reason":"low-conf","t":8.4209999999999994,"raw":"P ane thu corect wtang rlont","e":"candidateRejected"}
+{"raw":"L1on 1wj1221 0","t":8.4220000000000006,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"¢","t":8.4220000000000006,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"w","t":8.4250000000000007,"reason":"low-conf","e":"candidateRejected"}
+{"conf":1,"parsed":{"floor":null,"zoneIdx":null,"zone":null,"num":2},"raw":"2","hit":2,"e":"codeObserved","pos":[0.40200000000000002,-0.436,-0.184],"t":8.4280000000000008}
+{"confidence":1,"obs":1,"stage":"searching","residualRMS":0,"numVec":null,"zoneVec":null,"origin":null,"e":"gridUpdated","targetEst":null,"t":8.4280000000000008}
+{"conf":1,"parsed":{"zone":null,"floor":null,"zoneIdx":null,"num":3},"raw":"3","hit":1,"e":"codeObserved","pos":[0.41599999999999998,-0.436,-0.17000000000000001],"t":8.4309999999999992}
+{"confidence":1,"obs":1,"stage":"searching","residualRMS":0,"numVec":null,"zoneVec":null,"origin":null,"e":"gridUpdated","targetEst":null,"t":8.4309999999999992}
+{"raw":"*","t":8.4329999999999998,"reason":"low-conf","e":"candidateRejected"}
+{"reason":"skeleton-mismatch","e":"candidateRejected","raw":"IA","t":8.4350000000000005}
+{"reason":"low-conf","e":"candidateRejected","raw":"ㅃ","t":8.4369999999999994}
+{"reason":"low-conf","e":"candidateRejected","raw":"Q","t":8.4420000000000002}
+{"t":8.4459999999999997,"reason":"low-conf","e":"candidateRejected","raw":"ㅈ"}
+{"t":8.4480000000000004,"reason":"low-conf","e":"candidateRejected","raw":"Z"}
+{"t":8.4510000000000005,"reason":"low-conf","e":"candidateRejected","raw":"ㄸ"}
+{"raw":"E","reason":"low-conf","t":8.4529999999999994,"e":"candidateRejected"}
+{"raw":"a","reason":"low-conf","t":8.4570000000000007,"e":"candidateRejected"}
+{"raw":"ㄲ","reason":"low-conf","t":8.4589999999999996,"e":"candidateRejected"}
+{"raw":"~","reason":"low-conf","t":8.4610000000000003,"e":"candidateRejected"}
+{"raw":"D","reason":"low-conf","t":8.4629999999999992,"e":"candidateRejected"}
+{"raw":"\"","reason":"low-conf","t":8.4659999999999993,"e":"candidateRejected"}
+{"raw":"5","t":8.468,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"R","t":8.4700000000000006,"e":"candidateRejected","reason":"skeleton-mismatch"}
+{"raw":"F","t":8.4719999999999995,"e":"candidateRejected","reason":"skeleton-mismatch"}
+{"raw":"×","t":8.4770000000000003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Option","reason":"low-conf","e":"candidateRejected","t":8.4779999999999998}
+{"raw":"C","reason":"skeleton-mismatch","e":"candidateRejected","t":8.4809999999999999}
+{"t":8.484,"e":"candidateRejected","raw":"T","reason":"low-conf"}
+{"t":8.4860000000000007,"e":"candidateRejected","raw":"ㅎ","reason":"low-conf"}
+{"t":8.4879999999999995,"e":"candidateRejected","raw":"V","reason":"low-conf"}
+{"t":8.4879999999999995,"e":"candidateRejected","raw":"\"","reason":"low-conf"}
+{"t":8.4879999999999995,"e":"candidateRejected","raw":"ㅛ","reason":"low-conf"}
+{"t":8.4900000000000002,"e":"candidateRejected","raw":"G","reason":"low-conf"}
+{"t":8.4900000000000002,"e":"candidateRejected","raw":"ㅗ","reason":"low-conf"}
+{"t":8.4900000000000002,"e":"candidateRejected","raw":"B","reason":"skeleton-mismatch"}
+{"t":8.4909999999999997,"e":"candidateRejected","raw":"H","reason":"skeleton-mismatch"}
+{"t":8.4909999999999997,"e":"candidateRejected","raw":"N","reason":"skeleton-mismatch"}
+{"t":8.4909999999999997,"e":"candidateRejected","raw":"ㅜ","reason":"low-conf"}
+{"pos":[0.251,-0.22700000000000001,0.032000000000000001],"t":8.7409999999999997,"e":"devicePose","heading":[0.497,-0.86799999999999999]}
+{"t":8.9090000000000007,"raw":"!","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9109999999999996,"raw":"researchumd 갱신 + 필요 시 공백 문구 조청 (스파이크 2)","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9120000000000008,"raw":"•[] T047 [P] (스파이크) 홈 천장 수집 대기 - 주차장 6~10곳 코드 표랫 수립(","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9120000000000008,"raw":"유우스세","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9139999999999997,"raw":"예부) + 피서 스텔레른 테스트 보강 (스파이크 3, 1044 로그 검용)","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9139999999999997,"raw":"• [] T048 최종 최귀 (사면 회귀 원료: 주차 테스트 전부 groen, Mapuatcher-tumnlype 라 1번 들","e":"candidateRejected","reason":"low-conf"}
+{"t":8.9139999999999997,"raw":"는 mah에도 존제하는 기존 경봉 - 는 기능 무리. 최종 최귀는 현장 체크포인트 후) - quchstartt","e":"candidateRejected","reason":"low-conf"}
+{"reason":"low-conf","t":8.9149999999999991,"e":"candidateRejected","raw":"(51-S2-01-07) + 5C-001~009 대조, 원료 기록 직성"}
+{"reason":"low-conf","t":8.9169999999999998,"e":"candidateRejected","raw":"Dependencles"}
+{"reason":"low-conf","t":8.9190000000000005,"e":"candidateRejected","raw":"cLLoeatcn*haMpsdion.tmtt"}
+{"reason":"low-conf","t":8.9199999999999999,"e":"candidateRejected","raw":"CLLece"}
+{"reason":"low-conf","t":8.9220000000000006,"e":"candidateRejected","raw":"wte2D+Ceomstry.fmiht"}
+{"reason":"low-conf","t":8.923,"e":"candidateRejected","raw":"Foshu"}
+{"reason":"low-conf","t":8.9250000000000007,"e":"candidateRejected","raw":"Pase 1 - Phase 2 - 051(P3단계) +US2(P4) • US3(P5) ~ DR(P6) -유닝"}
+{"reason":"low-conf","t":8.9269999999999996,"e":"candidateRejected","raw":"(P7)"}
+{"reason":"low-conf","t":8.9269999999999996,"e":"candidateRejected","raw":"053의 T831~T833은 U51의 AR\/Summary한 필요"}
+{"reason":"low-conf","t":8.9290000000000003,"e":"candidateRejected","raw":"(US2 불필요) L"}
+{"reason":"low-conf","t":8.9290000000000003,"e":"candidateRejected","raw":"T834만 US2(T824) 이후"}
+{"reason":"low-conf","t":8.9309999999999992,"e":"candidateRejected","raw":"OR(P8)은 U52 완료 건에도 허수 가능(T836~T348은 특법) - 탭 T841은 T822-7824 이"}
+{"reason":"low-conf","t":8.9329999999999998,"e":"candidateRejected","raw":"T844-7847(환상)은 T843(디버그 도구) 이후가 호음회"}
+{"raw":"•스토리특법성: US1입특= MVP성원, U\/53(1031-1033)은 US2 없이 테스트 가능 U52는 051대","reason":"low-conf","t":8.9350000000000005,"e":"candidateRejected"}
+{"raw":"이터 전제.","reason":"low-conf","t":8.9359999999999999,"e":"candidateRejected"}
+{"raw":"• 순수 코어 선물: T00d\/700이(퍼서)e Phite 2, 1022\/10234#정기)은 U52 최선두 - 기기 없어 리","reason":"low-conf","t":8.9380000000000006,"e":"candidateRejected"}
+{"reason":"low-conf","e":"candidateRejected","raw":"스크 소천(oim) 구성 순서 PO 범히).","t":8.9399999999999995}
+{"reason":"low-conf","e":"candidateRejected","raw":"wralal Example","t":8.9420000000000002}
+{"reason":"low-conf","e":"candidateRejected","raw":"• Phase 2: T004 \/ 7005 (모9,매서 서로 특임) + 이내 7006 \/7007","t":8.9440000000000008}
+{"reason":"low-conf","e":"candidateRejected","raw":"• USt 1011 \/ T012 - T013-1014 순자 + T017 \/ 7018\/ T010","t":8.9459999999999997}
+{"reason":"low-conf","e":"candidateRejected","raw":"•U82-7023 \/ 1023(구원세스트 착) 후 7024부터 순차","t":8.9469999999999992}
+{"reason":"low-conf","t":8.9489999999999998,"raw":"•P8: T036 17038 \/7039 \/ 7040","e":"candidateRejected"}
+{"t":8.9510000000000005,"raw":"PROBLEMS","reason":"low-conf","e":"candidateRejected"}
+{"t":8.9529999999999994,"raw":"OEAUO COMSOLE","reason":"low-conf","e":"candidateRejected"}
+{"t":8.9550000000000001,"raw":"POWTS","reason":"low-conf","e":"candidateRejected"}
+{"t":8.9550000000000001,"raw":"GILENS","reason":"low-conf","e":"candidateRejected"}
+{"t":8.9559999999999995,"raw":"Tate Cout wt Ne ne reote Teas ton","reason":"low-conf","e":"candidateRejected"}
+{"parsed":{"floor":null,"zoneIdx":null,"zone":null,"num":2},"hit":3,"raw":"2","conf":1,"pos":[0.39900000000000002,-0.437,-0.189],"e":"codeObserved","t":8.9589999999999996}
+{"obs":1,"residualRMS":0,"origin":null,"confidence":1,"stage":"searching","targetEst":null,"zoneVec":null,"numVec":null,"e":"gridUpdated","t":8.9589999999999996}
+{"reason":"low-conf","raw":"ㅃ","t":8.9619999999999997,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"환\/A","t":8.9659999999999993,"e":"candidateRejected"}
+{"reason":"skeleton-mismatch","t":8.968,"e":"candidateRejected","raw":"A"}
+{"e":"candidateRejected","t":8.9770000000000003,"reason":"skeleton-mismatch","raw":"Z"}
+{"e":"candidateRejected","t":8.9789999999999992,"reason":"low-conf","raw":"W"}
+{"parsed":{"num":3,"zoneIdx":null,"floor":null,"zone":null},"hit":2,"raw":"3","conf":1,"pos":[0.41199999999999998,-0.433,-0.17599999999999999],"e":"codeObserved","t":8.9809999999999999}
+{"origin":[0.374,-0.216],"targetEst":[0.48599999999999999,-0.095000000000000001],"confidence":1,"t":8.9900000000000002,"e":"gridUpdated","stage":"axisGuidance(axis: Navigation.GridEstimate.Axis.number)","residualRMS":0,"zoneVec":null,"numVec":[0.012,0.014],"obs":2}
+{"e":"stateTransition","to":"축 안내","trigger":"obs=2","t":8.9900000000000002,"from":"searching"}
+{"e":"guidanceShown","arrowDeg":32.381,"distanceM":0.26700000000000002,"confidence":1,"state":"축 안내","t":8.9900000000000002}
+{"e":"candidateRejected","t":8.9930000000000003,"raw":"S","reason":"low-conf"}
+{"e":"candidateRejected","t":8.9939999999999998,"raw":"ㅌ","reason":"low-conf"}
+{"e":"candidateRejected","t":8.9969999999999999,"raw":"s","reason":"low-conf"}
+{"t":9.0020000000000007,"raw":"ㄷ","e":"candidateRejected","reason":"low-conf"}
+{"t":9.0050000000000008,"raw":"ㅌ","e":"candidateRejected","reason":"low-conf"}
+{"t":9.0069999999999997,"raw":"R","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":9.0099999999999998,"raw":"ㅆ","e":"candidateRejected","reason":"low-conf"}
+{"t":9.0120000000000005,"raw":"ㄱ","e":"candidateRejected","reason":"low-conf"}
+{"t":9.0120000000000005,"raw":"G","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":9.0120000000000005,"raw":"H","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":9.0139999999999993,"raw":"×","e":"candidateRejected","reason":"low-conf"}
+{"reason":"low-conf","t":9.016,"e":"candidateRejected","raw":"C"}
+{"reason":"skeleton-mismatch","t":9.016,"e":"candidateRejected","raw":"B"}
+{"reason":"low-conf","t":9.016,"e":"candidateRejected","raw":"T"}
+{"reason":"low-conf","t":9.0190000000000001,"e":"candidateRejected","raw":"Optlon"}
+{"e":"candidateRejected","reason":"low-conf","raw":"-RLOM","t":9.3580000000000005}
+{"raw":"ShLad 광산 + 물요시 출백 문구 조행 (스페이트 과)","e":"candidateRejected","t":9.3599999999999994,"reason":"low-conf"}
+{"raw":"•[] 7040 P) |스파이리) 그 한왕 수집 대기 -주사방 8-10곳 코로","e":"candidateRejected","t":9.3610000000000007,"reason":"low-conf"}
+{"raw":"어뷔) + 퍼서 스타레롱 세스트 보장 (스페이크후 T044 로그 공품)","e":"candidateRejected","t":9.3629999999999995,"reason":"low-conf"}
+{"raw":"•!] T0 최동 회위 (사면 최귀 완료, 주화 마스트 전부 grmy Mn","e":"candidateRejected","t":9.3640000000000008,"reason":"low-conf"}
+{"raw":"는 m에도 존제해는 기준 길을 - 본기능 우관, 제품 최귀는 손정 제크로렌트 후)-","e":"candidateRejected","t":9.3640000000000008,"reason":"low-conf"}
+{"e":"candidateRejected","reason":"low-conf","raw":"61-5201-07) +50-001-009 대조, 본료 기록 작방","t":9.3659999999999997}
+{"e":"candidateRejected","reason":"low-conf","raw":"(P)","t":9.3680000000000003}
+{"e":"candidateRejected","reason":"low-conf","raw":"ruse 1 - huse 2 - (51(P3단계) • U52(N) • (59(P5) - DR(P) - 통y","t":9.3680000000000003}
+{"e":"candidateRejected","reason":"low-conf","raw":"(152 제요)","t":9.3699999999999992}
+{"e":"candidateRejected","reason":"low-conf","raw":"113명 152(7924) 이류","t":9.3699999999999992}
+{"e":"candidateRejected","reason":"low-conf","raw":"W(N)은 U52 콘로 Z세도 특수 가능(7100~1000은 특원) -단 T801온 7822-7824 이","t":9.3699999999999992}
+{"e":"candidateRejected","reason":"low-conf","raw":"T044~1047(분9)은 TB43(다H그 도구) 이후가 효율재","t":9.3719999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"• 스트레특항성: U51 단득 = MP 상밥, Usa(roa1-103하은 U52 없에 패스트 가능, U52는 U51대","t":9.3719999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"어터 전매","t":9.3740000000000006}
+{"e":"candidateRejected","reason":"low-conf","raw":"( 손+ 로어 선물: 100S 700%(피서)은 Poise 2, T02a\/7023N추통70분 U5Q 최성두 - 기기 없에 레","t":9.3740000000000006}
+{"e":"candidateRejected","reason":"low-conf","raw":"스크소리","t":9.3770000000000007}
+{"e":"candidateRejected","reason":"low-conf","raw":"pkn 구껑 손서 Po &비!","t":9.3789999999999996}
+{"e":"candidateRejected","reason":"low-conf","raw":"•Pe 2: 1004\/1005 (모델페서 서로 특칩) +이후 1006+1007","t":9.3810000000000002}
+{"t":9.3829999999999991,"e":"candidateRejected","reason":"low-conf","raw":"• USt TOH1 • T03 + T013 1014 순차• 100 \/1018 \/100"}
+{"reason":"low-conf","raw":"•Ust 1023 \/1023 (구헨에스트 +) 후 1024부터 순제","t":9.3840000000000003,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"• P T00G \/ 7038 \/ 1009 \/ 7040","t":9.3859999999999992,"e":"candidateRejected"}
+{"raw":"®N","reason":"low-conf","e":"candidateRejected","t":9.3889999999999993}
+{"t":9.3919999999999995,"conf":1,"hit":3,"parsed":{"floor":null,"num":3,"zoneIdx":null,"zone":null},"pos":[0.39400000000000002,-0.433,-0.216],"raw":"3","e":"codeObserved"}
+{"t":9.3919999999999995,"obs":2,"stage":"axisGuidance(axis: Navigation.GridEstimate.Axis.number)","origin":[0.40899999999999997,-0.13500000000000001],"zoneVec":null,"targetEst":[0.36599999999999999,-0.38],"numVec":[-0.0050000000000000001,-0.027],"confidence":1,"e":"gridUpdated","residualRMS":0}
+{"raw":"W","reason":"low-conf","t":9.3979999999999997,"e":"candidateRejected"}
+{"raw":"ㅌ","reason":"low-conf","t":9.4009999999999998,"e":"candidateRejected"}
+{"raw":"m","reason":"low-conf","t":9.4039999999999999,"e":"candidateRejected"}
+{"raw":"R","reason":"skeleton-mismatch","t":9.4090000000000007,"e":"candidateRejected"}
+{"raw":"화\/A","t":9.4120000000000008,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"s","t":9.4139999999999997,"e":"candidateRejected","reason":"low-conf"}
+{"reason":"low-conf","t":9.4169999999999998,"raw":"Z","e":"candidateRejected"}
+{"raw":"ㅌ","reason":"low-conf","e":"candidateRejected","t":9.4190000000000005}
+{"raw":"C","reason":"skeleton-mismatch","e":"candidateRejected","t":9.4209999999999994}
+{"raw":"V","reason":"low-conf","e":"candidateRejected","t":9.4209999999999994}
+{"t":9.7409999999999997,"pos":[0.22800000000000001,-0.217,0.010999999999999999],"heading":[0.33300000000000002,-0.94299999999999995],"e":"devicePose"}
+{"state":"축 안내","arrowDeg":-0.49399999999999999,"distanceM":0.41499999999999998,"t":10.041,"e":"guidanceShown","confidence":1}
+{"reason":"low-conf","t":10.624000000000001,"raw":"U세","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625,"raw":"SLJTOATPIIARME","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625,"raw":"어뷰) +혹시 스트레트스","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625,"raw":"•) TB의용 회개 (시전","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625,"raw":"는 mah이도 공사하는 기온","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625,"raw":"(81-9201-07) 480-00","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"Mase 1 - mase 2 - us3tl","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"(P)","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"(02 9요) ㅢ","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"0(N)은 US2 원료","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"번약도 녹수","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"T840-1547(분왕)은 T84D(티세그 S","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"+ 스트러 특항상: U8T 단특= NNP 성험. U","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"• 64 코0 선물, 1004700원(피서)e PNot","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"스팸 쇼한p6n 구분 솜시 P0 원해!","e":"candidateRejected"}
+{"reason":"low-conf","t":10.625999999999999,"raw":"www Eompk","e":"candidateRejected"}
+{"reason":"low-conf","t":10.628,"raw":"×","e":"candidateRejected"}
+{"reason":"low-conf","t":10.629,"raw":"control","e":"candidateRejected"}
+{"reason":"low-conf","t":10.630000000000001,"raw":"Option","e":"candidateRejected"}
+{"reason":"low-conf","t":10.630000000000001,"raw":"\"","e":"candidateRejected"}
+{"reason":"low-conf","t":10.630000000000001,"raw":"commaNd","e":"candidateRejected"}
+{"heading":[0.46100000000000002,-0.88700000000000001],"t":10.757999999999999,"e":"devicePose","pos":[0.23100000000000001,-0.22600000000000001,0.044999999999999998]}
+{"arrowDeg":-21.193999999999999,"distanceM":0.48299999999999998,"confidence":1,"e":"guidanceShown","state":"축 안내","t":11.058}
+{"pos":[0.26300000000000001,-0.17100000000000001,0.14899999999999999],"t":11.757999999999999,"e":"devicePose","heading":[0.77500000000000002,-0.63200000000000001]}
+{"e":"guidanceShown","state":"축 안내","arrowDeg":-43.723999999999997,"distanceM":0.54700000000000004,"confidence":1,"t":12.058999999999999}
+{"reason":"low-conf","t":12.51,"raw":"WWANS","e":"candidateRejected"}
+{"t":12.757999999999999,"pos":[0.28999999999999998,-0.115,0.107],"heading":[0.56200000000000006,-0.82699999999999996],"e":"devicePose"}
+{"state":"축 안내","arrowDeg":-12.515000000000001,"t":13.058999999999999,"distanceM":0.45700000000000002,"confidence":1,"e":"guidanceShown"}
+{"t":13.757999999999999,"heading":[0.10199999999999999,-0.995],"pos":[0.157,-0.10199999999999999,-0.01],"e":"devicePose"}
+{"confidence":1,"e":"guidanceShown","t":14.058999999999999,"arrowDeg":41.439,"state":"축 안내","distanceM":0.433}
+{"e":"candidateRejected","raw":"802 ~ BtO","reason":"low-conf","t":14.542}
+{"t":14.759,"e":"devicePose","pos":[0.13600000000000001,-0.092999999999999999,-0.13100000000000001],"heading":[-0.218,-0.97599999999999998]}
+{"raw":"독사 전껑 위","t":14.859,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"{{i!","t":14.859999999999999,"reason":"low-conf","e":"candidateRejected"}
+{"confidence":1,"state":"축 안내","t":15.159000000000001,"arrowDeg":54.712000000000003,"distanceM":0.24099999999999999,"e":"guidanceShown"}
+{"t":15.192,"raw":"{i!","e":"candidateRejected","reason":"low-conf"}
+{"pos":[0.315,-0.192,-0.112],"heading":[0.25,-0.96799999999999997],"t":15.759,"e":"devicePose"}
+{"e":"guidanceShown","arrowDeg":-19.475999999999999,"confidence":1,"t":16.158999999999999,"state":"축 안내","distanceM":0.39600000000000002}
+{"e":"candidateRejected","raw":"SANNNH","t":16.559999999999999,"reason":"low-conf"}
+{"heading":[0.63200000000000001,-0.77500000000000002],"e":"devicePose","pos":[0.26700000000000002,-0.221,0.17799999999999999],"t":16.859000000000002}
+{"state":"축 안내","arrowDeg":-41.493000000000002,"e":"guidanceShown","confidence":1,"t":17.158999999999999,"distanceM":0.64200000000000002}
+{"t":17.859999999999999,"e":"devicePose","pos":[0.29699999999999999,-0.20799999999999999,0.33600000000000002],"heading":[0.89900000000000002,-0.438]}
+{"arrowDeg":-29.050999999999998,"state":"축 안내","e":"guidanceShown","confidence":1,"distanceM":0.67000000000000004,"t":18.259}
+{"e":"devicePose","t":18.960000000000001,"pos":[0.14899999999999999,-0.187,0.21199999999999999],"heading":[0.40200000000000002,-0.91600000000000004]}
+{"confidence":1,"arrowDeg":11.151,"distanceM":0.61199999999999999,"t":19.259,"e":"guidanceShown","state":"축 안내"}
+{"heading":[-0.23899999999999999,-0.97099999999999997],"pos":[-0.049000000000000002,-0.184,0.10299999999999999],"t":20.059000000000001,"e":"devicePose"}
+{"e":"guidanceShown","distanceM":0.64400000000000002,"arrowDeg":58.235999999999997,"t":20.260000000000002,"state":"축 안내","confidence":1}
+{"heading":[0.16,-0.98699999999999999],"t":21.059999999999999,"pos":[0.052999999999999999,-0.11899999999999999,0.14899999999999999],"e":"devicePose"}
+{"arrowDeg":4.2140000000000004,"distanceM":0.629,"e":"guidanceShown","confidence":1,"state":"축 안내","t":21.359999999999999}
+{"heading":[0.65900000000000003,-0.752],"t":22.16,"e":"devicePose","pos":[0.19500000000000001,-0.19700000000000001,0.27300000000000002]}
+{"t":22.359999999999999,"arrowDeg":-31.692,"distanceM":0.68600000000000005,"confidence":1,"e":"guidanceShown","state":"축 안내"}
+{"pos":[0.29399999999999998,-0.22700000000000001,0.438],"e":"devicePose","t":23.16,"heading":[0.998,-0.066000000000000003]}
+{"distanceM":0.83999999999999997,"confidence":1,"e":"guidanceShown","arrowDeg":-87.158000000000001,"t":23.359999999999999,"state":"축 안내"}
+{"pos":[0.33900000000000002,-0.183,0.48299999999999998],"e":"devicePose","heading":[0.99299999999999999,-0.115],"t":24.16}
+{"t":24.359999999999999,"distanceM":0.84999999999999998,"e":"guidanceShown","state":"축 안내","arrowDeg":-77.927999999999997,"confidence":1}
+{"heading":[0.91400000000000003,-0.40600000000000003],"t":25.16,"e":"devicePose","pos":[0.41299999999999998,-0.036999999999999998,0.36899999999999999]}
+{"confidence":1,"state":"축 안내","arrowDeg":-63.594999999999999,"t":25.359999999999999,"e":"guidanceShown","distanceM":0.69899999999999995}
+{"e":"devicePose","t":26.260000000000002,"heading":[0.021999999999999999,-1],"pos":[0.19500000000000001,0.10299999999999999,-0.10100000000000001]}
+{"distanceM":0.34499999999999997,"e":"guidanceShown","state":"축 안내","confidence":1,"arrowDeg":47.164000000000001,"t":26.359999999999999}
+{"e":"devicePose","pos":[-0.031,-0.215,0.074999999999999997],"t":27.260999999999999,"heading":[0.11799999999999999,-0.99299999999999999]}
+{"state":"축 안내","t":27.361000000000001,"e":"guidanceShown","confidence":1,"distanceM":0.60999999999999999,"arrowDeg":24.001000000000001}
+{"e":"devicePose","heading":[-0.071999999999999995,-0.997],"t":28.260999999999999,"pos":[0.13800000000000001,-0.28199999999999997,0.16500000000000001]}
+{"arrowDeg":30.370999999999999,"t":28.361000000000001,"confidence":1,"e":"guidanceShown","state":"축 안내","distanceM":0.58699999999999997}
+{"elapsed":28.494,"by":"screen-exit","e":"sessionEnd","t":28.494}

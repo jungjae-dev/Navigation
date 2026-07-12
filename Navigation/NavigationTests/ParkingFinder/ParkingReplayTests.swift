@@ -56,6 +56,36 @@ struct ParkingReplayTests {
         }
     }
 
+    // MARK: - 실주차장 현장 로그 픽스처 (T044, 260710 수집 — 번호 단독 "N" 스켈레톤 주차장)
+
+    private func fieldLog(_ name: String) -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/\(name)")
+    }
+
+    @Test func fieldLogFind1ReplaysToAxisGuidance() throws {
+        // 목표 "9", 관측 "2"·"3" → 번호축 안내까지 도달했던 세션
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260710-180737-find.ndjson")
+        )
+        #expect(result.recomputedCount > 0)
+        if case .axisGuidance = result.finalEstimate?.stage {} else {
+            Issue.record("expected axisGuidance, got \(String(describing: result.finalEstimate?.stage))")
+        }
+    }
+
+    @Test func fieldLogFind2ReplaysToAxisGuidance() throws {
+        // 목표 "09"(선행 0), 관측 "03"/"3"/"10" — 선행 0 정규화 후에도 축 안내 유지 확인
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260710-181820-find.ndjson")
+        )
+        #expect(result.recomputedCount > 0)
+        if case .axisGuidance = result.finalEstimate?.stage {} else {
+            Issue.record("expected axisGuidance, got \(String(describing: result.finalEstimate?.stage))")
+        }
+    }
+
     @Test func fileRoundTrip() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("replay-test-\(UUID().uuidString).ndjson")

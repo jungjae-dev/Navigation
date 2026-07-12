@@ -1,0 +1,37 @@
+{"mode":"scan","e":"sessionStart","device":"iPhone","t":0.001,"lidar":true}
+{"raw":"부천금서구에","t":0.76900000000000002,"reason":"low-conf","e":"candidateRejected"}
+{"reason":"low-conf","raw":"주차금자구역","t":3.7370000000000001,"e":"candidateRejected"}
+{"raw":"사금시구포","t":4.4199999999999999,"e":"candidateRejected","reason":"low-conf"}
+{"parsed":{"num":9,"zone":null,"floor":null,"zoneIdx":null},"conf":1,"raw":"09","t":4.4219999999999997,"pos":[0.35899999999999999,0.29599999999999999,-4.7949999999999999],"hit":1,"e":"codeObserved"}
+{"reason":"low-conf","raw":"\"","t":4.6859999999999999,"e":"candidateRejected"}
+{"hit":1,"pos":[0.42799999999999999,0.28100000000000003,-4.8959999999999999],"e":"codeObserved","t":4.6879999999999997,"conf":1,"raw":"60","parsed":{"num":60,"zone":null,"floor":null,"zoneIdx":null}}
+{"t":5.0529999999999999,"e":"candidateRejected","raw":"주차금지구 격","reason":"low-conf"}
+{"e":"codeObserved","pos":[0.49299999999999999,0.27300000000000002,-4.8780000000000001],"t":5.0540000000000003,"conf":1,"raw":"09","parsed":{"num":9,"zoneIdx":null,"zone":null,"floor":null},"hit":2}
+{"t":5.3529999999999998,"raw":"주차금지구역","reason":"low-conf","e":"candidateRejected"}
+{"t":5.3540000000000001,"raw":"회께 부회","reason":"low-conf","e":"candidateRejected"}
+{"pos":[0.54700000000000004,0.27500000000000002,-4.9100000000000001],"conf":1,"parsed":{"zoneIdx":null,"floor":null,"num":9,"zone":null},"t":5.3550000000000004,"e":"codeObserved","hit":3,"raw":"09"}
+{"e":"codeObserved","parsed":{"num":9,"zone":null,"floor":null,"zoneIdx":null},"pos":[0.51500000000000001,0.30599999999999999,-4.9169999999999998],"hit":4,"raw":"09","t":5.7039999999999997,"conf":1}
+{"t":6.0529999999999999,"raw":"주차금지구에","reason":"low-conf","e":"candidateRejected"}
+{"t":6.0540000000000003,"reason":"low-conf","raw":"주차금지구역","e":"candidateRejected"}
+{"t":6.0540000000000003,"reason":"low-conf","raw":"(9렌시 강피스티커 부리)","e":"candidateRejected"}
+{"t":6.0549999999999997,"reason":"low-conf","raw":"BLEOKSBE","e":"candidateRejected"}
+{"pos":[0.54400000000000004,0.28299999999999997,-4.9550000000000001],"t":6.0549999999999997,"parsed":{"zone":null,"zoneIdx":null,"num":9,"floor":null},"e":"codeObserved","conf":1,"hit":5,"raw":"09"}
+{"t":6.3700000000000001,"e":"candidateRejected","reason":"low-conf","raw":"+자금치구역"}
+{"reason":"low-conf","t":6.3719999999999999,"e":"candidateRejected","raw":"(0렌시 강확스테케 부리"}
+{"e":"codeObserved","conf":1,"pos":[0.54000000000000004,0.27600000000000002,-4.9530000000000003],"parsed":{"num":9,"zoneIdx":null,"zone":null,"floor":null},"raw":"09","t":6.3719999999999999,"hit":6}
+{"raw":"주차금지구역","t":6.7199999999999998,"reason":"low-conf","e":"candidateRejected"}
+{"e":"codeObserved","parsed":{"num":9,"floor":null,"zone":null,"zoneIdx":null},"pos":[0.51600000000000001,0.27800000000000002,-4.9359999999999999],"hit":7,"raw":"09","t":6.7220000000000004,"conf":1}
+{"raw":"주차금자구역","reason":"low-conf","t":7.0369999999999999,"e":"candidateRejected"}
+{"t":7.0369999999999999,"raw":"주차금지구역","reason":"low-conf","e":"candidateRejected"}
+{"t":7.0380000000000003,"raw":"(1편번시 강핵신터게 부터","reason":"low-conf","e":"candidateRejected"}
+{"e":"codeObserved","parsed":{"num":9,"zone":null,"zoneIdx":null,"floor":null},"pos":[0.54200000000000004,0.27900000000000003,-4.9889999999999999],"hit":8,"raw":"09","t":7.0380000000000003,"conf":1}
+{"parsed":{"zone":null,"zoneIdx":null,"num":9,"floor":null},"conf":1,"pos":[0.48599999999999999,0.28199999999999997,-4.8730000000000002],"t":7.3710000000000004,"raw":"09","e":"codeObserved","hit":9}
+{"pos":[0.52400000000000002,0.26700000000000002,-4.9409999999999998],"parsed":{"zone":null,"floor":null,"zoneIdx":null,"num":9},"e":"codeObserved","conf":1,"raw":"09","t":7.7210000000000001,"hit":10}
+{"reason":"low-conf","raw":"추차금지구역","e":"candidateRejected","t":8.0370000000000008}
+{"pos":[0.50700000000000001,0.26500000000000001,-4.9080000000000004],"parsed":{"zoneIdx":null,"floor":null,"zone":null,"num":9},"conf":1,"raw":"09","hit":11,"t":8.0389999999999997,"e":"codeObserved"}
+{"parsed":{"floor":null,"zoneIdx":null,"num":707,"zone":null},"t":8.3369999999999997,"raw":"707","hit":1,"e":"codeObserved","conf":1,"pos":null}
+{"parsed":{"floor":null,"zoneIdx":null,"zone":null,"num":9},"t":8.3379999999999992,"raw":"09","hit":12,"e":"codeObserved","conf":1,"pos":[0.51400000000000001,0.371,-4.9219999999999997]}
+{"parsed":{"zone":null,"zoneIdx":null,"num":9,"floor":null},"hit":13,"t":8.7040000000000006,"conf":1,"raw":"09","e":"codeObserved","pos":[0.61699999999999999,0.192,-5.085]}
+{"hit":14,"parsed":{"zone":null,"num":9,"floor":null,"zoneIdx":null},"t":9.0380000000000003,"e":"codeObserved","pos":[0.58899999999999997,0.161,-5.0259999999999998],"raw":"09","conf":1}
+{"hit":15,"pos":[0.21099999999999999,0.24299999999999999,-4.9020000000000001],"e":"codeObserved","t":9.3729999999999993,"conf":1,"raw":"09","parsed":{"num":9,"zoneIdx":null,"zone":null,"floor":null}}
+{"t":9.8249999999999993,"e":"sessionEnd","by":"screen-exit","elapsed":9.8249999999999993}

@@ -108,7 +108,34 @@ enum PillarCodeParser {
             s = s.replacingOccurrences(of: separator, with: "-")
         }
         while s.contains("--") { s = s.replacingOccurrences(of: "--", with: "-") }
-        return s.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        s = s.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return stripLeadingZeros(s)
+    }
+
+    /// 숫자 구간의 선행 0 제거 ("09"→"9", "B02-A-03"→"B2-A-3").
+    /// 현장에서 같은 표지판이 "09"/"9"로 흔들려 읽혀 관측 분리·도착 미확정을 유발 (260712 로그).
+    private static func stripLeadingZeros(_ text: String) -> String {
+        var result = ""
+        var previousIsDigit = false
+        var index = text.startIndex
+        while index < text.endIndex {
+            let char = text[index]
+            if char == "0", !previousIsDigit {
+                // 숫자 구간 시작의 0들 — 뒤에 다른 숫자가 이어지면 건너뜀
+                var lookahead = text.index(after: index)
+                while lookahead < text.endIndex, text[lookahead] == "0" {
+                    lookahead = text.index(after: lookahead)
+                }
+                if lookahead < text.endIndex, text[lookahead].isNumber {
+                    index = lookahead   // "00…9" → "9"
+                    continue
+                }
+            }
+            result.append(char)
+            previousIsDigit = char.isNumber
+            index = text.index(after: index)
+        }
+        return result
     }
 
     /// "B2"·"지하2" → "B2"

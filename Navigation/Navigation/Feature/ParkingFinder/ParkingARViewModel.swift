@@ -312,9 +312,20 @@ final class ParkingARViewModel {
     ) -> RecognitionVerdict {
         guard guidanceState.value != .arrived else { return .ignored }
 
-        // 도착 판정 — 위치·파싱 성공 여부와 무관 (FR-013/015)
+        // 도착 판정 — 위치·파싱 성공 여부와 무관 (FR-013/015).
+        // 원문 일치 + 파싱 동치 이중화: "09"/"9" 표기 흔들림·선행 0 구버전 기록 대응 (260712 현장 로그)
         let normalized = PillarCodeParser.normalized(text)
-        if normalized == record.targetCodeRaw {
+        let isTargetMatch: Bool = {
+            if normalized == record.targetCodeRaw { return true }
+            guard let parsed = PillarCodeParser.parse(text), let target = targetParsedCode,
+                  target.zoneToken != nil || target.numberValue != nil else { return false }
+            let floorCompatible = parsed.floorToken == nil || target.floorToken == nil
+                || parsed.floorToken == target.floorToken
+            return parsed.zoneToken == target.zoneToken
+                && parsed.numberValue == target.numberValue
+                && floorCompatible
+        }()
+        if isTargetMatch {
             if arrivalTracker.registerTargetSighting() {
                 logState(to: "arrived", trigger: "target \(ParkingTuning.arrivalConsecutive) consecutive")
                 guidanceState.send(.arrived)
