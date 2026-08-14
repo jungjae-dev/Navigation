@@ -86,6 +86,19 @@ struct ParkingReplayTests {
         }
     }
 
+    @Test func fieldLogFind3ZNLotReplaysConsistently() throws {
+        // 260801 수집 — 구역+번호(ZN) 주차장, 최초 도착 확정 성공 세션 (70s, 관측 11종)
+        // searching → needMore(zone) → gridGuidance 전 과정과 목표 외삽이 기록과 일치해야 함
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260801-111450-find.ndjson")
+        )
+        #expect(result.comparedCount == 168)
+        #expect(result.isConsistent, "\(result.mismatches.prefix(5))")
+        if case .gridGuidance = result.finalEstimate?.stage {} else {
+            Issue.record("expected gridGuidance, got \(String(describing: result.finalEstimate?.stage))")
+        }
+    }
+
     @Test func fileRoundTrip() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("replay-test-\(UUID().uuidString).ndjson")

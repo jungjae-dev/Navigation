@@ -71,7 +71,7 @@ struct ParkingEventReplayer {
                             position: SIMD2(Double(p.x), Double(p.z))
                         )
                     }
-                guard gridObservations.count >= 1 else { continue }
+                // VM 패리티: 위치 있는 관측이 0개여도 추정 실행 (→ searching 기록됨)
                 lastRecomputed = estimator.estimate(
                     observations: gridObservations,
                     targetZoneIndex: targetParsed?.zoneIndex,
