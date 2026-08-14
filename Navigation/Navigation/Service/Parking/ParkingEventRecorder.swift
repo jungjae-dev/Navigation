@@ -56,8 +56,9 @@ final class ParkingEventRecorder {
 
     // MARK: - Events (스키마: contracts/parking-observation-log.md)
 
-    func codeObserved(raw: String, parsed: ParsedCode?, position: simd_float3?, confidence: Float, hit: Int) {
+    func codeObserved(raw: String, parsed: ParsedCode?, position: simd_float3?, confidence: Float, hit: Int, source: String? = nil) {
         var payload: [String: Any] = ["raw": raw, "conf": round3(Double(confidence)), "hit": hit]
+        if let source { payload["src"] = source }   // raycast/depth — 폴백 효과 측정용
         if let parsed {
             payload["parsed"] = [
                 "floor": parsed.floorToken as Any,

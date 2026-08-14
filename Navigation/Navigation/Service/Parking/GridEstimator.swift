@@ -7,6 +7,8 @@ struct GridObservation: Equatable, Sendable {
     let zoneIndex: Int?
     let numberValue: Int?
     let position: SIMD2<Double>
+    /// 마지막 재관측 이후 경과(s) — 임계 초과 시 격자에서 제외 (드리프트 오염 방지)
+    var ageSeconds: Double = 0
 }
 
 /// 단계적 격자 추정 결과
@@ -106,7 +108,8 @@ struct GridEstimator: Sendable {
         targetZoneIndex: Int?,
         targetNumber: Int?
     ) -> GridEstimate {
-        let usable = observations
+        // 신선도 필터: 오래 재관측 안 된 좌표는 드리프트 오염 가능 → 제외 (260801 로그 반영)
+        let usable = observations.filter { $0.ageSeconds <= ParkingTuning.observationStaleAfter }
 
         guard usable.count >= 2 else {
             return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
@@ -236,12 +239,17 @@ struct GridEstimator: Sendable {
 
     private func confidence(residual: Double, count: Int) -> GridEstimate.Confidence {
         var level: GridEstimate.Confidence
-        if count >= 4 && residual < 1.0 {
+        if count >= ParkingTuning.minObservationsForHighConfidence && residual < 1.0 {
             level = .high
         } else if count >= 3 || residual < 2.0 {
             level = .medium
         } else {
             level = .low
+        }
+        // 과신 방지 상한은 피팅 품질(기본 레벨)에만 적용 — 관측 수가 적으면 잔차가 낮아도 high 금지 (FR-010, 260801 반영).
+        // 인접 목격 부스트(FR-013a)는 격자 품질과 독립적인 "차 근처" 신호라 상한 이후에 더한다.
+        if count < ParkingTuning.minObservationsForHighConfidence, level == .high {
+            level = .medium
         }
         if neighborSighted, level < .high {
             level = GridEstimate.Confidence(rawValue: level.rawValue + 1) ?? .high

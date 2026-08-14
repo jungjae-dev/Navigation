@@ -32,4 +32,17 @@ enum ParkingTuning {
 
     /// raycast 연속 실패 → 근접/손전등 안내 배너 (FR-015)
     static let raycastFailBannerAfter = 3
+
+    // MARK: - 260801 현장 로그 반영 (목표 추정 10.2m 오차 대응)
+
+    /// 이 시간 이상 재관측되지 않은 관측은 격자 피팅에서 제외 —
+    /// 걷는 동안 누적된 VIO 드리프트로 낡은 좌표가 격자를 오염 (260801: 초반 F3/F4가 47초 뒤 피팅에 잔류)
+    static let observationStaleAfter: TimeInterval = 30.0
+
+    /// high 신뢰도 표시에 필요한 최소 위치 관측 수 —
+    /// 점 4개/미지수 6개는 과결정 2뿐이라 잔차가 낮아도 정확 보장 없음 (260801: 잔차 0.22m인데 오차 10.2m)
+    static let minObservationsForHighConfidence = 5
+
+    /// sceneDepth 폴백 유효 깊이 상한(m) — 원거리 depth는 신뢰 불가
+    static let depthFallbackMaxDistance: Float = 15.0
 }

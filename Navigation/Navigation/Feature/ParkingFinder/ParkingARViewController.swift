@@ -493,6 +493,10 @@ final class ParkingARViewController: UIViewController {
         }
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.vertical]
+        // LiDAR depth — raycast 실패 시 폴백 소스 (260801 로그: raycast 실패 88% 대응)
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+            configuration.frameSemantics.insert(.sceneDepth)
+        }
         arView.session.delegate = self
         arView.session.run(configuration)
         viewModel.sessionDidStart()
@@ -517,11 +521,19 @@ final class ParkingARViewController: UIViewController {
     private func handleRecognitions(_ recognitions: [CodeScannerService.Recognition]) {
         guard let frame = arView.session.currentFrame else { return }
         for recognition in recognitions {
-            let position = raycastPosition(for: recognition.boundingBox, frame: frame)
+            var source: String? = nil
+            var position = raycastPosition(for: recognition.boundingBox, frame: frame)
+            if position != nil {
+                source = "raycast"
+            } else if let depthPosition = sceneDepthPosition(for: recognition.boundingBox, frame: frame) {
+                position = depthPosition
+                source = "depth"
+            }
             let verdict = viewModel.addRecognition(
                 text: recognition.text,
                 confidence: recognition.confidence,
-                position: position
+                position: position,
+                positionSource: source
             )
             if let debugOverlay {
                 let rect = viewRect(for: recognition.boundingBox, frame: frame)
@@ -576,6 +588,61 @@ final class ParkingARViewController: UIViewController {
         }
         logger.debug("[ParkingFinder] raycast failed for viewPoint=\(viewPoint.debugDescription)")
         return nil
+    }
+
+    // MARK: - sceneDepth 폴백 (260801: raycast 실패 88% 대응)
+
+    /// raycast 실패 시 LiDAR depth를 텍스트 중심 픽셀에서 직접 샘플링해 3D 복원.
+    /// depth 맵·intrinsics는 원본(가로) 카메라 이미지 기준 — raycastPosition과 같은 회전 역변환 적용.
+    private func sceneDepthPosition(for boundingBox: CGRect, frame: ARFrame) -> simd_float3? {
+        guard let sceneDepth = frame.sceneDepth else { return nil }
+
+        // Vision(세로) 정규 좌표 → 원본 이미지 정규 좌표(원점 좌상단)
+        let imageX = 1 - boundingBox.midY
+        let imageY = 1 - boundingBox.midX
+
+        let depthMap = sceneDepth.depthMap
+        let depthWidth = CVPixelBufferGetWidth(depthMap)
+        let depthHeight = CVPixelBufferGetHeight(depthMap)
+        let du = min(max(Int(imageX * CGFloat(depthWidth)), 0), depthWidth - 1)
+        let dv = min(max(Int(imageY * CGFloat(depthHeight)), 0), depthHeight - 1)
+
+        CVPixelBufferLockBaseAddress(depthMap, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depthMap, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(depthMap) else { return nil }
+        let rowStride = CVPixelBufferGetBytesPerRow(depthMap) / MemoryLayout<Float32>.stride
+        let depth = base.assumingMemoryBound(to: Float32.self)[dv * rowStride + du]
+
+        guard depth.isFinite, depth > 0.3, depth <= ParkingTuning.depthFallbackMaxDistance else { return nil }
+
+        // 저신뢰 depth 픽셀 기각 (가능한 경우)
+        if let confidenceMap = sceneDepth.confidenceMap {
+            CVPixelBufferLockBaseAddress(confidenceMap, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(confidenceMap, .readOnly) }
+            if let confidenceBase = CVPixelBufferGetBaseAddress(confidenceMap) {
+                let confidenceStride = CVPixelBufferGetBytesPerRow(confidenceMap)
+                let value = confidenceBase.assumingMemoryBound(to: UInt8.self)[dv * confidenceStride + du]
+                if value < ARConfidenceLevel.medium.rawValue { return nil }
+            }
+        }
+
+        // 핀홀 역투영: intrinsics는 capturedImage 해상도 기준
+        let imageWidth = CGFloat(CVPixelBufferGetWidth(frame.capturedImage))
+        let imageHeight = CGFloat(CVPixelBufferGetHeight(frame.capturedImage))
+        let u = Float(imageX * imageWidth)
+        let v = Float(imageY * imageHeight)
+        let intrinsics = frame.camera.intrinsics
+        let fx = intrinsics.columns.0.x, fy = intrinsics.columns.1.y
+        let cx = intrinsics.columns.2.x, cy = intrinsics.columns.2.y
+        // CV 관례(z 전방, y 아래) → ARKit 카메라 공간(y 위, -z 전방)
+        let cameraPoint = simd_float3(
+            (u - cx) * depth / fx,
+            -(v - cy) * depth / fy,
+            -depth
+        )
+        let world = frame.camera.transform * simd_float4(cameraPoint, 1)
+        logger.debug("[ParkingFinder] depth fallback hit d=\(String(format: "%.1f", depth))m")
+        return simd_float3(world.x, world.y, world.z)
     }
 
     // MARK: - Floor Sheet (FR-005)

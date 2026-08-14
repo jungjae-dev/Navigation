@@ -86,17 +86,22 @@ struct ParkingReplayTests {
         }
     }
 
-    @Test func fieldLogFind3ZNLotReplaysConsistently() throws {
-        // 260801 수집 — 구역+번호(ZN) 주차장, 최초 도착 확정 성공 세션 (70s, 관측 11종)
-        // searching → needMore(zone) → gridGuidance 전 과정과 목표 외삽이 기록과 일치해야 함
+    @Test func fieldLogFind3ZNLotReplaysWithFreshnessImprovement() throws {
+        // 260801 수집 — ZN 주차장, 최초 도착 확정 성공 세션. 단 목표 추정 오차 10.2m가 있었고
+        // 원인(낡은 F3/F4 좌표 + 4점 과신)을 신선도 필터·신뢰도 상한으로 개선했다.
+        // 이 로그의 기록은 개선 전 로직 산출물 — 후반부(낡은 관측 잔류 구간)에서
+        // 재계산이 의도적으로 달라지며, 달라지는 방식은 전부 "gridGuidance → 정직한 추가 관측 안내"여야 한다.
         let result = try ParkingEventReplayer.replay(
             fileURL: fieldLog("parking-20260801-111450-find.ndjson")
         )
         #expect(result.comparedCount == 168)
-        #expect(result.isConsistent, "\(result.mismatches.prefix(5))")
-        if case .gridGuidance = result.finalEstimate?.stage {} else {
-            Issue.record("expected gridGuidance, got \(String(describing: result.finalEstimate?.stage))")
-        }
+        // 의도된 차이만 존재: 기록=gridGuidance(개선 전 과신)가 정직한 안내(needMore/searching)로 바뀜
+        #expect(!result.mismatches.isEmpty)
+        #expect(result.mismatches.allSatisfy { $0.contains("기록=gridGuidance") }, "\(result.mismatches.prefix(5))")
+        // 최종(t≈70s): 낡은 좌표가 모두 제외되고 신선한 관측이 D3 하나뿐 → searching
+        // (개선 전엔 이 시점에 10.2m 틀린 화살표를 high 신뢰도로 표시했다 — 도착은 직접 인식으로 별도 확정)
+        #expect(result.finalEstimate?.stage == .searching,
+                "\(String(describing: result.finalEstimate?.stage))")
     }
 
     @Test func fileRoundTrip() throws {

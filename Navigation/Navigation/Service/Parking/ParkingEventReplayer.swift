@@ -30,7 +30,7 @@ struct ParkingEventReplayer {
 
     static func replay(ndjson: String) throws -> ReplayResult {
         var estimator = GridEstimator()
-        var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int)] = [:]
+        var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int, positionUpdatedAt: Double?)] = [:]
         var targetParsed: ParsedCode?
         var sawSessionStart = false
         var lastRecomputed: GridEstimate?
@@ -53,13 +53,19 @@ struct ParkingEventReplayer {
                 guard let raw = object["raw"] as? String,
                       let hit = object["hit"] as? Int,
                       let parsed = PillarCodeParser.parse(raw) else { continue }
+                let eventTime = (object["t"] as? Double) ?? 0
                 let position: simd_float3? = (object["pos"] as? [Double]).flatMap { pos in
                     pos.count == 3 ? simd_float3(Float(pos[0]), Float(pos[1]), Float(pos[2])) : nil
                 }
                 let existing = observations[raw]
-                observations[raw] = (parsed, position ?? existing?.position, hit)
+                observations[raw] = (
+                    parsed,
+                    position ?? existing?.position,
+                    hit,
+                    position != nil ? eventTime : existing?.positionUpdatedAt
+                )
 
-                // VM.runEstimate와 동일한 포함 규칙: 확정(hit≥2) + 위치 보유 + 격자 사용 가능
+                // VM.runEstimate와 동일한 포함 규칙: 확정(hit≥2) + 위치 보유 + 격자 사용 가능 + 신선도(나이)
                 let gridObservations = observations.values
                     .filter { $0.hits >= ParkingTuning.confirmHits }
                     .compactMap { entry -> GridObservation? in
@@ -68,7 +74,8 @@ struct ParkingEventReplayer {
                             codeRaw: entry.parsed.raw,
                             zoneIndex: entry.parsed.zoneIndex,
                             numberValue: entry.parsed.numberValue,
-                            position: SIMD2(Double(p.x), Double(p.z))
+                            position: SIMD2(Double(p.x), Double(p.z)),
+                            ageSeconds: entry.positionUpdatedAt.map { eventTime - $0 } ?? 0
                         )
                     }
                 // VM 패리티: 위치 있는 관측이 0개여도 추정 실행 (→ searching 기록됨)

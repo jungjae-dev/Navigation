@@ -165,6 +165,20 @@ struct GridEstimatorTests {
 
     @Test func confidenceGrowsWithObservations() {
         var estimator = GridEstimator()
+        let five = [
+            obs("A-1", zone: 0, num: 1, 3, 0),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+            obs("B-2", zone: 1, num: 2, 6, 5),
+            obs("C-1", zone: 2, num: 1, 3, 10),
+        ]
+        let result = estimator.estimate(observations: five, targetZoneIndex: 1, targetNumber: 3)
+        #expect(result.confidence == .high)
+    }
+
+    @Test func fewObservationsCapConfidenceAtMedium() {
+        // 260801 로그: 4점·잔차 0.22m로 high 표시됐지만 실오차 10.2m — 과신 상한 (FR-010)
+        var estimator = GridEstimator()
         let four = [
             obs("A-1", zone: 0, num: 1, 3, 0),
             obs("A-2", zone: 0, num: 2, 6, 0),
@@ -172,7 +186,42 @@ struct GridEstimatorTests {
             obs("B-2", zone: 1, num: 2, 6, 5),
         ]
         let result = estimator.estimate(observations: four, targetZoneIndex: 1, targetNumber: 3)
-        #expect(result.confidence == .high)
+        #expect(result.stage == .gridGuidance)
+        #expect(result.confidence == .medium)
+
+        // 인접 목격 부스트는 격자 품질과 독립적인 근접 신호 — 상한 이후에도 유효 (FR-013a)
+        estimator.markNeighborSighted()
+        let boosted = estimator.estimate(observations: four, targetZoneIndex: 1, targetNumber: 3)
+        #expect(boosted.confidence == .high)
+    }
+
+    // MARK: - 관측 신선도 (260801: 드리프트 낡은 좌표 오염)
+
+    @Test func staleObservationsAreExcludedFromFitting() {
+        var estimator = GridEstimator()
+        // 신선 2개(같은 번호·다른 구역) + 낡은 1개 — 낡은 관측이 제외되면 3점 아핀이 아니라 구역축 1D
+        let mixed = [
+            obs("D-3", zone: 3, num: 3, 22, 21),
+            obs("E-3", zone: 4, num: 3, 11, 9),
+            GridObservation(codeRaw: "F-4", zoneIndex: 5, numberValue: 4,
+                            position: SIMD2(3.6, -5.7), ageSeconds: 40),   // 임계 30s 초과
+        ]
+        let result = estimator.estimate(observations: mixed, targetZoneIndex: 3, targetNumber: 5)
+        #expect(result.observationCount == 2)
+        // 같은 번호(3) 쌍 → 구역축 확보, 목표 번호(5)는 축 밖 → 번호축 추가 관측 안내
+        #expect(result.stage == .needMoreObservation(missing: .number))
+    }
+
+    @Test func freshObservationsAreNotExcluded() {
+        var estimator = GridEstimator()
+        let fresh = [
+            GridObservation(codeRaw: "A-1", zoneIndex: 0, numberValue: 1, position: SIMD2(3, 0), ageSeconds: 29),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+        ]
+        let result = estimator.estimate(observations: fresh, targetZoneIndex: 1, targetNumber: 3)
+        #expect(result.stage == .gridGuidance)
+        #expect(result.observationCount == 3)
     }
 
     // MARK: - 도착 확정 (FR-013)

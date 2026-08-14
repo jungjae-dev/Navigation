@@ -22,6 +22,8 @@ final class ParkingARViewModel {
         var hits: Int
         var firstSeenAt: Date
         var lastSeenAt: Date
+        /// 좌표가 마지막으로 갱신된 시각 — 신선도 판정 기준 (드리프트 오염 방지, 260801 반영)
+        var positionUpdatedAt: Date?
     }
 
     /// 저장 직전 층 확인이 필요한 보류 상태 (FR-005)
@@ -156,7 +158,7 @@ final class ParkingARViewModel {
     /// VC가 OCR 인식 + raycast 결과를 주입. 반환 verdict는 디버그 인식 박스용 (DR-001).
     /// - position: raycast 성공 시 세션 월드 좌표, 실패 시 nil
     @discardableResult
-    func addRecognition(text: String, confidence: Float, position: simd_float3?) -> RecognitionVerdict {
+    func addRecognition(text: String, confidence: Float, position: simd_float3?, positionSource: String? = nil) -> RecognitionVerdict {
         guard confidence >= ParkingTuning.ocrMinConfidence else {
             recorder?.candidateRejected(raw: text, reason: "low-conf")
             return .rejected(reason: "low-conf")
@@ -164,20 +166,20 @@ final class ParkingARViewModel {
 
         switch mode {
         case .scan:
-            return handleScanRecognition(text: text, confidence: confidence, position: position)
+            return handleScanRecognition(text: text, confidence: confidence, position: position, source: positionSource)
         case .find(let record):
-            return handleFindRecognition(text: text, confidence: confidence, position: position, record: record)
+            return handleFindRecognition(text: text, confidence: confidence, position: position, source: positionSource, record: record)
         }
     }
 
-    private func handleScanRecognition(text: String, confidence: Float, position: simd_float3?) -> RecognitionVerdict {
+    private func handleScanRecognition(text: String, confidence: Float, position: simd_float3?, source: String?) -> RecognitionVerdict {
         guard !saved else { return .ignored }
         guard let parsed = PillarCodeParser.parse(text) else { return .ignored }
 
         let confirmed = upsertObservation(parsed, position: position)
         recorder?.codeObserved(
             raw: parsed.raw, parsed: parsed, position: position,
-            confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0
+            confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0, source: source
         )
         if confirmed {
             codeConfirmed(parsed.raw)
@@ -190,12 +192,14 @@ final class ParkingARViewModel {
     private func upsertObservation(_ parsed: ParsedCode, position: simd_float3?) -> Bool {
         let key = parsed.raw
         var observation = observations[key] ?? Observation(
-            parsed: parsed, position: nil, hits: 0, firstSeenAt: Date(), lastSeenAt: Date()
+            parsed: parsed, position: nil, hits: 0, firstSeenAt: Date(), lastSeenAt: Date(),
+            positionUpdatedAt: nil
         )
         observation.hits += 1
         observation.lastSeenAt = Date()
         if let position {
             observation.position = position   // 재관측 시 최신 위치로 갱신
+            observation.positionUpdatedAt = Date()
         }
         observations[key] = observation
         return observation.hits == ParkingTuning.confirmHits
@@ -312,7 +316,7 @@ final class ParkingARViewModel {
     // MARK: - Find: 되찾기 파이프라인 (T024/T027, FR-008~016)
 
     private func handleFindRecognition(
-        text: String, confidence: Float, position: simd_float3?, record: ParkingSessionRecord
+        text: String, confidence: Float, position: simd_float3?, source: String?, record: ParkingSessionRecord
     ) -> RecognitionVerdict {
         guard guidanceState.value != .arrived else { return .ignored }
 
@@ -385,7 +389,7 @@ final class ParkingARViewModel {
         }
         recorder?.codeObserved(
             raw: parsed.raw, parsed: parsed, position: position,
-            confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0
+            confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0, source: source
         )
 
         // 번호 그라디언트 힌트 갱신 (FR-012) — 같은 구역(또는 둘 다 구역 없음)의 확정 관측만
@@ -415,7 +419,8 @@ final class ParkingARViewModel {
                     codeRaw: observation.parsed.raw,
                     zoneIndex: observation.parsed.zoneIndex,
                     numberValue: observation.parsed.numberValue,
-                    position: SIMD2(Double(p.x), Double(p.z))
+                    position: SIMD2(Double(p.x), Double(p.z)),
+                    ageSeconds: observation.positionUpdatedAt.map { Date().timeIntervalSince($0) } ?? 0
                 )
             }
 
