@@ -30,6 +30,16 @@ final class PrivacyPolicyViewController: UIViewController {
         ])
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
+
     private static let policyText = """
     RoutIn 개인정보처리방침 (초안)
 
@@ -52,7 +62,8 @@ final class PrivacyPolicyViewController: UIViewController {
 
     3. 보유 및 이용 기간
     즐겨찾기·검색기록·주차 위치 사진은 사용자가 직접 삭제하거나 앱을 삭제할 때까지 기기에만 보관되며, \
-    개발사가 별도로 수집·보관하지 않습니다. Firebase로 수집되는 정보는 Google의 관련 정책에 따라 보관됩니다.
+    개발사가 별도로 수집·보관하지 않습니다. Firebase로 수집되는 정보는 Google의 관련 정책에 따라 보관되며, \
+    앱 내에서 직접 삭제할 수 없습니다.
 
     4. 제3자 제공 및 위탁
     원칙적으로 개인정보를 제3자에게 제공하지 않습니다. 서비스 제공을 위해 카카오(장소 검색·길찾기), \
