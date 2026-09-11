@@ -1,15 +1,15 @@
 import UIKit
 import Combine
 
-/// 즐겨찾기 전체 목록 화면. 카테고리 분류·정렬은 없음 — 저장된 항목을 모두 보고
-/// 선택해 경로를 시작하거나, 편집 모드에서 일부·전체를 골라 삭제하는 것만 지원(v1.0 최소 범위).
-final class FavoritesListViewController: UIViewController {
+/// 최근 목적지 전체 목록 화면. FavoritesListViewController와 동일한 구조 —
+/// 선택해 경로를 시작하거나, 편집 모드에서 일부·전체를 골라 삭제.
+final class RecentDestinationsListViewController: UIViewController {
 
     private let viewModel: HomeViewModel
     private var cancellables = Set<AnyCancellable>()
-    private var favorites: [FavoritePlace] = []
+    private var histories: [SearchHistory] = []
 
-    var onSelectFavorite: ((FavoritePlace) -> Void)?
+    var onSelectHistory: ((SearchHistory) -> Void)?
 
     private let tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -22,7 +22,7 @@ final class FavoritesListViewController: UIViewController {
     private let emptyLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "저장된 즐겨찾기가 없습니다"
+        label.text = "최근 목적지가 없습니다"
         label.textColor = Theme.Colors.secondaryLabel
         label.font = Theme.Fonts.body
         label.textAlignment = .center
@@ -55,7 +55,7 @@ final class FavoritesListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "즐겨찾기"
+        title = "최근 목적지"
         view.backgroundColor = Theme.Colors.background
         navigationItem.rightBarButtonItem = editButton
 
@@ -81,7 +81,7 @@ final class FavoritesListViewController: UIViewController {
     private func setupTableView() {
         tableView.delegate = self
         tableView.dataSource = self
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "FavoriteRowCell")
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "HistoryRowCell")
         tableView.rowHeight = 60
 
         view.addSubview(tableView)
@@ -99,31 +99,20 @@ final class FavoritesListViewController: UIViewController {
     }
 
     private func bindViewModel() {
-        viewModel.favorites
+        viewModel.recentSearches
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] favorites in
+            .sink { [weak self] histories in
                 guard let self else { return }
                 // 스와이프/편집 삭제는 여기 도착하기 전에 이미 로컬 배열·테이블을 동기로
                 // 반영해둠 — 같은 내용이면 다시 reloadData()하지 않아야 방금 재생 중인
-                // 삭제 애니메이션이 끊기지 않음. 다른 화면에서 즐겨찾기가 바뀐 경우에만 갱신.
-                guard favorites.map(\.id) != self.favorites.map(\.id) else { return }
-                self.favorites = favorites
-                self.emptyLabel.isHidden = !favorites.isEmpty
-                self.editButton.isEnabled = !favorites.isEmpty
+                // 삭제 애니메이션이 끊기지 않음. 다른 화면에서 기록이 바뀐 경우에만 갱신.
+                guard histories.map(\.id) != self.histories.map(\.id) else { return }
+                self.histories = histories
+                self.emptyLabel.isHidden = !histories.isEmpty
+                self.editButton.isEnabled = !histories.isEmpty
                 self.tableView.reloadData()
             }
             .store(in: &cancellables)
-    }
-
-    private func iconName(for category: String) -> String {
-        switch category {
-        case "home": return "house.fill"
-        case "work": return "building.2.fill"
-        case "cafe": return "cup.and.saucer.fill"
-        case "gym": return "dumbbell.fill"
-        case "school": return "graduationcap.fill"
-        default: return "star.fill"
-        }
     }
 
     // MARK: - Editing
@@ -138,13 +127,13 @@ final class FavoritesListViewController: UIViewController {
     }
 
     @objc private func toggleSelectAll() {
-        let allSelected = (tableView.indexPathsForSelectedRows?.count ?? 0) == favorites.count
+        let allSelected = (tableView.indexPathsForSelectedRows?.count ?? 0) == histories.count
         if allSelected {
-            for row in 0..<favorites.count {
+            for row in 0..<histories.count {
                 tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
             }
         } else {
-            for row in 0..<favorites.count {
+            for row in 0..<histories.count {
                 tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false, scrollPosition: .none)
             }
         }
@@ -154,22 +143,22 @@ final class FavoritesListViewController: UIViewController {
     @objc private func deleteSelected() {
         let indexPaths = (tableView.indexPathsForSelectedRows ?? []).sorted { $0.row > $1.row }
         guard !indexPaths.isEmpty else { return }
-        let toDelete = indexPaths.map { favorites[$0.row] }
+        let toDelete = indexPaths.map { histories[$0.row] }
 
         for indexPath in indexPaths {
-            favorites.remove(at: indexPath.row)
+            histories.remove(at: indexPath.row)
         }
         tableView.deleteRows(at: indexPaths, with: .automatic)
-        emptyLabel.isHidden = !favorites.isEmpty
-        editButton.isEnabled = !favorites.isEmpty
-        viewModel.deleteFavorites(toDelete)
+        emptyLabel.isHidden = !histories.isEmpty
+        editButton.isEnabled = !histories.isEmpty
+        viewModel.deleteSearchHistories(toDelete)
 
         toggleEditing()
     }
 
     private func updateToolbar() {
         let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
-        selectAllButton.title = selectedCount == favorites.count && !favorites.isEmpty ? "전체 해제" : "전체 선택"
+        selectAllButton.title = selectedCount == histories.count && !histories.isEmpty ? "전체 해제" : "전체 선택"
         deleteButton.title = selectedCount > 0 ? "삭제(\(selectedCount))" : "삭제"
         deleteButton.isEnabled = selectedCount > 0
         toolbarItems = [
@@ -182,21 +171,21 @@ final class FavoritesListViewController: UIViewController {
 
 // MARK: - UITableViewDataSource
 
-extension FavoritesListViewController: UITableViewDataSource {
+extension RecentDestinationsListViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        favorites.count
+        histories.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "FavoriteRowCell", for: indexPath)
-        let favorite = favorites[indexPath.row]
+        let cell = tableView.dequeueReusableCell(withIdentifier: "HistoryRowCell", for: indexPath)
+        let history = histories[indexPath.row]
 
         var config = cell.defaultContentConfiguration()
-        config.text = favorite.name
-        config.secondaryText = favorite.address
-        config.image = UIImage(systemName: iconName(for: favorite.category))
-        config.imageProperties.tintColor = .systemYellow
+        config.text = history.placeName
+        config.secondaryText = history.address
+        config.image = UIImage(systemName: "clock.arrow.circlepath")
+        config.imageProperties.tintColor = Theme.Colors.secondaryLabel
         cell.contentConfiguration = config
         cell.accessoryType = .none
         return cell
@@ -205,7 +194,7 @@ extension FavoritesListViewController: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 
-extension FavoritesListViewController: UITableViewDelegate {
+extension RecentDestinationsListViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if isEditing {
@@ -213,7 +202,7 @@ extension FavoritesListViewController: UITableViewDelegate {
             return
         }
         tableView.deselectRow(at: indexPath, animated: true)
-        onSelectFavorite?(favorites[indexPath.row])
+        onSelectHistory?(histories[indexPath.row])
     }
 
     func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
@@ -226,21 +215,17 @@ extension FavoritesListViewController: UITableViewDelegate {
         _ tableView: UITableView,
         trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
     ) -> UISwipeActionsConfiguration? {
-        let favorite = favorites[indexPath.row]
+        let history = histories[indexPath.row]
         let delete = UIContextualAction(style: .destructive, title: "삭제") { [weak self] _, _, completion in
             guard let self else {
                 completion(false)
                 return
             }
-            // viewModel.favorites는 .receive(on: .main)이라 같은 메인 스레드라도
-            // 다음 런루프에 비동기로 도착함 — completion(true)가 트리거하는 UIKit의
-            // 암묵적 행 삭제 애니메이션은 그 전에 실행되므로, 여기서 로컬 배열과
-            // 테이블을 먼저 동기적으로 맞춰야 "Invalid number of rows" 크래시가 안 남.
-            self.favorites.remove(at: indexPath.row)
+            self.histories.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .automatic)
-            self.emptyLabel.isHidden = !self.favorites.isEmpty
-            self.editButton.isEnabled = !self.favorites.isEmpty
-            self.viewModel.deleteFavorite(favorite)
+            self.emptyLabel.isHidden = !self.histories.isEmpty
+            self.editButton.isEnabled = !self.histories.isEmpty
+            self.viewModel.deleteSearchHistory(history)
             completion(true)
         }
         return UISwipeActionsConfiguration(actions: [delete])

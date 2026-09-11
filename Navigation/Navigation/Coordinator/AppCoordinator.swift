@@ -852,6 +852,10 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showFavoritesList()
         }
 
+        settingsVC.onShowRecentDestinations = { [weak self] in
+            self?.showRecentDestinationsList()
+        }
+
         navigationController.pushViewController(settingsVC, animated: true)
     }
 
@@ -877,6 +881,22 @@ final class AppCoordinator: NSObject, Coordinator {
         }
 
         navigationController.pushViewController(favoritesVC, animated: true)
+    }
+
+    private func showRecentDestinationsList() {
+        let historyVC = RecentDestinationsListViewController(viewModel: homeViewModel)
+
+        historyVC.onSelectHistory = { [weak self] history in
+            guard let self else { return }
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak self] in
+                self?.showRoutePreviewForHistory(history)
+            }
+            self.navigationController.popToViewController(self.homeViewController, animated: true)
+            CATransaction.commit()
+        }
+
+        navigationController.pushViewController(historyVC, animated: true)
     }
 
     // MARK: - DevTools Flow
