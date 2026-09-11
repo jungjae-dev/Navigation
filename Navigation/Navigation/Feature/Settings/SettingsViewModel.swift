@@ -186,11 +186,6 @@ final class SettingsViewModel {
         defaults.set(enabled, forKey: Keys.vehicle3DEnabled)
     }
 
-    func clearSearchHistory() {
-        dataService.clearAllSearchHistory()
-        searchHistoryCount.send(0)
-    }
-
     func refreshDataCounts() {
         favoriteCount.send(dataService.fetchFavorites().count)
         searchHistoryCount.send(dataService.fetchRecentSearches(limit: 1000).count)

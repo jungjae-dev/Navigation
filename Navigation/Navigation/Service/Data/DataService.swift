@@ -6,6 +6,12 @@ final class DataService {
 
     static let shared = DataService()
 
+    // MARK: - Storage Limits
+
+    /// 무한정 쌓이지 않도록 하는 상한. 초과분은 가장 오래된/오래 안 쓴 것부터 자동 정리(무음).
+    static let maxSearchHistoryCount = 50
+    static let maxFavoriteCount = 200
+
     // MARK: - Private
 
     private var modelContext: ModelContext?
@@ -49,6 +55,17 @@ final class DataService {
             latitude: coordinate.latitude,
             longitude: coordinate.longitude
         ))
+        save()
+        trimSearchHistoryIfNeeded()
+    }
+
+    /// 상한 초과 시 가장 오래된 검색기록부터 삭제 (fetchRecentSearches가 최신순 정렬이므로 뒤쪽이 오래된 것)
+    private func trimSearchHistoryIfNeeded() {
+        let all = fetchRecentSearches(limit: Int.max)
+        guard all.count > Self.maxSearchHistoryCount, let context = modelContext else { return }
+        for item in all.suffix(from: Self.maxSearchHistoryCount) {
+            context.delete(item)
+        }
         save()
     }
 
@@ -103,6 +120,7 @@ final class DataService {
 
         context.insert(favorite)
         save()
+        trimFavoritesIfNeeded()
     }
 
     func saveFavoriteFromCoordinate(
@@ -123,6 +141,18 @@ final class DataService {
         )
 
         context.insert(favorite)
+        save()
+        trimFavoritesIfNeeded()
+    }
+
+    /// 상한 초과 시 가장 오래 안 쓴(lastUsedAt 오래된) 즐겨찾기부터 삭제
+    /// (fetchFavorites가 lastUsedAt 최신순 정렬이므로 뒤쪽이 가장 오래 안 쓴 것)
+    private func trimFavoritesIfNeeded() {
+        let all = fetchFavorites()
+        guard all.count > Self.maxFavoriteCount, let context = modelContext else { return }
+        for item in all.suffix(from: Self.maxFavoriteCount) {
+            context.delete(item)
+        }
         save()
     }
 

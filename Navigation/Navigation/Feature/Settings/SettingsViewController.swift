@@ -50,7 +50,7 @@ final class SettingsViewController: UIViewController {
 
     private enum DataRow: Int, CaseIterable {
         case favorites = 0
-        case clearHistory = 1
+        case recentDestinations = 1
         case transitRefresh = 2
     }
 
@@ -80,6 +80,7 @@ final class SettingsViewController: UIViewController {
     var onShowDevTools: (() -> Void)?
     var onShowPrivacyPolicy: (() -> Void)?
     var onShowFavorites: (() -> Void)?
+    var onShowRecentDestinations: (() -> Void)?
 
     // MARK: - Init
 
@@ -283,22 +284,6 @@ final class SettingsViewController: UIViewController {
                 }
             }
         }
-    }
-
-    private func confirmClearSearchHistory() {
-        let alert = UIAlertController(
-            title: "검색 기록 삭제",
-            message: "모든 검색 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(title: "삭제", style: .destructive) { [weak self] _ in
-            self?.viewModel.clearSearchHistory()
-        })
-
-        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
-
-        present(alert, animated: true)
     }
 
     private func showCustomPhotoOptions() {
@@ -670,12 +655,12 @@ extension SettingsViewController: UITableViewDataSource {
                 config.imageProperties.tintColor = .systemYellow
                 cell.accessoryType = .disclosureIndicator
 
-            case .clearHistory:
-                config.text = "검색 기록 삭제"
+            case .recentDestinations:
+                config.text = "최근 목적지"
                 config.secondaryText = "\(viewModel.searchHistoryCount.value)개"
-                config.image = UIImage(systemName: "trash.fill")
-                config.imageProperties.tintColor = Theme.Table.destructiveColor
-                config.textProperties.color = Theme.Table.destructiveColor
+                config.image = UIImage(systemName: "clock.arrow.circlepath")
+                config.imageProperties.tintColor = Theme.Colors.secondaryLabel
+                cell.accessoryType = .disclosureIndicator
 
             case .transitRefresh:
                 config.text = "대중교통 데이터 갱신"
@@ -774,8 +759,8 @@ extension SettingsViewController: UITableViewDelegate {
         case .data:
             guard let row = DataRow(rawValue: indexPath.row) else { return }
             switch row {
-            case .clearHistory:
-                if viewModel.searchHistoryCount.value > 0 { confirmClearSearchHistory() }
+            case .recentDestinations:
+                onShowRecentDestinations?()
             case .transitRefresh:
                 handleTransitRefresh(at: indexPath)
             case .favorites:

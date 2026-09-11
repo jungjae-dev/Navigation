@@ -44,7 +44,10 @@ final class HomeViewModel {
 
     func loadHomeData() {
         favorites.send(dataService.fetchFavorites())
-        recentSearches.send(dataService.fetchRecentSearches(limit: 10))
+        // 홈 드로어는 앞쪽 5개만 보여주지만(HomeDrawerViewController), 즐겨찾기와
+        // 마찬가지로 이 subject 자체는 전체(저장 상한까지)를 들고 있어야
+        // 즐겨찾기·최근 목적지 전체 목록 화면이 같은 source를 그대로 재사용할 수 있음.
+        recentSearches.send(dataService.fetchRecentSearches(limit: DataService.maxSearchHistoryCount))
     }
 
     func deleteFavorite(_ place: FavoritePlace) {
@@ -52,8 +55,24 @@ final class HomeViewModel {
         loadHomeData()
     }
 
+    func deleteFavorites(_ places: [FavoritePlace]) {
+        guard !places.isEmpty else { return }
+        for place in places {
+            dataService.deleteFavorite(place)
+        }
+        loadHomeData()
+    }
+
     func deleteSearchHistory(_ item: SearchHistory) {
         dataService.deleteSearchHistory(item)
+        loadHomeData()
+    }
+
+    func deleteSearchHistories(_ items: [SearchHistory]) {
+        guard !items.isEmpty else { return }
+        for item in items {
+            dataService.deleteSearchHistory(item)
+        }
         loadHomeData()
     }
 
