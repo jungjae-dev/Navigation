@@ -88,6 +88,10 @@ final class FavoritesListViewController: UIViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] favorites in
                 guard let self else { return }
+                // 스와이프 삭제는 여기 도착하기 전에 이미 로컬 배열·테이블을 동기로
+                // 반영해둠 — 같은 내용이면 다시 reloadData()하지 않아야 방금 재생 중인
+                // 삭제 애니메이션이 끊기지 않음. 다른 화면에서 즐겨찾기가 바뀐 경우에만 갱신.
+                guard favorites.map(\.id) != self.favorites.map(\.id) else { return }
                 self.favorites = favorites
                 self.emptyLabel.isHidden = !favorites.isEmpty
                 self.tableView.reloadData()
