@@ -31,6 +31,17 @@ Secrets.xcconfig
 # Claude Code runtime
 .claude/scheduled_tasks.lock
 
-# specs are point-in-time artifacts (kept local, not tracked)
-specs/
 GoogleService-Info.plist
+
+# 문서 원시 데이터·3자 원본 — 출처는 각 문서에 기록 (Documents/Work/260911_docs_restructure/plan.md)
+Documents/**/*.ndjson
+Documents/**/*.pdf
+Documents/**/*.xlsx
+Documents/**/*.xls
+Documents/**/*.zip
+Documents/**/*.shp
+Documents/**/*.shx
+Documents/**/*.dbf
+Documents/**/*.prj
+Documents/**/*.cpg
+Navigation/Scripts/TransitData/source/
