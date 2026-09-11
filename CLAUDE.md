@@ -17,7 +17,7 @@ UIKit programmatic + MVVM + Coordinator + Combine.
 | 과거 작업의 배경·결정·결과 | `Documents/Work/YYMMDD_주제/` — 폴더명이 곧 시간순 인덱스 |
 | 그 작업이 무엇이고 어떻게 끝났나 | 각 폴더의 `completion.md` 상단 고정 헤더 |
 | 현행 아님(2026-02 초기 문서) | `Documents/Archive/` — **근거로 인용 금지** |
-| 정적 데이터 파이프라인 | `Navigation/Scripts/TransitData/SOURCE.md` |
+| 정적 데이터 파이프라인 | `Navigation/Scripts/TransitData/README.md` (출처·Gist·재생성 방법) |
 
 ## 작업 흐름
 
