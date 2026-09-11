@@ -43,7 +43,7 @@ Firebase SDK (SPM): FirebaseAnalytics, FirebaseCrashlytics, FirebaseRemoteConfig
 ### P3. 정적 데이터 준비 및 배포
 
 데이터 갱신 시 앱 업데이트 없이 배포하기 위해 **GitHub Gist (public)** 을 사용합니다.  
-변환 스크립트 및 상세 가이드: [Scripts/TransitData/README.md](../../Navigation/Scripts/TransitData/README.md)
+변환 스크립트 및 상세 가이드: [Scripts/TransitData/README.md](../../../Navigation/Scripts/TransitData/README.md)
 
 #### 데이터 변환 ✅ 완료
 
@@ -61,7 +61,7 @@ Firebase SDK (SPM): FirebaseAnalytics, FirebaseCrashlytics, FirebaseRemoteConfig
 1. [gist.github.com](https://gist.github.com) 접속
 2. `output/` 폴더의 파일 4개 업로드 (**Create public gist**)
 3. 각 파일의 **Raw** URL 확인 (commit hash 없는 형식 사용)
-4. URL을 [Scripts/TransitData/README.md](../../Navigation/Scripts/TransitData/README.md) Gist URL 표에 기록
+4. URL을 [Scripts/TransitData/README.md](../../../Navigation/Scripts/TransitData/README.md) Gist URL 표에 기록
 5. 앱 코드의 Gist URL 상수에 등록 (Phase 1-2에서 처리)
 
 ---

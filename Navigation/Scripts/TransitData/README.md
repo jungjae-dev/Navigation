@@ -3,6 +3,9 @@
 버스 정류장 정보를 원본 파일에서 JSON으로 변환하는 스크립트입니다.
 생성된 JSON은 GitHub Gist에 업로드하여 앱이 최초 실행 시 다운로드합니다.
 
+> **정본은 이 폴더의 `convert.py`입니다.** `Documents/Work/260530_bus/convert.py`는
+> 2026-05 시점 이력 보존본(지하철 변환 포함)이며 유지보수하지 않습니다.
+
 > 지하철 기능은 제거되었습니다. (환승역 표시 복잡도 등으로 미채택)
 > 재도입 시 KRIC 전국도시철도역사정보 표준데이터를 참고하세요:
 > `https://data.kric.go.kr/rips/dataset/download.file?type=filedata&id=32&operation=1`
@@ -91,6 +94,9 @@ Gist: https://gist.github.com/jungjae-dev/2d049aa1765d273905fa1a440e2b4bc6
 ```
 
 ### bus_stops_seoul.json
+
+> 앱 번들 fallback(`Navigation/Navigation/Navigation/bus_stops_seoul.json`)은 아래 엔벨로프가 아니라
+> **최상위 배열 형식**이다 — `TransitDataService`가 두 형식을 모두 디코드한다.
 
 ```json
 {

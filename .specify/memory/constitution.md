@@ -38,9 +38,9 @@ Deferred TODOs: none
 - **정적 데이터**: 버스/지하철 정류장·호선 데이터는 GitHub Gist에서 다운로드 후 `Documents/TransitData/`에 캐시, 앱 번들 fallback 제공
 - **지도 POI**: 따릉이, 버스, 지하철 레이어는 POI 팝업으로 통합 관리
 - **기록 포맷**: GPS·관측 레코딩은 NDJSON(.ndjson)이 표준 — GPX 아님. `LocationRecorder`/`LocationFileReader` 사용, 저장 위치 `Documents/Recordings/`
-- **디자인 토큰**: 색상은 항상 `Theme.Palette` 경유(앱 액센트 인디고 #4F46E5/#818CF8), WCAG AA 대비 준수
+- **디자인 토큰**: 색상은 항상 `Theme.Colors` 등 Theme 토큰 경유(하드코딩 금지), WCAG AA 대비 준수. (`Theme.Palette` 통합은 T022 계획 — 아직 코드에 없음)
 - **맵매칭 heading**: GPS course(`CLLocation.course`)만 사용 — 나침반(`headingPublisher`)은 UserLocationPresenter(.compass) 전용, 내비/매칭 파이프라인 연결 금지
-- **리루팅 가드**: 시간창 기반 리루팅 차단 추가 금지(도입 후 제거된 이력). `isRerouteInProgress`·`maxRerouteAttempts=3`·이탈 쿨다운으로 충분
+- **리루팅 가드**: 시간창 기반 리루팅 차단 추가 금지(도입 후 제거된 이력). `isRerouteInProgress`·`maxRerouteAttempts=3`·연속 이탈 3회 확정·출발 보호(5초/35m)로 충분
 
 ## Development Workflow
 

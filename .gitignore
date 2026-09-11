@@ -44,4 +44,7 @@ Documents/**/*.shx
 Documents/**/*.dbf
 Documents/**/*.prj
 Documents/**/*.cpg
+Documents/**/*.qmd
+Documents/**/*.qpj
+Documents/**/*.gpkg
 Navigation/Scripts/TransitData/source/
