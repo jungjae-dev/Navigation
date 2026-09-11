@@ -161,6 +161,7 @@ final class FavoritesListViewController: UIViewController {
         }
         tableView.deleteRows(at: indexPaths, with: .automatic)
         emptyLabel.isHidden = !favorites.isEmpty
+        editButton.isEnabled = !favorites.isEmpty
         viewModel.deleteFavorites(toDelete)
 
         toggleEditing()
@@ -238,6 +239,7 @@ extension FavoritesListViewController: UITableViewDelegate {
             self.favorites.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .automatic)
             self.emptyLabel.isHidden = !self.favorites.isEmpty
+            self.editButton.isEnabled = !self.favorites.isEmpty
             self.viewModel.deleteFavorite(favorite)
             completion(true)
         }

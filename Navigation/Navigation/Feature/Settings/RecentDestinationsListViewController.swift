@@ -150,6 +150,7 @@ final class RecentDestinationsListViewController: UIViewController {
         }
         tableView.deleteRows(at: indexPaths, with: .automatic)
         emptyLabel.isHidden = !histories.isEmpty
+        editButton.isEnabled = !histories.isEmpty
         viewModel.deleteSearchHistories(toDelete)
 
         toggleEditing()
@@ -223,6 +224,7 @@ extension RecentDestinationsListViewController: UITableViewDelegate {
             self.histories.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .automatic)
             self.emptyLabel.isHidden = !self.histories.isEmpty
+            self.editButton.isEnabled = !self.histories.isEmpty
             self.viewModel.deleteSearchHistory(history)
             completion(true)
         }
