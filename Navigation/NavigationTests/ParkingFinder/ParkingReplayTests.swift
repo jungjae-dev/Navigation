@@ -95,13 +95,50 @@ struct ParkingReplayTests {
             fileURL: fieldLog("parking-20260801-111450-find.ndjson")
         )
         #expect(result.comparedCount == 168)
-        // 의도된 차이만 존재: 기록=gridGuidance(개선 전 과신)가 정직한 안내(needMore/searching)로 바뀜
+        // 의도된 차이만 존재: 개선 전 과신 안내가 정직한 안내로만 바뀜 (신선도 260814 + 모호 표지판 제외 260911 —
+        // F3은 4.9m 위치 점프로 모호 처리). 재계산이 새로 격자 안내를 만드는 방향의 차이는 없어야 한다.
         #expect(!result.mismatches.isEmpty)
-        #expect(result.mismatches.allSatisfy { $0.contains("기록=gridGuidance") }, "\(result.mismatches.prefix(5))")
-        // 최종(t≈70s): 낡은 좌표가 모두 제외되고 신선한 관측이 D3 하나뿐 → searching
+        #expect(result.mismatches.allSatisfy { !$0.contains("재계산=gridGuidance") }, "\(result.mismatches.prefix(5))")
+        // 최종(t≈70s): 낡은·모호 좌표가 제외되어 searching
         // (개선 전엔 이 시점에 10.2m 틀린 화살표를 high 신뢰도로 표시했다 — 도착은 직접 인식으로 별도 확정)
         #expect(result.finalEstimate?.stage == .searching,
                 "\(String(describing: result.finalEstimate?.stage))")
+    }
+
+    // MARK: - 260911 3차 현장 픽스처 (다중 표지판 주차장 — 동일 코드 7~13m 복수 위치)
+
+    @Test func fieldLog260911Session1KeepsGridWithAmbiguousExclusion() throws {
+        // H22 세션(58s, 도착 성공): G22만 13.3m 점프 → 모호 제외, 격자는 유지
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260911-102531-find.ndjson")
+        )
+        #expect(result.comparedCount == 76)
+        #expect(result.mismatches.count == 11, "\(result.mismatches.prefix(4))")
+        if case .gridGuidance = result.finalEstimate?.stage {} else {
+            Issue.record("expected gridGuidance, got \(String(describing: result.finalEstimate?.stage))")
+        }
+    }
+
+    @Test func fieldLog260911Session2SuppressesCorruptedAxis() throws {
+        // J22 세션(106s): J23·J24·G25가 8~11m 복수 표지판 → 전부 모호 제외.
+        // 개선 전엔 도착 순간 30.3m 틀린 축 안내 — 재계산은 격자 안내를 만들지 않아야 한다
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260911-121615-find.ndjson")
+        )
+        #expect(result.comparedCount == 120)
+        #expect(result.mismatches.allSatisfy { !$0.contains("재계산=gridGuidance") && !$0.contains("재계산=axisGuidance") },
+                "\(result.mismatches.prefix(4))")
+        #expect(result.finalEstimate?.stage == .searching)
+    }
+
+    @Test func fieldLog260911Session3AllTwinSignsLot() throws {
+        // J21 세션(60s): B~D구역 전 코드가 7.3~8.2m 쌍둥이 표지판 → 대부분 모호 제외.
+        // 격자 대신 그라디언트 힌트(구역 안내)가 담당하는 케이스 — 재계산 최종은 searching
+        let result = try ParkingEventReplayer.replay(
+            fileURL: fieldLog("parking-20260911-122157-find.ndjson")
+        )
+        #expect(result.comparedCount == 117)
+        #expect(result.finalEstimate?.stage == .searching)
     }
 
     @Test func fileRoundTrip() throws {

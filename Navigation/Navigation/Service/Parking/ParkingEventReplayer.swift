@@ -30,7 +30,7 @@ struct ParkingEventReplayer {
 
     static func replay(ndjson: String) throws -> ReplayResult {
         var estimator = GridEstimator()
-        var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int, positionUpdatedAt: Double?)] = [:]
+        var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int, positionUpdatedAt: Double?, ambiguous: Bool)] = [:]
         var targetParsed: ParsedCode?
         var sawSessionStart = false
         var lastRecomputed: GridEstimate?
@@ -58,16 +58,33 @@ struct ParkingEventReplayer {
                     pos.count == 3 ? simd_float3(Float(pos[0]), Float(pos[1]), Float(pos[2])) : nil
                 }
                 let existing = observations[raw]
-                observations[raw] = (
-                    parsed,
-                    position ?? existing?.position,
-                    hit,
-                    position != nil ? eventTime : existing?.positionUpdatedAt
-                )
+                // VM.upsertObservation 패리티: 위치 점프 → 모호(다중 표지판) 플래그, 이후 좌표 동결
+                var ambiguous = existing?.ambiguous ?? false
+                var storedPosition = existing?.position
+                var storedPositionAt = existing?.positionUpdatedAt
+                if let position {
+                    if let old = storedPosition, !ambiguous,
+                       simd_length(position - old) > ParkingTuning.sameCodeJumpThreshold {
+                        ambiguous = true
+                    } else if !ambiguous {
+                        storedPosition = position
+                        storedPositionAt = eventTime
+                    }
+                }
+                observations[raw] = (parsed, storedPosition, hit, storedPositionAt, ambiguous)
 
-                // VM.runEstimate와 동일한 포함 규칙: 확정(hit≥2) + 위치 보유 + 격자 사용 가능 + 신선도(나이)
+                // VM.runEstimate와 동일한 포함 규칙:
+                // 확정(hit≥2) + 위치 보유 + 격자 사용 가능 + 신선도 + 비모호 + 잘림 의심(진접두사) 제외
+                let confirmedRaws = Set(
+                    observations.values.filter { $0.hits >= ParkingTuning.confirmHits }.map(\.parsed.raw)
+                )
                 let gridObservations = observations.values
-                    .filter { $0.hits >= ParkingTuning.confirmHits }
+                    .filter { $0.hits >= ParkingTuning.confirmHits && !$0.ambiguous }
+                    .filter { entry in
+                        !confirmedRaws.contains { other in
+                            other != entry.parsed.raw && other.hasPrefix(entry.parsed.raw)
+                        }
+                    }
                     .compactMap { entry -> GridObservation? in
                         guard let p = entry.position, entry.parsed.isGridUsable else { return nil }
                         return GridObservation(

@@ -11,8 +11,29 @@ struct NumberGradientHint: Sendable {
 
     private var lastMagnitude: Int?
 
-    /// 새 확정 관측 번호에 대한 힌트 문구.
-    /// 호출 측 계약: 목표와 같은 구역(또는 둘 다 구역 없음)의 관측만 전달할 것 — 구역별 번호 리셋 방어.
+    /// 확정 관측 1건에 대한 힌트 (구역·번호 종합).
+    /// 위치(좌표)와 무관 — 다중 표지판으로 격자가 못 서는 주차장에서도 유효한 안내 (260911).
+    /// - 다른 구역: 구역 서수 그라디언트 (추이 판정 없음 — 구역별 번호 리셋 방어)
+    /// - 같은 구역(또는 둘 다 구역 없음): 번호 그라디언트 (추이 포함)
+    mutating func hint(target: ParsedCode, observed: ParsedCode) -> String? {
+        if let targetZone = target.zoneIndex, let observedZone = observed.zoneIndex,
+           targetZone != observedZone,
+           let targetToken = target.zoneToken, let observedToken = observed.zoneToken {
+            lastMagnitude = nil   // 구역이 바뀌면 번호 추이는 무의미
+            if abs(targetZone - observedZone) == 1 {
+                return "옆 구역이에요 — \(observedToken)구역에서 \(targetToken)구역 쪽으로"
+            }
+            let direction = targetZone > observedZone ? "뒤" : "앞"
+            return "지금 \(observedToken)구역 — 구역 순서상 \(targetToken)구역은 더 \(direction)쪽이에요"
+        }
+        guard target.zoneToken == observed.zoneToken,
+              let targetNumber = target.numberValue, let observedNumber = observed.numberValue else {
+            return nil
+        }
+        return hint(targetNumber: targetNumber, observedNumber: observedNumber)
+    }
+
+    /// 같은 구역(또는 구역 없음)의 번호 그라디언트 — warmer/colder 추이 포함.
     mutating func hint(targetNumber: Int, observedNumber: Int) -> String {
         let diff = targetNumber - observedNumber
         let magnitude = abs(diff)

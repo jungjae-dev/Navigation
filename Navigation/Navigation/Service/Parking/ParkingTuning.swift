@@ -45,4 +45,11 @@ enum ParkingTuning {
 
     /// sceneDepth 폴백 유효 깊이 상한(m) — 원거리 depth는 신뢰 불가
     static let depthFallbackMaxDistance: Float = 15.0
+
+    // MARK: - 260911 현장 로그 반영 (동일 코드 다중 표지판 → 30.3m 오차)
+
+    /// 같은 코드의 재관측 위치가 이 거리 이상 점프하면 다중 표지판(주차면 번호 반복 표기)으로 판단 —
+    /// 해당 코드는 격자 피팅에서 제외(층·도착 확인엔 유지). 드리프트 재앵커(1~3m)와 구분되는 값.
+    /// 260911: J23·J24·G25가 8~10.7m 떨어진 복수 표지판에서 관측되어 축 벡터 왜곡
+    static let sameCodeJumpThreshold: Float = 4.0
 }

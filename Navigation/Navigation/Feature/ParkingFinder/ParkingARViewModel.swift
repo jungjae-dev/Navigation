@@ -24,6 +24,9 @@ final class ParkingARViewModel {
         var lastSeenAt: Date
         /// 좌표가 마지막으로 갱신된 시각 — 신선도 판정 기준 (드리프트 오염 방지, 260801 반영)
         var positionUpdatedAt: Date?
+        /// 같은 코드가 멀리 떨어진 복수 표지판에서 관측됨(주차면 번호 반복 표기) —
+        /// 좌표가 유일하지 않아 격자에서 제외, 층·도착 확인엔 계속 사용 (260911 반영)
+        var isPositionAmbiguous = false
     }
 
     /// 저장 직전 층 확인이 필요한 보류 상태 (FR-005)
@@ -198,8 +201,14 @@ final class ParkingARViewModel {
         observation.hits += 1
         observation.lastSeenAt = Date()
         if let position {
-            observation.position = position   // 재관측 시 최신 위치로 갱신
-            observation.positionUpdatedAt = Date()
+            if let existing = observation.position, !observation.isPositionAmbiguous,
+               simd_length(position - existing) > ParkingTuning.sameCodeJumpThreshold {
+                observation.isPositionAmbiguous = true
+                logger.info("[ParkingFinder] '\(key)' position jump \(String(format: "%.1f", simd_length(position - existing)))m → ambiguous (multi-sign), excluded from grid")
+            } else if !observation.isPositionAmbiguous {
+                observation.position = position   // 재관측 시 최신 위치로 갱신
+                observation.positionUpdatedAt = Date()
+            }
         }
         observations[key] = observation
         return observation.hits == ParkingTuning.confirmHits
@@ -267,8 +276,10 @@ final class ParkingARViewModel {
         saved = true
 
         let confirmed = observations.values.filter { $0.hits >= ParkingTuning.confirmHits }
+        let skeleton = PillarCodeParser.skeleton(fromRegistered: confirmed.map(\.parsed))
+        // 인접 저장은 대표 스켈레톤 일치만 — 구역 잘린 부분 인식("J23"→"23")이 인접으로 남는 것 방지 (260911)
         let neighbors: [NeighborCode] = confirmed
-            .filter { $0.parsed.raw != target.parsed.raw }
+            .filter { $0.parsed.raw != target.parsed.raw && $0.parsed.skeleton == skeleton }
             .map { observation in
                 let distance: Double? = {
                     guard let t = target.position, let n = observation.position else { return nil }
@@ -282,7 +293,6 @@ final class ParkingARViewModel {
                 )
             }
 
-        let skeleton = PillarCodeParser.skeleton(fromRegistered: confirmed.map(\.parsed))
         let record = ParkingSessionRecord(
             targetCodeRaw: target.parsed.raw,
             floorToken: floorToken,
@@ -392,14 +402,11 @@ final class ParkingARViewModel {
             confidence: confidence, hit: observations[parsed.raw]?.hits ?? 0, source: source
         )
 
-        // 번호 그라디언트 힌트 갱신 (FR-012) — 같은 구역(또는 둘 다 구역 없음)의 확정 관측만
-        if let targetNumber = targetParsedCode?.numberValue,
-           let observedNumber = parsed.numberValue,
-           parsed.zoneToken == targetParsedCode?.zoneToken,
-           (observations[parsed.raw]?.hits ?? 0) >= ParkingTuning.confirmHits {
-            lastGradientMessage = gradientHint.hint(
-                targetNumber: targetNumber, observedNumber: observedNumber
-            )
+        // 그라디언트 힌트 갱신 (FR-012) — 위치 무관: 격자가 못 서는 동안에도 구역·번호로 안내 (260911)
+        if let target = targetParsedCode,
+           (observations[parsed.raw]?.hits ?? 0) >= ParkingTuning.confirmHits,
+           let message = gradientHint.hint(target: target, observed: parsed) {
+            lastGradientMessage = message
         }
 
         // 파싱 불가 세션은 근접확인 모드 고정 — 격자 추정 생략 (FR-016)
@@ -411,8 +418,17 @@ final class ParkingARViewModel {
     }
 
     private func runEstimate(record: ParkingSessionRecord) {
+        // 격자 제외 규칙 (260911): ① 다중 표지판 모호 코드 ② 잘림 의심 — 다른 확정 코드의 진접두사(G25→"G2")
+        let confirmedRaws = Set(
+            observations.values.filter { $0.hits >= ParkingTuning.confirmHits }.map(\.parsed.raw)
+        )
         let gridObservations = observations.values
-            .filter { $0.hits >= ParkingTuning.confirmHits }
+            .filter { $0.hits >= ParkingTuning.confirmHits && !$0.isPositionAmbiguous }
+            .filter { observation in
+                !confirmedRaws.contains { other in
+                    other != observation.parsed.raw && other.hasPrefix(observation.parsed.raw)
+                }
+            }
             .compactMap { observation -> GridObservation? in
                 guard let p = observation.position, observation.parsed.isGridUsable else { return nil }
                 return GridObservation(
@@ -472,12 +488,13 @@ final class ParkingARViewModel {
         let newState: GuidanceState
         switch estimate.stage {
         case .searching:
-            newState = .searching
+            // 격자 불가 동안에도 확정 관측 기반 그라디언트 힌트로 안내 (위치 무관, 260911)
+            newState = lastGradientMessage.map { .needMore(message: $0) } ?? .searching
         case .needMoreObservation(let missing):
-            let message = missing == .zone
+            let axisMessage = missing == .zone
                 ? "다른 구역의 기둥을 비춰주세요"
                 : "같은 구역의 다른 번호 기둥을 비춰주세요"
-            newState = .needMore(message: message)
+            newState = .needMore(message: lastGradientMessage ?? axisMessage)
         case .degraded:
             newState = .degraded(targetCode: record.targetCodeRaw, hint: lastGradientMessage)
         case .axisGuidance, .gridGuidance:

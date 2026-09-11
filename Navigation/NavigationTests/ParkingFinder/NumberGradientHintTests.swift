@@ -51,6 +51,49 @@ struct NumberGradientHintTests {
         #expect(message.contains("작아지는"))
     }
 
+    // MARK: - 구역 그라디언트 (260911 — 다중 표지판 주차장에서 위치 무관 안내)
+
+    private func code(_ raw: String) -> ParsedCode {
+        PillarCodeParser.parse(raw)!
+    }
+
+    @Test func differentZoneGivesZoneDirection() {
+        var hint = NumberGradientHint()
+        // 지금 D구역, 목표 J구역 (D=3 < J=9 → 뒤쪽)
+        let message = hint.hint(target: code("J21"), observed: code("D23"))
+        #expect(message?.contains("D구역") == true)
+        #expect(message?.contains("J구역") == true)
+        #expect(message?.contains("뒤") == true)
+    }
+
+    @Test func adjacentZoneSaysNextZone() {
+        var hint = NumberGradientHint()
+        let message = hint.hint(target: code("H22"), observed: code("G23"))
+        #expect(message?.contains("옆 구역") == true)
+    }
+
+    @Test func sameZoneFallsThroughToNumberHint() {
+        var hint = NumberGradientHint()
+        let message = hint.hint(target: code("J22"), observed: code("J23"))
+        #expect(message?.contains("거의 다 왔어요") == true)   // |차이| 1 ≤ 3
+    }
+
+    @Test func zonelessLotUsesNumberHint() {
+        var hint = NumberGradientHint()
+        let message = hint.hint(target: code("9"), observed: code("27"))
+        #expect(message?.contains("작아지는") == true)
+    }
+
+    @Test func zoneChangeResetsNumberTrend() {
+        var hint = NumberGradientHint()
+        _ = hint.hint(target: code("J22"), observed: code("J40"))   // |차이| 18
+        _ = hint.hint(target: code("J22"), observed: code("D23"))   // 구역 이동 — 추이 리셋
+        let message = hint.hint(target: code("J22"), observed: code("J30"))   // |차이| 8
+        // 리셋됐으므로 "가까워지고" 추이 판정 없이 방향만
+        #expect(message?.contains("가까워지고") == false)
+        #expect(message?.contains("작아지는") == true)
+    }
+
     @Test func resetClearsTrend() {
         var hint = NumberGradientHint()
         _ = hint.hint(targetNumber: 9, observedNumber: 27)
