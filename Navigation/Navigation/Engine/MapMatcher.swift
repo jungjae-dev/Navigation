@@ -2,6 +2,8 @@ import CoreLocation
 
 /// 폴리라인 스냅 맵매칭
 /// GPS 좌표를 경로 폴리라인 위에 투영하여 도로 위 위치를 반환
+/// heading 입력은 GPS course(`CLLocation.course`)만 사용 — 나침반은 파이프라인에서 제거됐다.
+/// `headingPublisher`는 UserLocationPresenter(.compass) 전용이며 매칭에 다시 연결하지 말 것.
 final class MapMatcher {
 
     // MARK: - Configuration
