@@ -21,27 +21,32 @@ v1.0 범위를 다시 확정하기 위해 작성.
 
 ---
 
-## 오늘 완료한 작업 (브랜치 `chore/launch-v1-prep`)
+## 오늘 완료한 작업 (별도 PR 4건으로 분리 — 이 문서는 그중 docs PR에 포함)
 
-1. **CarPlay 제거**
+리뷰 단위를 작게 유지하기 위해 아래 각 항목을 독립 브랜치/PR로 분리해서 올림.
+이 문서가 속한 PR(`docs/launch-v1-prep`) 자체에는 코드 변경이 없음 — 실제 코드는
+각 항목의 PR에서 별도로 머지됨. 상태는 머지 시점에 갱신.
+
+1. **CarPlay 제거** — PR #54 (`chore/remove-carplay`)
    - `Navigation.entitlements`에서 `com.apple.developer.carplay-navigation` 제거
    - `Info.plist`의 `CPTemplateApplicationSceneSessionRoleApplication` 씬 설정 제거
    - `AppDelegate.swift`에서 CarPlay 씬 분기·`import CarPlay` 제거
    - `App/CarPlaySceneDelegate.swift`, `Feature/CarPlay/*.swift`(4개 파일) 삭제
    - `Service/CarPlay/NavigationSessionManager.swift`는 **유지** — 아이폰 내비 세션의 핵심 싱글턴(CLAUDE.md 명시), CarPlay 유무와 무관하게 필요
-   - 빌드 확인 완료 (`xcodebuild build`, BUILD SUCCEEDED, CarPlay 잔여 참조 없음)
+   - 해당 PR 브랜치 기준 빌드 확인 완료 (`xcodebuild build`, BUILD SUCCEEDED, CarPlay 잔여 참조 없음) — 이 문서만 반영된 상태(=이 PR만 머지된 상태)에서는 아직 반영 전이라 CarPlay가 남아있음
 
-2. **DevTools 숨김 (비밀 코드 방식)**
+2. **DevTools 숨김 (비밀 코드 방식)** — PR #53 (`chore/hide-devtools`)
    - `DevToolsSettings`에 `devToolsUnlocked`(영구 저장, 기본 false) 추가
    - 설정 화면의 "개발자" 섹션은 기본적으로 목록에서 제외 (`numberOfSections`)
    - "앱 버전" 행을 1.5초 이내 7회 연속 탭하면 해금 + 즉시 개발자 도구 진입 (`SettingsViewController.handleVersionTap`)
    - 기존 관례(주차 요약 화면의 "경과시간 라벨 5회 탭" — DR-005)와 동일한 패턴으로 통일
    - **주차장 찾기의 디버그 화면은 별도 작업 불필요했음**: `ParkingARViewModel`/`ParkingARViewController`의 디버그 오버레이는 이미 `DevToolsSettings.parkingDebugEnabled` 토글 하나로만 열리고, 그 토글은 DevTools 화면 안에만 있음 → DevTools를 숨기면 주차 디버그 화면도 자동으로 비밀 메뉴 안으로 들어감. 추가로 AR 화면 자체에도 상단 안내 문구 5회 탭 히든 제스처가 이미 있음(등록 직후 허브를 안 거치는 플로우 대응)
 
-3. **앱 아이콘**
+3. **앱 아이콘** — PR #52 (`chore/app-icon-placeholder`, 머지 완료)
    - 이전에는 `AppIcon.appiconset`에 `Contents.json`만 있고 실제 이미지가 전혀 없어 아카이브 시 확실히 막히는 상태였음
    - 인디고 브랜드 컬러(Theme.Palette 액센트) 기반 내비게이션 화살표 글리프로 **placeholder 아이콘 3종**(기본/다크/틴트) 생성해 연결함 (`Assets.xcassets/AppIcon.appiconset/icon-1024*.png`)
    - **정식 브랜드 디자인은 아님** — 아카이브 빌드가 통과하도록 자리만 채운 상태. 출시 전 디자이너 산출물로 교체 필요
+   - Sonnet·Opus 교차 리뷰 완료(둘 다 이상 없음 — filename 매칭, 1024×1024, 알파채널 없음 확인)
 
 ---
 
@@ -68,18 +73,21 @@ v1.0 범위를 다시 확정하기 위해 작성.
 
 ---
 
-## 출시 전 남은 것 (기술 블로커, 지난 리뷰에서 확인)
+## 출시 전 남은 것
 
+기술 블로커(직전 세션의 코드베이스 리뷰에서 확인):
 - [ ] **개인정보처리방침** — 저장소에 실제 문서/URL이 전혀 없음. App Store Connect 제출 필수, 설정 화면에 링크도 없음
 - [ ] **앱 아이콘 정식 디자인** — 지금은 placeholder
 - [ ] 기존 결함 유닛 테스트 2건(`MapMatcherTests.matchReverseHeading_failsForAutomobile`, `TurnTypeTests.apple_keepLeft`) — 이 기능들과 무관하다고 기록되어 있으나 출시 전 고치거나 의도적으로 보류할지 결정
 - [ ] 실시간 혼잡 지도의 HomeViewController 인라인 코드 — 출시 자체를 막진 않음, 정식 MVVM 분리는 v1.0 이후로 미뤄도 됨(사용자 확인)
+
+오늘 사용성 점검에서 나온 것(위 "실기기·시뮬레이터 사용성 점검 결과" 참고):
 - [ ] 즐겨찾기 전용 목록 화면 필요 여부 — 위 점검 결과 참고해 범위 결정
 - [ ] 검색 결과 선택 → 경로 시작 플로우 실기기 확인
 - [ ] 지도 로케일(언어) 실기기 확인
 
 ## 다음 단계
 1. 이 문서의 결정을 바탕으로 speckit(`specs/`)에 필요한 만큼만 반영 (즐겨찾기 고도화 범위가 커지면 별도 스펙 폴더)
-2. `chore/launch-v1-prep` 브랜치 커밋 여부는 사용자 확인 후 진행
+2. PR #51(이 문서)·#52(앱 아이콘, 머지 완료)·#53(DevTools 숨김)·#54(카플레이 제거, 머지 완료) — Sonnet·Opus 교차 리뷰 후 순차 머지 진행 중
 3. 개인정보처리방침 초안 작성
 4. 앱 아이콘 정식 디자인 교체
