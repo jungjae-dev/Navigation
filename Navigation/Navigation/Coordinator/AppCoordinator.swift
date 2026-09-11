@@ -844,7 +844,16 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showDevTools()
         }
 
+        settingsVC.onShowPrivacyPolicy = { [weak self] in
+            self?.showPrivacyPolicy()
+        }
+
         navigationController.pushViewController(settingsVC, animated: true)
+    }
+
+    private func showPrivacyPolicy() {
+        let privacyVC = PrivacyPolicyViewController()
+        navigationController.pushViewController(privacyVC, animated: true)
     }
 
     // MARK: - DevTools Flow
