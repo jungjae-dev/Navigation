@@ -145,7 +145,18 @@ extension FavoritesListViewController: UITableViewDelegate {
     ) -> UISwipeActionsConfiguration? {
         let favorite = favorites[indexPath.row]
         let delete = UIContextualAction(style: .destructive, title: "삭제") { [weak self] _, _, completion in
-            self?.viewModel.deleteFavorite(favorite)
+            guard let self else {
+                completion(false)
+                return
+            }
+            // viewModel.favorites는 .receive(on: .main)이라 같은 메인 스레드라도
+            // 다음 런루프에 비동기로 도착함 — completion(true)가 트리거하는 UIKit의
+            // 암묵적 행 삭제 애니메이션은 그 전에 실행되므로, 여기서 로컬 배열과
+            // 테이블을 먼저 동기적으로 맞춰야 "Invalid number of rows" 크래시가 안 남.
+            self.favorites.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .automatic)
+            self.emptyLabel.isHidden = !self.favorites.isEmpty
+            self.viewModel.deleteFavorite(favorite)
             completion(true)
         }
         return UISwipeActionsConfiguration(actions: [delete])
