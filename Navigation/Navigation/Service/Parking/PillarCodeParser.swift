@@ -20,7 +20,8 @@ struct ParsedCode: Equatable, Sendable {
 
 /// 기둥 코드 파서 — 토큰화 + 스켈레톤 유도 + 템플릿 매칭 (R4).
 /// 번호판(12가3456)·안내문 등은 어떤 토큰 구조에도 해당하지 않아 nil 반환.
-enum PillarCodeParser {
+/// nonisolated 명시: 순수 유틸리티 — 기본 MainActor 격리 하에서 함수 참조 전달(flatMap 등)이 격리 충돌 (PR#49 리뷰)
+nonisolated enum PillarCodeParser {
 
     /// 파싱 불가 코드로 등록된 세션의 스켈레톤 표식 — 되찾기는 원문 완전 일치만 사용 (FR-016)
     static let rawSkeleton = "RAW"

@@ -13,33 +13,37 @@ final class CodeScannerService {
         let boundingBox: CGRect
     }
 
-    var onRecognitions: (([Recognition]) -> Void)?
+    /// 인식 결과와 함께 **OCR이 처리한 원본 ARFrame**을 되돌려준다 —
+    /// 콜백 시점의 currentFrame으로 역투영하면 이동 중 프레임 불일치 오차 발생 (PR#49 리뷰 M3/A-1)
+    var onRecognitions: (([Recognition], ARFrame) -> Void)?
 
     private var isProcessing = false
     private var lastProcessedAt: TimeInterval = 0
     private let minInterval: TimeInterval = 1.0 / 3.0
 
-    /// CVPixelBuffer를 백그라운드 Vision 처리로 넘기기 위한 래퍼.
-    /// ARKit이 프레임 버퍼를 재사용하지 않도록 참조만 유지 — 읽기 전용 접근.
-    private struct FrameBox: @unchecked Sendable {
-        let buffer: CVPixelBuffer
+    /// ARFrame을 백그라운드 Vision 처리로 넘기기 위한 래퍼 — 처리 중 1개만 유지(동시 1건 직렬화).
+    /// nonisolated 명시: 기본 MainActor 격리가 적용되면 백그라운드 recognize에서 프로퍼티 접근 불가 (PR#49 리뷰)
+    private nonisolated struct FrameBox: @unchecked Sendable {
+        let frame: ARFrame
         let orientation: CGImagePropertyOrientation
     }
 
+    /// 방향 상수 .right는 세로 고정 UI 전제 — ParkingARViewController의 역변환 수식과 한 쌍 (PR#49 리뷰 A-4)
     func process(frame: ARFrame, orientation: CGImagePropertyOrientation = .right) {
         guard !isProcessing, frame.timestamp - lastProcessedAt >= minInterval else { return }
         isProcessing = true
         lastProcessedAt = frame.timestamp
 
-        let box = FrameBox(buffer: frame.capturedImage, orientation: orientation)
+        let box = FrameBox(frame: frame, orientation: orientation)
 
-        Task.detached(priority: .userInitiated) { [weak self] in
+        // MainActor 클로저를 값으로 만들어 detached로 전달 — 동시성 컨텍스트에서 self 캡처 변수 참조 금지 (PR#49 리뷰, Swift 6)
+        let finish: @MainActor ([Recognition], FrameBox) -> Void = { [weak self] recognitions, box in
+            self?.isProcessing = false
+            self?.onRecognitions?(recognitions, box.frame)
+        }
+        Task.detached(priority: .userInitiated) {
             let recognitions = Self.recognize(box)
-            await MainActor.run {
-                guard let self else { return }
-                self.isProcessing = false
-                self.onRecognitions?(recognitions)
-            }
+            await finish(recognitions, box)
         }
     }
 
@@ -49,7 +53,7 @@ final class CodeScannerService {
         request.recognitionLanguages = ["ko-KR", "en-US"]
         request.usesLanguageCorrection = false   // "B2-A-3"을 단어로 교정하려는 시도 차단
 
-        let handler = VNImageRequestHandler(cvPixelBuffer: box.buffer, orientation: box.orientation)
+        let handler = VNImageRequestHandler(cvPixelBuffer: box.frame.capturedImage, orientation: box.orientation)
         do {
             try handler.perform([request])
         } catch {

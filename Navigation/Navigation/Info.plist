@@ -35,7 +35,7 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>주차한 기둥의 위치 코드를 인식해 내 차 위치를 저장하고 되찾는 데 카메라를 사용합니다. 촬영 영상은 저장되지 않습니다.</string>
+	<string>주차한 기둥의 위치 코드를 인식해 내 차 위치를 저장하고 되찾는 데 카메라를 사용합니다. 영상은 저장되지 않으며, 내 차 위치 확인용 사진만 기기 안에 보관됩니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>현재 위치를 지도에 표시하고 경로 안내에 사용합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

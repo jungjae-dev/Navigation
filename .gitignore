@@ -33,3 +33,4 @@ Secrets.xcconfig
 
 # specs are point-in-time artifacts (kept local, not tracked)
 specs/
+GoogleService-Info.plist

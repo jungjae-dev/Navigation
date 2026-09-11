@@ -32,6 +32,7 @@ struct ParkingEventReplayer {
         var estimator = GridEstimator()
         var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int, positionUpdatedAt: Double?, ambiguous: Bool)] = [:]
         var targetParsed: ParsedCode?
+        var neighborRaws: Set<String> = []
         var sawSessionStart = false
         var lastRecomputed: GridEstimate?
         var result = ReplayResult()
@@ -47,6 +48,10 @@ struct ParkingEventReplayer {
                 if let target = object["target"] as? [String: Any],
                    let raw = target["raw"] as? String {
                     targetParsed = PillarCodeParser.parse(raw)
+                }
+                // VM 패리티: 인접 목격 신뢰도 부스트(FR-013a) 재현용 (PR#49 리뷰 — 미파싱으로 confidence 경로 불일치)
+                if let neighbors = object["neighbors"] as? [String] {
+                    neighborRaws = Set(neighbors.map { PillarCodeParser.normalized($0) })
                 }
 
             case "codeObserved":
@@ -72,6 +77,11 @@ struct ParkingEventReplayer {
                     }
                 }
                 observations[raw] = (parsed, storedPosition, hit, storedPositionAt, ambiguous)
+
+                // VM 패리티: 인접 목격 → 신뢰도 부스트, estimate 호출 이전에 (VM handleFindRecognition과 동일 순서)
+                if neighborRaws.contains(parsed.raw) {
+                    estimator.markNeighborSighted()
+                }
 
                 // VM.runEstimate와 동일한 포함 규칙:
                 // 확정(hit≥2) + 위치 보유 + 격자 사용 가능 + 신선도 + 비모호 + 잘림 의심(진접두사) 제외
@@ -121,6 +131,27 @@ struct ParkingEventReplayer {
                         )
                     }
                 }
+                // confidence·lever 비교 (PR#49 리뷰 — 260801 과신 버그 부류의 회귀를 잡기 위한 필수 비교)
+                if let recordedConfidence = object["confidence"] as? Int,
+                   let recomputed = lastRecomputed,
+                   recomputed.confidence.rawValue != recordedConfidence {
+                    result.mismatches.append(
+                        "line \(index + 1): confidence 기록=\(recordedConfidence) 재계산=\(recomputed.confidence.rawValue)"
+                    )
+                }
+                if let recordedLever = object["lever"] as? Double,
+                   let recomputedLever = lastRecomputed?.extrapolationLever,
+                   abs(recordedLever - recomputedLever) > 0.05 {
+                    result.mismatches.append(
+                        "line \(index + 1): lever 기록=\(String(format: "%.2f", recordedLever)) 재계산=\(String(format: "%.2f", recomputedLever))"
+                    )
+                }
+
+            case "observationsInvalidated":
+                // VM.invalidateObservations 패리티 — 중단 시점의 관측·추정 상태 리셋 (PR#49 리뷰 L8)
+                observations.removeAll()
+                estimator.reset()
+                lastRecomputed = nil
 
             default:
                 break

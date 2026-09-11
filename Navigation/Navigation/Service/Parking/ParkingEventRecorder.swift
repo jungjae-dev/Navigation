@@ -124,6 +124,11 @@ final class ParkingEventRecorder {
         write(event: "stateTransition", ["from": from, "to": to, "trigger": trigger])
     }
 
+    /// 세션 중단으로 관측 전체 무효화 — 리플레이어가 동일 시점에 상태를 리셋하기 위한 이벤트 (PR#49 리뷰 L8)
+    func observationsInvalidated() {
+        write(event: "observationsInvalidated", [:])
+    }
+
     func sessionEnd(by trigger: String) {
         write(event: "sessionEnd", ["by": trigger, "elapsed": round3(Date().timeIntervalSince(sessionStartedAt))])
         try? handle?.close()

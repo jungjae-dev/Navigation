@@ -114,7 +114,12 @@ struct ParkingReplayTests {
             fileURL: fieldLog("parking-20260911-102531-find.ndjson")
         )
         #expect(result.comparedCount == 76)
-        #expect(result.mismatches.count == 11, "\(result.mismatches.prefix(4))")
+        // 67건 = 기록(개정 전 과신: gridGuidance·high/medium)이 정직한 방향으로만 어긋남 —
+        // 리플레이어 confidence 비교 도입(PR#49 리뷰 L8)으로 신뢰도 하향 차이도 잡힌다
+        #expect(result.mismatches.count == 67, "\(result.mismatches.prefix(4))")
+        #expect(result.mismatches.allSatisfy {
+            $0.contains("기록=gridGuidance") || $0.contains("confidence 기록=")
+        }, "\(result.mismatches.prefix(4))")
         // 설계 개정 v2: 최종 시점(관측 E·G구역, 목표 H22)은 레버 가드가 격자 화살표 대신 구역 관측 안내로
         #expect(result.finalEstimate?.stage == .needMoreObservation(missing: .zone),
                 "\(String(describing: result.finalEstimate?.stage))")

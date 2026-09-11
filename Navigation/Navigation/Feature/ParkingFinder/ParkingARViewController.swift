@@ -146,6 +146,8 @@ final class ParkingARViewController: UIViewController {
     private var debugOverlay: ParkingDebugOverlayView?
     private var debugEntities: ParkingDebugEntities?
     private var arDebugOptionsOn = false
+    /// 디버그 전용 구독 — 토글 off 시 함께 해제 (재토글 시 구독 누적 방지, PR#49 리뷰 부가 관찰)
+    private var debugCancellables = Set<AnyCancellable>()
 
     init(viewModel: ParkingARViewModel) {
         self.viewModel = viewModel
@@ -164,8 +166,8 @@ final class ParkingARViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         bindViewModel()
-        scanner.onRecognitions = { [weak self] recognitions in
-            self?.handleRecognitions(recognitions)
+        scanner.onRecognitions = { [weak self] recognitions, frame in
+            self?.handleRecognitions(recognitions, frame: frame)
         }
         viewModel.capturePhoto = { [weak self] in
             self?.captureCurrentFramePhoto()
@@ -187,6 +189,7 @@ final class ParkingARViewController: UIViewController {
         arView.session.pause()
         setTorch(on: false)
         viewModel.cancelTasks()
+        viewModel.discardUnsavedPhotos()   // 미저장 이탈(닫기·수동 전환 등) — 사진 고아 파일 방지 (PR#49 리뷰 B-1)
         viewModel.recorder?.sessionEnd(by: "screen-exit")
         viewModel.recorder = nil
     }
@@ -362,10 +365,11 @@ final class ParkingARViewController: UIViewController {
             viewModel.debugStrip
                 .receive(on: DispatchQueue.main)
                 .sink { [weak overlay] text in overlay?.updateStrip(text) }
-                .store(in: &cancellables)
+                .store(in: &debugCancellables)
 
             startRecorderIfNeeded()
         } else {
+            debugCancellables.removeAll()
             viewModel.recorder?.sessionEnd(by: "debug-off")
             viewModel.recorder = nil
             debugOverlay?.removeFromSuperview()
@@ -470,14 +474,16 @@ final class ParkingARViewController: UIViewController {
         case .authorized:
             runSession()
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                Task { @MainActor in
-                    if granted {
-                        self?.runSession()
-                    } else {
-                        self?.onRequestManualEntry?()   // 거부 → 수동 폴백 (FR-017)
-                    }
+            // MainActor 클로저를 값으로 전달 — 임의 큐 콜백에서 self 캡처 변수 참조 금지 (PR#49 리뷰, Swift 6)
+            let handleGrant: @MainActor (Bool) -> Void = { [weak self] granted in
+                if granted {
+                    self?.runSession()
+                } else {
+                    self?.onRequestManualEntry?()   // 거부 → 수동 폴백 (FR-017)
                 }
+            }
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                Task { await handleGrant(granted) }
             }
         default:
             onRequestManualEntry?()
@@ -518,8 +524,8 @@ final class ParkingARViewController: UIViewController {
         }
     }
 
-    private func handleRecognitions(_ recognitions: [CodeScannerService.Recognition]) {
-        guard let frame = arView.session.currentFrame else { return }
+    /// frame = OCR이 실제로 처리한 원본 프레임 — 역투영·depth 샘플링을 같은 프레임 기준으로 수행 (PR#49 리뷰 M3/A-1)
+    private func handleRecognitions(_ recognitions: [CodeScannerService.Recognition], frame: ARFrame) {
         for recognition in recognitions {
             var source: String? = nil
             var position = raycastPosition(for: recognition.boundingBox, frame: frame)
@@ -569,25 +575,22 @@ final class ParkingARViewController: UIViewController {
         return CGRect(origin: origin, size: size)
     }
 
-    /// Vision 정규 bbox(세로 방향 이미지, 원점 좌하단) 중심 → 화면 좌표 → raycast.
-    /// displayTransform은 원본(가로) 카메라 이미지의 정규 좌표(원점 좌상단)를 기대하므로
-    /// .right 회전을 역변환해 넘긴다. 이 화면은 portrait 고정 전제.
+    /// Vision 정규 bbox(세로 방향 이미지, 원점 좌하단) 중심 → 원본 이미지 정규 좌표 → raycast.
+    /// .right 회전 역변환(CodeScannerService의 orientation 상수와 한 쌍 — PR#49 리뷰 A-4). portrait 고정 전제.
+    /// raycast는 화면 좌표(현재 프레임 카메라 기준)가 아니라 **OCR 프레임의 raycastQuery**로 생성 —
+    /// 이동 중 프레임 불일치로 다른 방향에 광선을 쏘던 문제 수정 (PR#49 리뷰 M3/A-1)
     private func raycastPosition(for boundingBox: CGRect, frame: ARFrame) -> simd_float3? {
         let imagePoint = CGPoint(x: 1 - boundingBox.midY, y: 1 - boundingBox.midX)
-        let viewportSize = arView.bounds.size
-        let transform = frame.displayTransform(for: .portrait, viewportSize: viewportSize)
-        let normalized = imagePoint.applying(transform)
-        let viewPoint = CGPoint(x: normalized.x * viewportSize.width, y: normalized.y * viewportSize.height)
-
-        guard arView.bounds.contains(viewPoint) else { return nil }
+        guard (0...1).contains(imagePoint.x), (0...1).contains(imagePoint.y) else { return nil }
 
         // .any 폴백 제거(설계 개정 v2): 표지판을 겨눈 광선이 바닥 평면을 맞히는 오탐(4.87m/1초 점프 서명)의
         // 유력 원인 — 수직면 실패 시엔 sceneDepth 폴백이 담당
-        if let result = arView.raycast(from: viewPoint, allowing: .estimatedPlane, alignment: .vertical).first {
+        let query = frame.raycastQuery(from: imagePoint, allowing: .estimatedPlane, alignment: .vertical)
+        if let result = arView.session.raycast(query).first {
             let t = result.worldTransform.columns.3
             return simd_float3(t.x, t.y, t.z)
         }
-        logger.debug("[ParkingFinder] raycast failed for viewPoint=\(viewPoint.debugDescription)")
+        logger.debug("[ParkingFinder] raycast failed for imagePoint=\(imagePoint.debugDescription)")
         return nil
     }
 
@@ -661,6 +664,9 @@ final class ParkingARViewController: UIViewController {
         }
         sheet.addAction(UIAlertAction(title: "모름", style: .default) { [weak self] _ in
             self?.viewModel.setManualFloor(nil)
+        })
+        sheet.addAction(UIAlertAction(title: "취소", style: .cancel) { [weak self] _ in
+            self?.viewModel.cancelFloorInput()   // 데드엔드 방지 — 다음 확정 코드에서 저장 흐름 재개 (PR#49 리뷰 H1)
         })
         present(sheet, animated: true)
     }

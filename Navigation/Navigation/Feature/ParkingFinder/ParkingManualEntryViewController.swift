@@ -155,9 +155,18 @@ final class ParkingManualEntryViewController: UIViewController {
         )
         alert.addAction(UIAlertAction(title: "계속 입력", style: .cancel))
         alert.addAction(UIAlertAction(title: "나가기", style: .destructive) { [weak self] _ in
+            self?.deleteAttachedPhotoFile()   // 미저장 이탈 — 촬영본 고아 파일 방지 (PR#49 리뷰)
             self?.onClose?()
         })
         present(alert, animated: true)
+    }
+
+    /// 아직 레코드에 귀속되지 않은 첨부 사진 파일 삭제 — 재촬영·미저장 이탈 시 고아 파일 방지
+    private func deleteAttachedPhotoFile() {
+        guard let path = attachedPhotoPath else { return }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: docs.appendingPathComponent(path))
+        attachedPhotoPath = nil
     }
 }
 
@@ -179,6 +188,7 @@ extension ParkingManualEntryViewController: UIImagePickerControllerDelegate, UIN
         let relativePath = "ParkingPhotos/\(UUID().uuidString).jpg"
         do {
             try data.write(to: docs.appendingPathComponent(relativePath))
+            deleteAttachedPhotoFile()   // 재촬영 시 이전 촬영본 정리 (PR#49 리뷰)
             attachedPhotoPath = relativePath
             photoImageView.image = image
             photoImageView.isHidden = false

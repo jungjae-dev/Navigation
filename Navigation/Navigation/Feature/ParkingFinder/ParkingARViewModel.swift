@@ -146,6 +146,13 @@ final class ParkingARViewModel {
         raycastFailStreak = 0
         gradientHint.reset()
         lastGradientMessage = nil
+        // 좌표 무관 상태도 세션 단절과 함께 리셋 (PR#49 리뷰 M2):
+        // neighborLogged가 남으면 estimator.reset() 후 인접 부스트가 영구 소실, 사진은 무관 기둥 레코드에 오귀속
+        pendingFloorSave = nil
+        neighborLogged.removeAll()
+        floorReminderShown = false
+        discardUnsavedPhotos()
+        recorder?.observationsInvalidated()
         if case .find(let record) = mode {
             if record.templateSkeleton == PillarCodeParser.rawSkeleton {
                 guidanceState.send(.degraded(targetCode: record.targetCodeRaw, hint: nil))
@@ -223,7 +230,8 @@ final class ParkingARViewModel {
             photoPaths.append(path)
         }
 
-        guard case .scan = mode, saveTask == nil else { return }
+        // pendingFloorSave 진행 중엔 재예약 불필요 — 층 응답(setManualFloor) 또는 취소가 흐름을 결정 (PR#49 리뷰 H1)
+        guard case .scan = mode, saveTask == nil, pendingFloorSave == nil else { return }
         // 안정화 유예: 오인식 확정·최근접 선정을 위한 짧은 대기 — 인접 수집 대기가 아님 (FR-002)
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(ParkingTuning.saveStabilization))
@@ -244,12 +252,19 @@ final class ParkingARViewModel {
         if target.parsed.floorToken == nil, pendingFloorSave == nil {
             let pending = PendingSave(targetCode: target.parsed.raw)
             pendingFloorSave = pending
+            saveTask = nil   // 재무장 가능하게 — 시트가 응답 없이 사라져도 다음 확정 코드가 저장 흐름 재개 (PR#49 리뷰 H1)
             logger.info("[ParkingFinder] floor prompt shown (no floor token)")
             onNeedsFloorInput?(pending)
             return
         }
 
         finishSave(target: target, floorToken: target.parsed.floorToken, floorSource: .code)
+    }
+
+    /// 층 확인 시트 취소 — 대기 상태 해제, 다음 확정 코드에서 저장 흐름 재개 (PR#49 리뷰 H1)
+    func cancelFloorInput() {
+        pendingFloorSave = nil
+        logger.info("[ParkingFinder] floor prompt cancelled")
     }
 
     /// 층 확인 시트 응답 (FR-005). floorToken nil = "모름"
@@ -321,6 +336,17 @@ final class ParkingARViewModel {
     func cancelTasks() {
         saveTask?.cancel()
         timeoutTask?.cancel()
+    }
+
+    /// 레코드에 귀속되지 않은 자동 촬영 사진 삭제 — 미저장 이탈·세션 단절 시 고아 파일 방지 (PR#49 리뷰 B-1)
+    func discardUnsavedPhotos() {
+        guard !saved, !photoPaths.isEmpty else { return }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        for path in photoPaths {
+            try? FileManager.default.removeItem(at: docs.appendingPathComponent(path))
+        }
+        logger.info("[ParkingFinder] discarded \(self.photoPaths.count) unsaved photo(s)")
+        photoPaths.removeAll()
     }
 
     // MARK: - Find: 되찾기 파이프라인 (T024/T027, FR-008~016)
@@ -473,11 +499,14 @@ final class ParkingARViewModel {
         guard case .find(let record) = mode else { return }
         lastDevicePosition = SIMD2(Double(position.x), Double(position.z))
         let f = SIMD2(Double(forward.x), Double(forward.z))
-        lastDeviceForward = simd_length(f) > 1e-6 ? simd_normalize(f) : nil
+        if simd_length(f) > 1e-6 {
+            lastDeviceForward = simd_normalize(f)   // 퇴화 시(폰을 아래로) 직전 방향 유지 — nil 고착 방지 (PR#49 리뷰 M5)
+        }
         if let heading = lastDeviceForward {
             recorder?.devicePose(position: position, heading: heading)
         }
-        if case .guiding = guidanceState.value {
+        // 포즈 틱마다 상태 재발행 — G3 거리 상한 등으로 내려간 안내가 걸어오면 복귀하도록 양방향 유지 (PR#49 리뷰 M5)
+        if lastEstimate != nil {
             publishState(record: record)
         }
     }

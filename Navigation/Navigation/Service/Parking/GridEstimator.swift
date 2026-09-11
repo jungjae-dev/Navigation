@@ -318,11 +318,8 @@ struct GridEstimator: Sendable {
         } else {
             level = .low
         }
-        // 과신 방지 상한은 피팅 품질(기본 레벨)에만 적용 — 관측 수가 적으면 잔차가 낮아도 high 금지 (FR-010, 260801 반영).
-        // 인접 목격 부스트(FR-013a)는 격자 품질과 독립적인 "차 근처" 신호라 상한 이후에 더한다.
-        if count < ParkingTuning.minObservationsForHighConfidence, level == .high {
-            level = .medium
-        }
+        // 과신 방지 상한(FR-010, 260801)은 위 high 조건의 count 최소치가 이미 강제한다 — 별도 재검사는 도달 불가라 제거 (PR#49 리뷰).
+        // 인접 목격 부스트(FR-013a)는 격자 품질과 독립적인 "차 근처" 신호라 기본 레벨 판정 이후에 더한다.
         if neighborSighted, level < .high {
             level = GridEstimate.Confidence(rawValue: level.rawValue + 1) ?? .high
         }

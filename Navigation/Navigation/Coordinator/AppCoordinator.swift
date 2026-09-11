@@ -293,6 +293,11 @@ final class AppCoordinator: NSObject, Coordinator {
             arVC.onClose = { [weak self] in
                 self?.parkingNav?.popViewController(animated: true)
             }
+            // 권한 프롬프트 거부·AR 미지원 시 검은 화면 방지 — 허브로 복귀 + 설정 안내 (PR#49 리뷰 M4)
+            arVC.onRequestManualEntry = { [weak self] in
+                self?.parkingNav?.popViewController(animated: true)
+                self?.presentCameraSettingsAlert()
+            }
             arVC.onArrivedConfirm = { [weak self] in
                 finderVM.complete(by: "target-recognition")
                 self?.dismissParkingFinder()
