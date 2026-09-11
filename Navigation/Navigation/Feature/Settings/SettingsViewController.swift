@@ -69,6 +69,8 @@ final class SettingsViewController: UIViewController {
     private let viewModel: SettingsViewModel
     private var cancellables = Set<AnyCancellable>()
     private var photoPickerHelper: PhotoPickerHelper?
+    private var devToolsTapCount = 0
+    private var devToolsTapResetWorkItem: DispatchWorkItem?
 
     var onDismiss: (() -> Void)?
     var onShowDevTools: (() -> Void)?
@@ -514,7 +516,7 @@ private extension UIImage {
 extension SettingsViewController: UITableViewDataSource {
 
     func numberOfSections(in tableView: UITableView) -> Int {
-        Section.allCases.count
+        DevToolsSettings.shared.devToolsUnlocked.value ? Section.allCases.count : Section.allCases.count - 1
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -768,7 +770,10 @@ extension SettingsViewController: UITableViewDelegate {
             }
 
         case .info:
-            break
+            guard let row = InfoRow(rawValue: indexPath.row) else { return }
+            if row == .version {
+                handleVersionTap()
+            }
 
         case .devTools:
             guard let row = DevToolsRow(rawValue: indexPath.row) else { return }
@@ -776,5 +781,26 @@ extension SettingsViewController: UITableViewDelegate {
                 onShowDevTools?()
             }
         }
+    }
+
+    /// 앱 버전 행 7회 연속 탭(1.5초 이내) → 개발자 섹션 해금
+    private func handleVersionTap() {
+        devToolsTapResetWorkItem?.cancel()
+        devToolsTapCount += 1
+
+        guard devToolsTapCount >= 7 else {
+            let resetWorkItem = DispatchWorkItem { [weak self] in self?.devToolsTapCount = 0 }
+            devToolsTapResetWorkItem = resetWorkItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: resetWorkItem)
+            return
+        }
+
+        devToolsTapCount = 0
+        guard !DevToolsSettings.shared.devToolsUnlocked.value else {
+            onShowDevTools?()
+            return
+        }
+        DevToolsSettings.shared.setDevToolsUnlocked(true)
+        tableView.reloadData()
     }
 }
