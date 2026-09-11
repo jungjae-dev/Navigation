@@ -56,6 +56,7 @@ final class SettingsViewController: UIViewController {
 
     private enum InfoRow: Int, CaseIterable {
         case version = 0
+        case privacyPolicy = 1
     }
 
     // MARK: - UI Components
@@ -77,6 +78,7 @@ final class SettingsViewController: UIViewController {
 
     var onDismiss: (() -> Void)?
     var onShowDevTools: (() -> Void)?
+    var onShowPrivacyPolicy: (() -> Void)?
 
     // MARK: - Init
 
@@ -701,6 +703,12 @@ extension SettingsViewController: UITableViewDataSource {
                 config.image = UIImage(systemName: "info.circle.fill")
                 config.imageProperties.tintColor = Theme.Colors.secondaryLabel
                 cell.selectionStyle = .none
+
+            case .privacyPolicy:
+                config.text = "개인정보처리방침"
+                config.image = UIImage(systemName: "hand.raised.fill")
+                config.imageProperties.tintColor = Theme.Colors.secondaryLabel
+                cell.accessoryType = .disclosureIndicator
             }
 
         case .devTools:
@@ -775,8 +783,11 @@ extension SettingsViewController: UITableViewDelegate {
 
         case .info:
             guard let row = InfoRow(rawValue: indexPath.row) else { return }
-            if row == .version {
+            switch row {
+            case .version:
                 handleVersionTap()
+            case .privacyPolicy:
+                onShowPrivacyPolicy?()
             }
 
         case .devTools:
