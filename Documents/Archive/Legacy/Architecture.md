@@ -1,3 +1,8 @@
+> ⚠️ **ARCHIVED (2026-02 작성, 현행 아님).**
+> 이 문서는 SwiftUI 전제로 쓰였으나 현재 코드는 UIKit programmatic이다(2026-09 기준 UIKit 80 : SwiftUI 9).
+> 현행 규범: `.specify/memory/constitution.md` / 현행 구조: 코드가 진실.
+> 역사적 맥락 참고용이며, 설계 근거로 인용하지 않는다.
+
 # Navigation App - Architecture Design
 
 ## 1. 아키텍처 패턴: MVVM + Coordinator
