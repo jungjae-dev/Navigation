@@ -848,12 +848,35 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showPrivacyPolicy()
         }
 
+        settingsVC.onShowFavorites = { [weak self] in
+            self?.showFavoritesList()
+        }
+
         navigationController.pushViewController(settingsVC, animated: true)
     }
 
     private func showPrivacyPolicy() {
         let privacyVC = PrivacyPolicyViewController()
         navigationController.pushViewController(privacyVC, animated: true)
+    }
+
+    private func showFavoritesList() {
+        let favoritesVC = FavoritesListViewController(viewModel: homeViewModel)
+
+        favoritesVC.onSelectFavorite = { [weak self] favorite in
+            guard let self else { return }
+            // pop 애니메이션이 끝나기 전에 지도·드로어를 바꾸면 화면이 아직 밀려나는
+            // 도중에 목적지 핀·경로 드로어가 나타나 겹쳐 보임 — pop의 CATransaction이
+            // 끝난 뒤에 실행되도록 completion block으로 미룸.
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak self] in
+                self?.showRoutePreviewForFavorite(favorite)
+            }
+            self.navigationController.popToViewController(self.homeViewController, animated: true)
+            CATransaction.commit()
+        }
+
+        navigationController.pushViewController(favoritesVC, animated: true)
     }
 
     // MARK: - DevTools Flow

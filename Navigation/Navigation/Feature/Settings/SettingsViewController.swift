@@ -79,6 +79,7 @@ final class SettingsViewController: UIViewController {
     var onDismiss: (() -> Void)?
     var onShowDevTools: (() -> Void)?
     var onShowPrivacyPolicy: (() -> Void)?
+    var onShowFavorites: (() -> Void)?
 
     // MARK: - Init
 
@@ -667,7 +668,7 @@ extension SettingsViewController: UITableViewDataSource {
                 config.secondaryText = "\(viewModel.favoriteCount.value)개"
                 config.image = UIImage(systemName: "star.fill")
                 config.imageProperties.tintColor = .systemYellow
-                cell.selectionStyle = .none
+                cell.accessoryType = .disclosureIndicator
 
             case .clearHistory:
                 config.text = "검색 기록 삭제"
@@ -778,7 +779,7 @@ extension SettingsViewController: UITableViewDelegate {
             case .transitRefresh:
                 handleTransitRefresh(at: indexPath)
             case .favorites:
-                break
+                onShowFavorites?()
             }
 
         case .info:
