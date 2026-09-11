@@ -30,12 +30,14 @@ final class DevToolsViewController: UIViewController {
 
     private enum FilesRow: Int, CaseIterable {
         case manageFiles = 0
+        case parkingLogs = 1
     }
 
     private enum DebugRow: Int, CaseIterable {
         case overlay = 0
         case mapMatchVisualization = 1
         case predictiveDisplay = 2
+        case parkingDebug = 3
     }
 
     // MARK: - UI
@@ -55,6 +57,7 @@ final class DevToolsViewController: UIViewController {
     var onDismiss: (() -> Void)?
     var onShowFileList: (() -> Void)?
     var onSelectRecordingFile: (() -> Void)?
+    var onShowParkingLogs: (() -> Void)?
 
     // MARK: - Init
 
@@ -177,6 +180,14 @@ final class DevToolsViewController: UIViewController {
     @objc private func mapMatchDebugSwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setMapMatchDebugEnabled(sender.isOn)
     }
+
+    @objc private func parkingDebugSwitchChanged(_ sender: UISwitch) {
+        DevToolsSettings.shared.setParkingDebugEnabled(sender.isOn)
+    }
+
+    // MARK: - Parking Logs Export (DR-003, T042)
+
+
 
     @objc private func predictiveDisplaySwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setPredictiveDisplayEnabled(sender.isOn)
@@ -354,6 +365,13 @@ extension DevToolsViewController: UITableViewDataSource {
                 config.image = UIImage(systemName: "doc.text.fill")
                 config.imageProperties.tintColor = .systemOrange
                 cell.accessoryType = .disclosureIndicator
+
+            case .parkingLogs:
+                config.text = "주차 관측 로그"
+                config.secondaryText = "\(ParkingLogListViewController.logFiles().count)개 (.ndjson)"
+                config.image = UIImage(systemName: "parkingsign.circle")
+                config.imageProperties.tintColor = .systemIndigo
+                cell.accessoryType = .disclosureIndicator
             }
 
         case .lbsProvider:
@@ -413,6 +431,19 @@ extension DevToolsViewController: UITableViewDataSource {
                 toggle.addTarget(self, action: #selector(predictiveDisplaySwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
                 cell.selectionStyle = .none
+
+            case .parkingDebug:
+                config.text = "내 차 찾기 디버그"
+                config.secondaryText = "AR 시각화 + 관측 레코딩 (요약 화면 경과시간 5탭으로도 토글)"
+                config.image = UIImage(systemName: "parkingsign.circle")
+                config.imageProperties.tintColor = .systemIndigo
+
+                let toggle = UISwitch()
+                toggle.isOn = DevToolsSettings.shared.parkingDebugEnabled.value
+                toggle.onTintColor = Theme.Colors.primary
+                toggle.addTarget(self, action: #selector(parkingDebugSwitchChanged), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
             }
         }
 
@@ -449,8 +480,11 @@ extension DevToolsViewController: UITableViewDelegate {
 
         case .files:
             guard let row = FilesRow(rawValue: indexPath.row) else { return }
-            if row == .manageFiles {
+            switch row {
+            case .manageFiles:
                 onShowFileList?()
+            case .parkingLogs:
+                onShowParkingLogs?()
             }
 
         case .debug:

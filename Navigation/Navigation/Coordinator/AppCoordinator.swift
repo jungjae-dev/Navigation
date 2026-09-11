@@ -2,6 +2,7 @@ import UIKit
 import MapKit
 import Combine
 import CoreLocation
+import AVFoundation
 import OSLog
 
 private let coordLogger = Logger(subsystem: "nav.ui", category: "AppCoordinator")
@@ -50,6 +51,11 @@ final class AppCoordinator: NSObject, Coordinator {
 
     /// 가상 주행 진행 중인 driver (안내 lifecycle에 종속)
     private var activeVirtualDriveDriver: VirtualDriveDriver?
+
+    // MARK: - Parking Finder (모듈 수명 = present 동안)
+
+    private var parkingFinderViewModel: ParkingFinderViewModel?
+    private var parkingNav: UINavigationController?
 
     // MARK: - Init
 
@@ -180,6 +186,10 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showSettings()
         }
 
+        drawerVC.onParkingFinderTapped = { [weak self] in
+            self?.showParkingFinder()
+        }
+
         drawerManager.pushDrawer(
             drawerVC,
             detents: standardDetents(),
@@ -204,6 +214,142 @@ final class AppCoordinator: NSObject, Coordinator {
             detents: standardDetents(),
             initialDetent: homeInitialDetent()
         )
+    }
+
+    // MARK: - Parking Finder Flow
+
+    /// 진입 분기 (UI 계약): 활성 기록 있음 → 요약(허브) / 없음+권한 가능 → 스캔 등록 / 없음+권한 거부 → 수동 폼.
+    private func showParkingFinder() {
+        let finderVM = ParkingFinderViewModel()
+        parkingFinderViewModel = finderVM
+
+        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        let cameraUsable = cameraStatus == .authorized || cameraStatus == .notDetermined
+
+        let nav = UINavigationController()
+        nav.modalPresentationStyle = .fullScreen
+        parkingNav = nav
+
+        let entry: String
+        let root: UIViewController
+        if finderVM.hasActiveSession {
+            entry = "summary"
+            root = makeParkingSummary(finderVM, justSaved: false)
+        } else if cameraUsable {
+            entry = "scan"
+            root = makeParkingScan(finderVM)
+        } else {
+            entry = "manual"
+            root = makeParkingManualEntry(finderVM)
+        }
+        coordLogger.info("[ParkingFinder] entry: active-record=\(finderVM.hasActiveSession), camera=\(cameraStatus.rawValue) → \(entry)")
+
+        nav.setViewControllers([root], animated: false)
+        navigationController.present(nav, animated: true)
+    }
+
+    private func makeParkingScan(_ finderVM: ParkingFinderViewModel) -> UIViewController {
+        let arVM = ParkingARViewModel(mode: .scan)
+        let arVC = ParkingARViewController(viewModel: arVM)
+        arVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        arVC.onSaved = { [weak self] record in
+            guard let self else { return }
+            finderVM.adopt(record)
+            self.parkingNav?.setViewControllers(
+                [self.makeParkingSummary(finderVM, justSaved: true)],
+                animated: true
+            )
+        }
+        arVC.onRequestManualEntry = { [weak self] in
+            guard let self else { return }
+            self.parkingNav?.setViewControllers([self.makeParkingManualEntry(finderVM)], animated: true)
+        }
+        return arVC
+    }
+
+    private func makeParkingSummary(_ finderVM: ParkingFinderViewModel, justSaved: Bool) -> UIViewController {
+        let summaryVC = ParkingSummaryViewController(viewModel: finderVM, justSaved: justSaved)
+        summaryVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        summaryVC.onCompleted = { [weak self] in self?.dismissParkingFinder() }
+        summaryVC.onShowPhoto = { [weak self] url in
+            let viewer = UINavigationController(
+                rootViewController: ParkingPhotoViewerViewController(photoURL: url)
+            )
+            self?.parkingNav?.present(viewer, animated: true)
+        }
+        summaryVC.onNewRegistration = { [weak self] in
+            guard let self else { return }
+            self.parkingNav?.setViewControllers([self.makeParkingScan(finderVM)], animated: true)
+        }
+        summaryVC.onStartGuidance = { [weak self] record in
+            guard let self else { return }
+            guard AVCaptureDevice.authorizationStatus(for: .video) != .denied,
+                  AVCaptureDevice.authorizationStatus(for: .video) != .restricted else {
+                self.presentCameraSettingsAlert()   // 수동 등록·열람은 계속 가능 (FR-017)
+                return
+            }
+            let arVM = ParkingARViewModel(mode: .find(target: record))
+            let arVC = ParkingARViewController(viewModel: arVM)
+            arVC.onClose = { [weak self] in
+                self?.parkingNav?.popViewController(animated: true)
+            }
+            // 권한 프롬프트 거부·AR 미지원 시 검은 화면 방지 — 허브로 복귀 + 설정 안내 (PR#49 리뷰 M4)
+            arVC.onRequestManualEntry = { [weak self] in
+                self?.parkingNav?.popViewController(animated: true)
+                self?.presentCameraSettingsAlert()
+            }
+            arVC.onArrivedConfirm = { [weak self] in
+                finderVM.complete(by: "target-recognition")
+                self?.dismissParkingFinder()
+            }
+            arVC.onShowPhotoFallback = { [weak self] in
+                guard let url = record.photoURLs.first else { return }
+                let viewer = UINavigationController(
+                    rootViewController: ParkingPhotoViewerViewController(photoURL: url)
+                )
+                self?.parkingNav?.present(viewer, animated: true)
+            }
+            self.parkingNav?.pushViewController(arVC, animated: true)
+        }
+        return summaryVC
+    }
+
+    private func makeParkingManualEntry(_ finderVM: ParkingFinderViewModel) -> UIViewController {
+        let manualVC = ParkingManualEntryViewController()
+        manualVC.onClose = { [weak self] in self?.dismissParkingFinder() }
+        manualVC.onSaved = { [weak self] record in
+            guard let self else { return }
+            finderVM.adopt(record)
+            self.parkingNav?.setViewControllers(
+                [self.makeParkingSummary(finderVM, justSaved: true)],
+                animated: true
+            )
+        }
+        return manualVC
+    }
+
+    /// 카메라 권한 거부 상태에서 카메라 기능 진입 시 설정 이동 안내 (FR-017)
+    private func presentCameraSettingsAlert() {
+        let alert = UIAlertController(
+            title: "카메라 권한이 필요해요",
+            message: "기둥 코드를 인식하려면 설정에서 카메라를 허용해주세요. 코드 입력과 저장 정보 확인은 카메라 없이도 가능합니다.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "닫기", style: .cancel))
+        alert.addAction(UIAlertAction(title: "설정 열기", style: .default) { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        })
+        parkingNav?.present(alert, animated: true)
+    }
+
+    private func dismissParkingFinder() {
+        navigationController.dismiss(animated: true) { [weak self] in
+            self?.homeDrawerVC?.refreshParkingEntry()
+            self?.parkingFinderViewModel = nil
+            self?.parkingNav = nil
+        }
     }
 
     // MARK: - POI Detail Flow
@@ -717,6 +863,14 @@ final class AppCoordinator: NSObject, Coordinator {
 
         devToolsVC.onSelectRecordingFile = { [weak self] in
             self?.showRecordingFileList()
+        }
+
+        devToolsVC.onShowParkingLogs = { [weak self] in
+            let logListVC = ParkingLogListViewController()
+            logListVC.onDismiss = { [weak self] in
+                self?.navigationController.popViewController(animated: true)
+            }
+            self?.navigationController.pushViewController(logListVC, animated: true)
         }
 
         navigationController.pushViewController(devToolsVC, animated: true)

@@ -25,7 +25,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
             // 모델별 독립 SQLite 파일 — 각 도메인의 schema 변경이 서로 영향을 주지 않음
             let container = try ModelContainer(
-                for: Schema([FavoritePlace.self, SearchHistory.self, Recording.self]),
+                for: Schema([FavoritePlace.self, SearchHistory.self, Recording.self, ParkingSessionRecord.self]),
                 configurations: [
                     ModelConfiguration(
                         "Favorites",
@@ -41,6 +41,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                         "Recordings",
                         schema: Schema([Recording.self]),
                         url: storeDir.appendingPathComponent("Recordings.store")
+                    ),
+                    ModelConfiguration(
+                        "Parking",
+                        schema: Schema([ParkingSessionRecord.self]),
+                        url: storeDir.appendingPathComponent("Parking.store")
                     ),
                 ]
             )
