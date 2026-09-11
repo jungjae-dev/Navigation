@@ -7,6 +7,9 @@ final class SettingsViewController: UIViewController {
 
     // MARK: - Section & Row
 
+    /// `devTools`는 반드시 마지막 케이스여야 함 — `numberOfSections`가 잠금 상태에서
+    /// `allCases.count - 1`로 마지막 섹션 하나만 잘라내는 방식으로 숨기기 때문.
+    /// 이 뒤에 케이스를 추가하면 엉뚱한 섹션이 숨겨지고 개발자 섹션은 계속 노출된다.
     private enum Section: Int, CaseIterable {
         case voice = 0
         case transport = 1
@@ -69,6 +72,8 @@ final class SettingsViewController: UIViewController {
     private let viewModel: SettingsViewModel
     private var cancellables = Set<AnyCancellable>()
     private var photoPickerHelper: PhotoPickerHelper?
+    private var devToolsTapCount = 0
+    private var devToolsTapResetWorkItem: DispatchWorkItem?
 
     var onDismiss: (() -> Void)?
     var onShowDevTools: (() -> Void)?
@@ -514,7 +519,8 @@ private extension UIImage {
 extension SettingsViewController: UITableViewDataSource {
 
     func numberOfSections(in tableView: UITableView) -> Int {
-        Section.allCases.count
+        assert(Section.allCases.last == .devTools, "devTools는 마지막 케이스여야 숨김 로직이 올바르게 동작함")
+        return DevToolsSettings.shared.devToolsUnlocked.value ? Section.allCases.count : Section.allCases.count - 1
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -768,7 +774,10 @@ extension SettingsViewController: UITableViewDelegate {
             }
 
         case .info:
-            break
+            guard let row = InfoRow(rawValue: indexPath.row) else { return }
+            if row == .version {
+                handleVersionTap()
+            }
 
         case .devTools:
             guard let row = DevToolsRow(rawValue: indexPath.row) else { return }
@@ -776,5 +785,29 @@ extension SettingsViewController: UITableViewDelegate {
                 onShowDevTools?()
             }
         }
+    }
+
+    /// 앱 버전 행 7회 탭 → 개발자 섹션 해금. 탭 간격이 1.5초를 넘으면 카운트가 리셋되는
+    /// idle timeout 방식(고정 시간창이 아님) — 총 소요 시간과 무관하게 매 탭이 1.5초 안에만
+    /// 이어지면 유효하다.
+    private func handleVersionTap() {
+        devToolsTapResetWorkItem?.cancel()
+        devToolsTapCount += 1
+
+        guard devToolsTapCount >= 7 else {
+            let resetWorkItem = DispatchWorkItem { [weak self] in self?.devToolsTapCount = 0 }
+            devToolsTapResetWorkItem = resetWorkItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: resetWorkItem)
+            return
+        }
+
+        devToolsTapCount = 0
+        guard !DevToolsSettings.shared.devToolsUnlocked.value else {
+            onShowDevTools?()
+            return
+        }
+        DevToolsSettings.shared.setDevToolsUnlocked(true)
+        onShowDevTools?()
+        tableView.reloadData()
     }
 }

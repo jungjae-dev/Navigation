@@ -20,6 +20,7 @@ final class DevToolsSettings {
         static let mapMatchDebugEnabled = "devtools_mapmatch_debug_enabled"
         static let predictiveDisplayEnabled = "devtools_predictive_display_enabled"
         static let parkingDebugEnabled = "devtools_parking_debug_enabled"
+        static let devToolsUnlocked = "devtools_unlocked"
     }
 
     // MARK: - Publishers
@@ -30,6 +31,8 @@ final class DevToolsSettings {
     let predictiveDisplayEnabled: CurrentValueSubject<Bool, Never>
     /// 내 차 찾기 디버그 시각화·레코딩 (DR-005 — 출시 빌드 포함, 기본 off)
     let parkingDebugEnabled: CurrentValueSubject<Bool, Never>
+    /// 설정 화면의 "개발자" 섹션 노출 여부 — 앱 버전 행 7회 탭으로 해금, 기본 off
+    let devToolsUnlocked: CurrentValueSubject<Bool, Never>
 
     // MARK: - Private
 
@@ -44,6 +47,7 @@ final class DevToolsSettings {
         let predictiveRaw = defaults.object(forKey: Keys.predictiveDisplayEnabled) as? Bool ?? true
         self.predictiveDisplayEnabled = CurrentValueSubject(predictiveRaw)
         self.parkingDebugEnabled = CurrentValueSubject(defaults.bool(forKey: Keys.parkingDebugEnabled))
+        self.devToolsUnlocked = CurrentValueSubject(defaults.bool(forKey: Keys.devToolsUnlocked))
     }
 
     // MARK: - Setters
@@ -66,6 +70,11 @@ final class DevToolsSettings {
     func setParkingDebugEnabled(_ enabled: Bool) {
         parkingDebugEnabled.send(enabled)
         defaults.set(enabled, forKey: Keys.parkingDebugEnabled)
+    }
+
+    func setDevToolsUnlocked(_ unlocked: Bool) {
+        devToolsUnlocked.send(unlocked)
+        defaults.set(unlocked, forKey: Keys.devToolsUnlocked)
     }
 
     func setSelectedRecordingFileName(_ fileName: String?) {
