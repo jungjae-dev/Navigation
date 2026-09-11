@@ -848,12 +848,28 @@ final class AppCoordinator: NSObject, Coordinator {
             self?.showPrivacyPolicy()
         }
 
+        settingsVC.onShowFavorites = { [weak self] in
+            self?.showFavoritesList()
+        }
+
         navigationController.pushViewController(settingsVC, animated: true)
     }
 
     private func showPrivacyPolicy() {
         let privacyVC = PrivacyPolicyViewController()
         navigationController.pushViewController(privacyVC, animated: true)
+    }
+
+    private func showFavoritesList() {
+        let favoritesVC = FavoritesListViewController(viewModel: homeViewModel)
+
+        favoritesVC.onSelectFavorite = { [weak self] favorite in
+            guard let self else { return }
+            self.navigationController.popToViewController(self.homeViewController, animated: true)
+            self.showRoutePreviewForFavorite(favorite)
+        }
+
+        navigationController.pushViewController(favoritesVC, animated: true)
     }
 
     // MARK: - DevTools Flow
