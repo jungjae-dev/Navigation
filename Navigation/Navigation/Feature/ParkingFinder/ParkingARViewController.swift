@@ -581,8 +581,9 @@ final class ParkingARViewController: UIViewController {
 
         guard arView.bounds.contains(viewPoint) else { return nil }
 
-        if let result = arView.raycast(from: viewPoint, allowing: .estimatedPlane, alignment: .vertical).first
-            ?? arView.raycast(from: viewPoint, allowing: .estimatedPlane, alignment: .any).first {
+        // .any 폴백 제거(설계 개정 v2): 표지판을 겨눈 광선이 바닥 평면을 맞히는 오탐(4.87m/1초 점프 서명)의
+        // 유력 원인 — 수직면 실패 시엔 sceneDepth 폴백이 담당
+        if let result = arView.raycast(from: viewPoint, allowing: .estimatedPlane, alignment: .vertical).first {
             let t = result.worldTransform.columns.3
             return simd_float3(t.x, t.y, t.z)
         }
@@ -764,7 +765,14 @@ extension ParkingARViewController: ARSessionDelegate {
 
     nonisolated func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
         MainActor.assumeIsolated {
-            if case .limited = camera.trackingState {
+            // 레코더 배선 (설계 개정 v2 — 미배선으로 전 세션 0건이던 계측 공백 해소)
+            switch camera.trackingState {
+            case .normal:
+                viewModel.recorder?.trackingChanged(state: "normal")
+            case .notAvailable:
+                viewModel.recorder?.trackingChanged(state: "notAvailable")
+            case .limited(let reason):
+                viewModel.recorder?.trackingChanged(state: "limited", reason: String(describing: reason))
                 logger.info("[ParkingFinder] tracking limited")
                 viewModel.reportTrackingLimited()
             }

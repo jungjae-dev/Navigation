@@ -104,6 +104,7 @@ final class ParkingEventRecorder {
             "zoneVec": estimate.zoneVec.map { [round3($0.x), round3($0.y)] } ?? NSNull(),
             "numVec": estimate.numVec.map { [round3($0.x), round3($0.y)] } ?? NSNull(),
             "confidence": estimate.confidence.rawValue,
+            "lever": estimate.extrapolationLever.map(round3) as Any,   // G1 튜닝용 (설계 개정 v2)
         ])
     }
 

@@ -506,6 +506,12 @@ final class ParkingARViewModel {
             }
             let toTarget = target - devicePos
             let distance = simd_length(toTarget)
+            // G3 표시 거리 상한 — 주차장 물리 규모를 넘는 목표는 화살표 대신 힌트 (설계 개정 v2, J21 102m 차단)
+            if distance > ParkingTuning.maxGuidanceDisplayDistance {
+                newState = .needMore(message: lastGradientMessage
+                    ?? "목표가 아직 멀어요 — 가는 길의 기둥을 비춰주세요")
+                break
+            }
             let direction = distance > 1e-6 ? toTarget / distance : forward
             // 부호 규약: 전방 기준 시계방향(+) — 화면 회전값으로 직접 사용. 현장 검증(D2) 대상
             let arrow = atan2(

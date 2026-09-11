@@ -63,7 +63,19 @@ def summarize(path: Path) -> None:
         stages = collections.Counter(g["stage"].split("(")[0] for g in grid)
         print(f"  grid {len(grid)}건 — stage {dict(stages)}, confidence {dict(conf)}")
 
-    # 도착 + 오차 근사 (도착 순간 기기 위치 ≈ 실제 목표 위치)
+    # 설계 개정 v2 주 지표: 화살표 가동률 + targetEst 자기불안정성 + 외삽 레버
+    if grid:
+        guiding = [g for g in grid if g["stage"].startswith(("axisGuidance", "gridGuidance"))]
+        print(f"  화살표 가동률: {len(guiding)}/{len(grid)} ({100*len(guiding)/len(grid):.0f}%)")
+        ests = [g["targetEst"] for g in grid if g.get("targetEst")]
+        if len(ests) >= 2:
+            jumps = [math.hypot(a[0]-b[0], a[1]-b[1]) for a, b in zip(ests, ests[1:])]
+            print(f"  targetEst 자기불안정성: 최대 한-스텝 {max(jumps):.1f}m, 누적 이동 {sum(jumps):.1f}m")
+        levers = [g["lever"] for g in grid if g.get("lever") is not None]
+        if levers:
+            print(f"  외삽 레버(G1): 중앙 {sorted(levers)[len(levers)//2]:.2f}, 최대 {max(levers):.2f} (상한 2.5)")
+
+    # 도착 + 오차 근사 (보조 지표 — 성공 세션 편향·바닥오차 3~5m 주의, 설계 개정 v2)
     end = next((e for e in events if e["e"] == "sessionEnd"), None)
     poses = [e for e in events if e["e"] == "devicePose"]
     if end:

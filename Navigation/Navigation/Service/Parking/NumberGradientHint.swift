@@ -20,11 +20,12 @@ struct NumberGradientHint: Sendable {
            targetZone != observedZone,
            let targetToken = target.zoneToken, let observedToken = observed.zoneToken {
             lastMagnitude = nil   // 구역이 바뀌면 번호 추이는 무의미
+            // 방향 어휘("앞/뒤") 금지 — 구역 글자 순서와 보행 경로의 정렬은 미검증 가정이고(260911 검증:
+            // 한 세션에서 55° 어긋남), 주차장이 F·I 등을 건너뛰면 서수 자체가 어긋난다. 크기·근접만 말한다 (설계 개정 v2)
             if abs(targetZone - observedZone) == 1 {
-                return "옆 구역이에요 — \(observedToken)구역에서 \(targetToken)구역 쪽으로"
+                return "옆 구역이에요 — 근처 기둥에서 \(targetToken)구역을 찾아보세요"
             }
-            let direction = targetZone > observedZone ? "뒤" : "앞"
-            return "지금 \(observedToken)구역 — 구역 순서상 \(targetToken)구역은 더 \(direction)쪽이에요"
+            return "지금 \(observedToken)구역 — 목표는 \(targetToken)구역이에요 (약 \(abs(targetZone - observedZone))개 구역 차이)"
         }
         guard target.zoneToken == observed.zoneToken,
               let targetNumber = target.numberValue, let observedNumber = observed.numberValue else {

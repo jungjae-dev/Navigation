@@ -91,18 +91,19 @@ struct GridEstimatorTests {
     @Test func threeNonCollinearObservationsGiveGridGuidance() {
         var estimator = GridEstimator()
         // 격자: zoneVec=(0,5), numVec=(3,0), origin=(0,0)
-        // A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-3 = (9,5)
+        // A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-2 = (6,5)
+        // (목표 B-3은 레버 3.0 > 2.5로 G1이 차단 — leverGuardBlocksFarExtrapolation에서 검증)
         let result = estimator.estimate(
             observations: [
                 obs("A-1", zone: 0, num: 1, 3, 0),
                 obs("A-2", zone: 0, num: 2, 6, 0),
                 obs("B-1", zone: 1, num: 1, 3, 5),
             ],
-            targetZoneIndex: 1, targetNumber: 3
+            targetZoneIndex: 1, targetNumber: 2
         )
         #expect(result.stage == .gridGuidance)
         let target = try! #require(result.targetPosition)
-        #expect(abs(target.x - 9) < 0.01)
+        #expect(abs(target.x - 6) < 0.01)
         #expect(abs(target.y - 5) < 0.01)
         #expect(result.residualRMS < 0.01)
     }
@@ -132,20 +133,20 @@ struct GridEstimatorTests {
             obs("A-2", zone: 0, num: 2, 3, 0),
             obs("A-3", zone: 0, num: 3, 6, 0),
         ]
-        // 정상 구간
-        var result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 9)
+        // 정상 구간 (목표 A-4 — 레버 한도 내. 목표 9는 G1이 차단하므로 근거리 목표로 검증)
+        var result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 4)
         #expect(result.stage == .axisGuidance(axis: .number))
 
         // 스네이크 접힘: A-4가 예측(9,0)과 크게 어긋난 (6,-14)에서 관측(다음 통로 역방향) → 강등
         let folded = clean + [obs("A-4", zone: 0, num: 4, 6, -14)]
-        result = estimator.estimate(observations: folded, targetZoneIndex: 0, targetNumber: 9)
+        result = estimator.estimate(observations: folded, targetZoneIndex: 0, targetNumber: 4)
         #expect(result.stage == .degraded)
         #expect(result.targetPosition == nil)
 
         // 정합 관측 연속 2회 → 복귀
-        result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 9)
+        result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 4)
         #expect(result.stage == .degraded)   // 1회째 — 아직 복귀 전
-        result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 9)
+        result = estimator.estimate(observations: clean, targetZoneIndex: 0, targetNumber: 4)
         #expect(result.stage == .axisGuidance(axis: .number))   // 2회째 — 복귀
     }
 
@@ -195,6 +196,69 @@ struct GridEstimatorTests {
         #expect(boosted.confidence == .high)
     }
 
+    // MARK: - 3중 가드 (설계 개정 v2)
+
+    @Test func leverGuardBlocksFarExtrapolation() {
+        // G1: B~C구역 관측으로 J구역(6+스텝 밖) 외삽 시도 → 화살표 대신 추가 관측 안내 (J21 세션 재현)
+        var estimator = GridEstimator()
+        let observations = [
+            obs("B-3", zone: 1, num: 3, 0, 0),
+            obs("C-3", zone: 2, num: 3, 14, 0),   // 피치 14 — G2 경계(15) 부동소수 회피
+            obs("B-4", zone: 1, num: 4, 0, 10),
+        ]
+        let result = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 3)
+        #expect(result.stage == .needMoreObservation(missing: .zone))
+        #expect((result.extrapolationLever ?? 0) > ParkingTuning.extrapolationLeverLimit)
+    }
+
+    @Test func leverGuardAllowsInterpolation() {
+        // 관측 범위 안(또는 근접) 목표는 통과
+        var estimator = GridEstimator()
+        let observations = [
+            obs("A-1", zone: 0, num: 1, 3, 0),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+        ]
+        let result = estimator.estimate(observations: observations, targetZoneIndex: 1, targetNumber: 2)
+        #expect(result.stage == .gridGuidance)
+        #expect((result.extrapolationLever ?? .infinity) <= ParkingTuning.extrapolationLeverLimit)
+    }
+
+    @Test func stepPriorRejectsAbsurdAxis() {
+        // G2: 한 스텝 21.5m 축(J22 세션의 오염 축) 기각 — 다중 표지판 재앵커 왜곡 차단
+        var estimator = GridEstimator()
+        let observations = [
+            obs("J-23", zone: 9, num: 23, 0, 0),
+            obs("J-24", zone: 9, num: 24, 5.3, -20.8),   // |step| = 21.5m
+        ]
+        let result = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 22)
+        #expect(result.stage == .needMoreObservation(missing: .number))
+    }
+
+    @Test func stepPriorAllowsNormalPitch() {
+        // 실측 정상 피치(10.5m)는 통과
+        var estimator = GridEstimator()
+        let observations = [
+            obs("J-23", zone: 9, num: 23, 0, 0),
+            obs("J-24", zone: 9, num: 24, 10.5, 0),
+        ]
+        let result = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 22)
+        #expect(result.stage == .axisGuidance(axis: .number))
+    }
+
+    @Test func residualNotInformativeAtExactFit() {
+        // 아핀 3점은 정확결정계 — 잔차 0이어도 high 신뢰 조건에 기여하지 않음 (구조적 사망의 정직한 처리)
+        var estimator = GridEstimator()
+        let three = [
+            obs("A-1", zone: 0, num: 1, 3, 0),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+        ]
+        let result = estimator.estimate(observations: three, targetZoneIndex: 1, targetNumber: 2)
+        #expect(result.residualRMS < 1e-9)        // 항등 0 확인 (부동소수)
+        #expect(result.confidence == .medium)     // 잔차 0이 high로 이어지지 않음
+    }
+
     // MARK: - 관측 신선도 (260801: 드리프트 낡은 좌표 오염)
 
     @Test func staleObservationsAreExcludedFromFitting() {
@@ -219,7 +283,7 @@ struct GridEstimatorTests {
             obs("A-2", zone: 0, num: 2, 6, 0),
             obs("B-1", zone: 1, num: 1, 3, 5),
         ]
-        let result = estimator.estimate(observations: fresh, targetZoneIndex: 1, targetNumber: 3)
+        let result = estimator.estimate(observations: fresh, targetZoneIndex: 1, targetNumber: 2)
         #expect(result.stage == .gridGuidance)
         #expect(result.observationCount == 3)
     }

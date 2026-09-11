@@ -7,10 +7,11 @@ import Foundation
 struct ParkingReplayTests {
 
     /// GridEstimatorTests의 3점 아핀 케이스와 동일 기하:
-    /// A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-3 = (9,5)
+    /// A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-2 = (6,5)
+    /// (B-3은 외삽 레버 3.0 > 2.5로 G1 가드가 차단 — 설계 개정 v2)
     private func syntheticLog(recordedStage: String, recordedTarget: [Double]) -> String {
         """
-        {"t":0,"e":"sessionStart","mode":"find","target":{"raw":"B-3","floor":null,"skeleton":"Z-N"},"neighbors":[]}
+        {"t":0,"e":"sessionStart","mode":"find","target":{"raw":"B-2","floor":null,"skeleton":"Z-N"},"neighbors":[]}
         {"t":1.0,"e":"codeObserved","raw":"A-1","conf":0.9,"hit":1,"pos":[3,0,0]}
         {"t":1.5,"e":"codeObserved","raw":"A-1","conf":0.9,"hit":2,"pos":[3,0,0]}
         {"t":2.0,"e":"codeObserved","raw":"A-2","conf":0.9,"hit":1,"pos":[6,0,0]}
@@ -23,21 +24,21 @@ struct ParkingReplayTests {
 
     @Test func consistentLogReplaysWithoutMismatch() throws {
         let result = try ParkingEventReplayer.replay(
-            ndjson: syntheticLog(recordedStage: "gridGuidance", recordedTarget: [9, 5])
+            ndjson: syntheticLog(recordedStage: "gridGuidance", recordedTarget: [6, 5])
         )
         #expect(result.isConsistent)
         #expect(result.comparedCount == 1)
         #expect(result.recomputedCount > 0)
         // 재계산된 최종 추정도 기록과 같은 목표 위치
         let target = try #require(result.finalEstimate?.targetPosition)
-        #expect(abs(target.x - 9) < 0.05)
+        #expect(abs(target.x - 6) < 0.05)
         #expect(abs(target.y - 5) < 0.05)
     }
 
     @Test func staleRecordedStageIsDetectedAsMismatch() throws {
         // 기록이 잘못된(구버전 로직) 로그 — 리플레이가 회귀/불일치를 감지해야 함
         let result = try ParkingEventReplayer.replay(
-            ndjson: syntheticLog(recordedStage: "degraded", recordedTarget: [9, 5])
+            ndjson: syntheticLog(recordedStage: "degraded", recordedTarget: [6, 5])
         )
         #expect(!result.isConsistent)
         #expect(result.mismatches.count == 1)
@@ -45,7 +46,7 @@ struct ParkingReplayTests {
 
     @Test func recordedTargetDriftIsDetected() throws {
         let result = try ParkingEventReplayer.replay(
-            ndjson: syntheticLog(recordedStage: "gridGuidance", recordedTarget: [12, 5])
+            ndjson: syntheticLog(recordedStage: "gridGuidance", recordedTarget: [9, 5])
         )
         #expect(!result.isConsistent)
     }
@@ -64,15 +65,15 @@ struct ParkingReplayTests {
             .appendingPathComponent("Fixtures/\(name)")
     }
 
-    @Test func fieldLogFind1ReplaysToAxisGuidance() throws {
-        // 목표 "9", 관측 "2"·"3" → 번호축 안내까지 도달했던 세션
+    @Test func fieldLogFind1BlockedByLeverGuard() throws {
+        // 목표 "9", 관측 "2"·"3" — 인접 쌍에서 6스텝 외삽(레버 9.2)은 이제 G1이 차단 (설계 개정 v2).
+        // 개선 전 이 세션의 축 안내가 바로 "과소 관측 원거리 외삽" 부류였다
         let result = try ParkingEventReplayer.replay(
             fileURL: fieldLog("parking-20260710-180737-find.ndjson")
         )
         #expect(result.recomputedCount > 0)
-        if case .axisGuidance = result.finalEstimate?.stage {} else {
-            Issue.record("expected axisGuidance, got \(String(describing: result.finalEstimate?.stage))")
-        }
+        #expect(result.finalEstimate?.stage == .needMoreObservation(missing: .number),
+                "\(String(describing: result.finalEstimate?.stage))")
     }
 
     @Test func fieldLogFind2ReplaysToAxisGuidance() throws {
@@ -114,9 +115,9 @@ struct ParkingReplayTests {
         )
         #expect(result.comparedCount == 76)
         #expect(result.mismatches.count == 11, "\(result.mismatches.prefix(4))")
-        if case .gridGuidance = result.finalEstimate?.stage {} else {
-            Issue.record("expected gridGuidance, got \(String(describing: result.finalEstimate?.stage))")
-        }
+        // 설계 개정 v2: 최종 시점(관측 E·G구역, 목표 H22)은 레버 가드가 격자 화살표 대신 구역 관측 안내로
+        #expect(result.finalEstimate?.stage == .needMoreObservation(missing: .zone),
+                "\(String(describing: result.finalEstimate?.stage))")
     }
 
     @Test func fieldLog260911Session2SuppressesCorruptedAxis() throws {
@@ -144,7 +145,7 @@ struct ParkingReplayTests {
     @Test func fileRoundTrip() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("replay-test-\(UUID().uuidString).ndjson")
-        try syntheticLog(recordedStage: "gridGuidance", recordedTarget: [9, 5])
+        try syntheticLog(recordedStage: "gridGuidance", recordedTarget: [6, 5])
             .write(to: url, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: url) }
 

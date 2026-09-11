@@ -57,13 +57,15 @@ struct NumberGradientHintTests {
         PillarCodeParser.parse(raw)!
     }
 
-    @Test func differentZoneGivesZoneDirection() {
+    @Test func differentZoneGivesMagnitudeOnly() {
         var hint = NumberGradientHint()
-        // 지금 D구역, 목표 J구역 (D=3 < J=9 → 뒤쪽)
+        // 지금 D구역, 목표 J구역 — 방향 어휘 금지(설계 개정 v2), 크기만
         let message = hint.hint(target: code("J21"), observed: code("D23"))
         #expect(message?.contains("D구역") == true)
         #expect(message?.contains("J구역") == true)
-        #expect(message?.contains("뒤") == true)
+        #expect(message?.contains("뒤") == false)
+        #expect(message?.contains("앞") == false)
+        #expect(message?.contains("구역 차이") == true)
     }
 
     @Test func adjacentZoneSaysNextZone() {
