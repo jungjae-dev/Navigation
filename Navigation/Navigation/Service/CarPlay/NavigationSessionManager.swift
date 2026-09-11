@@ -28,6 +28,9 @@ enum NavigationCommand {
 
 // MARK: - NavigationSessionManager
 
+/// 폴더는 Service/CarPlay/지만 실제로는 아이폰 내비 세션의 핵심이다
+/// (엔진 생성·GPS 연결·start/stop/reroute). CarPlay 지원을 제거하더라도
+/// 이 클래스를 삭제하면 도보 내비게이션이 붕괴한다 — 삭제 금지.
 final class NavigationSessionManager {
 
     static let shared = NavigationSessionManager()

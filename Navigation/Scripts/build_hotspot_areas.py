@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # 서울시 주요 121장소 영역 Shapefile(.shp/.dbf, WGS84) → hotspot_areas.json
 # (순수 파이썬, 외부 의존 없음). 폴리곤 링 + 중심점 + 이름/코드/카테고리.
+#
+# 원본 출처: 서울 열린데이터광장(data.seoul.go.kr) "서울시 주요 121장소 영역" Shapefile
+#   — 실시간 도시데이터(citydata) 연계 장소 영역. 취득 2026-06.
+# 원본 shp/dbf는 gitignore 대상(3자 원본 정책) — 재취득 후 아래 BASE 경로에 배치하면 재생성 가능.
+# 산출물 hotspot_areas.json은 앱 리소스로 커밋되어 있어 평시 재실행 불필요.
 import struct, json, os
 
 BASE = "Documents/Work/260622_live_congestion/서울시 주요 121장소 영역/서울시 주요 121장소 영역"

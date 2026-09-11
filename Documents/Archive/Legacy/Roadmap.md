@@ -1,3 +1,8 @@
+> ⚠️ **ARCHIVED (2026-02 작성, 현행 아님).**
+> 초기 구상 시점의 내용이며 이후 제품 방향·범위가 크게 바뀌었다(Documents/Work/260614_service_review/ 참조).
+> 현행 규범: `.specify/memory/constitution.md` / 현행 구조: 코드가 진실.
+> 역사적 맥락 참고용이며, 설계 근거로 인용하지 않는다.
+
 # Navigation App - Development Roadmap
 
 ## Phase 1: Foundation (MVP Core) - 2~3주

@@ -2,6 +2,8 @@ import CoreLocation
 
 /// 경로 이탈 감지
 /// GPS valid일 때만 호출 (GPS invalid 시 엔진이 호출하지 않음)
+/// 시간창 기반 리루팅 차단은 추가하지 말 것 — 한 번 추가했다 제거된 이력이 있다.
+/// 기존 가드(isRerouteInProgress, maxRerouteAttempts=3, 연속 이탈 3회 확정, 출발 보호 5초/35m)로 충분하다.
 final class OffRouteDetector {
 
     // MARK: - Configuration
