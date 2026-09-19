@@ -34,10 +34,9 @@ UIKit programmatic + MVVM + Coordinator + Combine.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current spec
 
 **Current Feature**: 화살표 가이드 v3 — 점진 정확도 모델 (각도 보장 화살표·% 정확도·표지판 클러스터·레이더 미니맵)
-**Plan**: specs/006-arrow-guidance-v3/plan.md
 **Spec**: specs/006-arrow-guidance-v3/spec.md
-**Data Model**: specs/006-arrow-guidance-v3/data-model.md
+**Plan**: specs/006-arrow-guidance-v3/plan.md (P2에서 생성)
 <!-- SPECKIT END -->
