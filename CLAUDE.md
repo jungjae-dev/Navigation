@@ -36,8 +36,8 @@ UIKit programmatic + MVVM + Coordinator + Combine.
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
 
-**Current Feature**: 지하주차장 내 차 찾기 (기둥코드 OCR 스캔 등록 + AR 랜드마크 맵 격자 추정 방향 안내)
-**Plan**: specs/005-parking-car-finder/plan.md
-**Spec**: specs/005-parking-car-finder/spec.md
-**Data Model**: specs/005-parking-car-finder/data-model.md
+**Current Feature**: 화살표 가이드 v3 — 점진 정확도 모델 (각도 보장 화살표·% 정확도·표지판 클러스터·레이더 미니맵)
+**Plan**: specs/006-arrow-guidance-v3/plan.md
+**Spec**: specs/006-arrow-guidance-v3/spec.md
+**Data Model**: specs/006-arrow-guidance-v3/data-model.md
 <!-- SPECKIT END -->
