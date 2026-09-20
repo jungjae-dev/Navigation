@@ -207,6 +207,66 @@ struct GridEstimatorTests {
 
     // MARK: - 3중 가드 (설계 개정 v2)
 
+    @Test func expansionRecoversWhenNewPillarsAreObserved() {
+        // FR-108 "새 관측이 들어오면 회복된다" — 최댓값 기반이면 오래된 관측 하나가 남는 한
+        // 새 기둥을 아무리 비춰도 상한까지 래칫된다(PR#59 리뷰에서 확인된 결함)
+        var estimator = GridEstimator()
+        let stale = GridObservation(codeRaw: "A-1", zoneIndex: 0, numberValue: 1,
+                                    position: SIMD2(3, 0), ageSeconds: 120)
+        let before = estimator.estimate(
+            observations: [stale, obs("A-2", zone: 0, num: 2, 6, 0), obs("B-1", zone: 1, num: 1, 3, 5)],
+            targetZoneIndex: 1, targetNumber: 2
+        )
+        // 오래된 관측은 그대로 둔 채 새 기둥 두 개를 추가로 관측
+        let after = estimator.estimate(
+            observations: [stale, obs("A-2", zone: 0, num: 2, 6, 0), obs("B-1", zone: 1, num: 1, 3, 5),
+                           obs("B-2", zone: 1, num: 2, 6, 5), obs("C-1", zone: 2, num: 1, 3, 10)],
+            targetZoneIndex: 1, targetNumber: 2
+        )
+        #expect(after.uncertainty.expansion < before.uncertainty.expansion)
+    }
+
+    @Test func topTierRequiresNeighborSighting() {
+        // FR-104 AND 게이트 — 관측 5개·잔차 양호만으로는 최상위 구간에 가지 못한다
+        var estimator = GridEstimator()
+        let five = [
+            obs("A-1", zone: 0, num: 1, 3, 0),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+            obs("B-2", zone: 1, num: 2, 6, 5),
+            obs("C-1", zone: 2, num: 1, 3, 10),
+        ]
+        let withoutNeighbor = estimator.estimate(observations: five, targetZoneIndex: 1, targetNumber: 3)
+        #expect(withoutNeighbor.confidencePercent < ParkingTuning.confidencePercentTopThreshold)
+
+        estimator.markNeighborSighted()
+        let withNeighbor = estimator.estimate(observations: five, targetZoneIndex: 1, targetNumber: 3)
+        #expect(withNeighbor.confidencePercent >= ParkingTuning.confidencePercentTopThreshold)
+    }
+
+    @Test func unknownAxisUsesSessionMeasuredPitchWhenAvailable() {
+        // FR-101: 2D로 번호축을 학습한 뒤 1D로 내려가면 정적 사전값(12m) 대신 학습한 피치를 쓴다
+        var estimator = GridEstimator()
+        _ = estimator.estimate(
+            observations: [
+                obs("A-1", zone: 0, num: 1, 3, 0),
+                obs("A-2", zone: 0, num: 2, 6, 0),   // 번호 1스텝 = 3m
+                obs("B-1", zone: 1, num: 1, 3, 5),
+            ],
+            targetZoneIndex: 1, targetNumber: 2
+        )
+        // 관측이 줄어 구역축 1D로 하강, 목표 번호는 축 밖
+        let result = estimator.estimate(
+            observations: [
+                obs("A-1", zone: 0, num: 1, 3, 0),
+                obs("B-1", zone: 1, num: 1, 3, 5),
+            ],
+            targetZoneIndex: 1, targetNumber: 2
+        )
+        #expect(abs(result.uncertainty.unknownAxis - 3.0) < 1e-9)   // 학습한 3m/스텝 × 1스텝
+        #expect(result.uncertainty.unknownAxis < ParkingTuning.unknownNumberAxisPitchPrior)
+    }
+
     @Test func farExtrapolationRaisesUncertaintyInsteadOfBlocking() {
         // v3(FR-101/105): 레버는 더 이상 차단 기준이 아니다 — 안내는 유지하되 불확실성이 커지고 백분율이 떨어진다.
         // J21(6스텝 외삽·잔차 0.1m) 부류에서 잔차만 보면 위험이 0.5m로 과소평가되므로
@@ -221,9 +281,9 @@ struct GridEstimatorTests {
         let near = estimator.estimate(observations: observations, targetZoneIndex: 2, targetNumber: 4)
         #expect(far.stage == .gridGuidance)
         #expect(far.targetPosition != nil)
-        #expect(far.uncertainty.fit > near.uncertainty.fit)   // 7스텝 외삽 vs 범위 내
-        #expect(far.confidencePercent < near.confidencePercent)
+        // 차단은 하지 않지만 레버가 크고, 실제 화살표 차단은 GuidanceGeometry의 스팬 상대 기준이 맡는다
         #expect((far.extrapolationLever ?? 0) > ParkingTuning.extrapolationLeverLimit)
+        #expect((near.extrapolationLever ?? .infinity) < (far.extrapolationLever ?? 0))
     }
 
     @Test func interpolationKeepsUncertaintyLow() {

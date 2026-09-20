@@ -14,7 +14,10 @@ struct ParkingEventReplayer {
         var finalEstimate: GridEstimate?
 
         // MARK: - v3 지표 (spec 006 SC-101/103 게이트)
-        /// 기기 포즈가 있어 화살표 판정이 가능했던 횟수
+        /// 기기 포즈 이벤트 총수 — SC-101 가동률의 분모(세션 전체 기준).
+        /// 추정이 있었던 순간으로 조건화하면 v2의 "0%"(세션 전체)와 비교할 수 없다 (PR#59 리뷰)
+        var posesSeen = 0
+        /// 그중 목표 추정이 존재해 화살표 판정이 가능했던 횟수
         var geometryEvaluated = 0
         /// 그중 FR-101 측방 각도 보장이 성립해 화살표를 표시했을 횟수
         var arrowShown = 0
@@ -24,10 +27,16 @@ struct ParkingEventReplayer {
         var maxPercentWhenShown = 0
         /// 화살표 표시 순간의 표시 거리 최대치(m)
         var maxDistanceWhenShown = 0.0
+        /// 화살표 표시 순간의 관측 스팬 최소치(m) — 거리/스팬 비율 회귀 감시용
+        var minSpanWhenShown = Double.infinity
 
         var isConsistent: Bool { mismatches.isEmpty }
-        /// SC-101 화살표 가동률
+        /// SC-101 화살표 가동률 — 세션 전체(포즈 이벤트) 기준
         var arrowAvailability: Double {
+            posesSeen == 0 ? 0 : Double(arrowShown) / Double(posesSeen)
+        }
+        /// 추정이 있었던 순간만의 가동률 — 진단용 보조 지표(기준선 비교에는 쓰지 않는다)
+        var arrowAvailabilityWhenEstimating: Double {
             geometryEvaluated == 0 ? 0 : Double(arrowShown) / Double(geometryEvaluated)
         }
     }
@@ -183,6 +192,7 @@ struct ParkingEventReplayer {
                     if simd_length(vector) > 1e-6 { deviceForward = simd_normalize(vector) }
                 }
                 // 포즈 갱신 시점마다 화살표 표시 여부를 재평가 — VM.updateDevicePose와 같은 주기 (PR#49 M5)
+                result.posesSeen += 1
                 if let estimate = lastRecomputed, let target = estimate.targetPosition,
                    let position = devicePosition, let forward = deviceForward {
                     let geometry = GuidanceGeometry.evaluate(
@@ -194,8 +204,9 @@ struct ParkingEventReplayer {
                     result.geometryEvaluated += 1
                     if geometry.isDirectionGuaranteed {
                         result.arrowShown += 1
-                        result.maxPercentWhenShown = max(result.maxPercentWhenShown, estimate.confidencePercent)
+                        result.maxPercentWhenShown = max(result.maxPercentWhenShown, geometry.displayPercent)
                         result.maxDistanceWhenShown = max(result.maxDistanceWhenShown, geometry.distance)
+                        result.minSpanWhenShown = min(result.minSpanWhenShown, estimate.observationSpan)
                         if geometry.isDistanceDisplayable { result.distanceShown += 1 }
                     }
                 }

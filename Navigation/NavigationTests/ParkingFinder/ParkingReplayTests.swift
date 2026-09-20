@@ -8,7 +8,7 @@ struct ParkingReplayTests {
 
     /// GridEstimatorTests의 3점 아핀 케이스와 동일 기하:
     /// A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-2 = (6,5)
-    /// (B-3은 외삽 레버 3.0 > 2.5로 G1 가드가 차단 — 설계 개정 v2)
+    /// (v3에서 레버는 차단 기준이 아니라 불확실성 성분 — 화살표 차단은 스팬 상대 기준이 맡는다)
     private func syntheticLog(recordedStage: String, recordedTarget: [Double]) -> String {
         """
         {"t":0,"e":"sessionStart","mode":"find","target":{"raw":"B-2","floor":null,"skeleton":"Z-N"},"neighbors":[]}
@@ -101,7 +101,9 @@ struct ParkingReplayTests {
         // v3: 낡은 관측을 제외하지 않으므로(FR-108) 이 세션은 더 이상 관측 고갈로 searching에 빠지지 않는다.
         // 기록(개선 전 로직)과의 차이는 남지만, 화살표 표시 순간의 백분율이 과신 구간에 들어가지 않아야 한다
         #expect(!result.mismatches.isEmpty)
-        #expect(result.maxPercentWhenShown < 70, "최대 백분율 \(result.maxPercentWhenShown)%")
+        #expect(result.arrowShown > 0, "화살표 0회 — 도착 성공 세션에서 안내가 사라졌다")
+        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentTopThreshold)
+        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
         #expect(result.finalEstimate?.stage != .searching,
                 "\(String(describing: result.finalEstimate?.stage))")
     }
@@ -116,9 +118,9 @@ struct ParkingReplayTests {
         #expect(result.comparedCount == 76)
         // v3: 차이는 남되 방향이 정직해야 한다 — 기록된 과신(gridGuidance·high)이 낮은 백분율로 바뀌는 쪽
         #expect(!result.mismatches.isEmpty)
-        #expect(result.maxPercentWhenShown < 70, "최대 백분율 \(result.maxPercentWhenShown)%")
-        // 도착에 성공한 세션이므로 화살표가 아예 사라져서는 안 된다
-        #expect(result.arrowShown > 0)
+        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentTopThreshold)
+        // 도착에 성공한 세션이므로 화살표가 실질적으로 유지되어야 한다
+        #expect(result.arrowAvailability > 0.25, "가동률 \(result.arrowAvailability)")
     }
 
     @Test func fieldLog260911Session2SuppressesCorruptedAxis() throws {
@@ -131,18 +133,19 @@ struct ParkingReplayTests {
         // v3: 오염된 세션에서 화살표가 나오더라도 거리·실선 구간에는 들어가지 않아야 한다 (SC-103)
         #expect(result.distanceShown == 0, "거리 표시 \(result.distanceShown)회")
         #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentSolidThreshold)
+        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
     }
 
     @Test func fieldLog260911Session3AllTwinSignsLot() throws {
         // J21 세션(60s): B~D구역 전 코드가 7.3~8.2m 쌍둥이 표지판 → 대부분 모호 제외.
-        // 격자 대신 그라디언트 힌트(구역 안내)가 담당하는 케이스 — 재계산 최종은 searching
+        // 설계 개정 v2가 "무제한 외삽"으로 지목한 바로 그 세션 — 격자 대신 그라디언트 힌트가 담당한다
         let result = try ParkingEventReplayer.replay(
             fileURL: fieldLog("parking-20260911-122157-find.ndjson")
         )
         #expect(result.comparedCount == 117)
-        // J21: 관측 스팬 40.6m 대비 표시 거리 88~102m — 거리 표시 금지, 백분율 저구간 유지 (SC-103)
+        // J21: 스팬 12.9~26.0m에서 55~78m를 가리키던 화살표 — 스팬 상대 기준으로 전량 차단 (SC-103)
+        #expect(result.arrowShown == 0, "화살표 \(result.arrowShown)회, 최대 \(result.maxDistanceWhenShown)m")
         #expect(result.distanceShown == 0)
-        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentSolidThreshold)
     }
 
     @Test func fileRoundTrip() throws {

@@ -107,6 +107,8 @@ final class ParkingARViewModel {
     private let targetParsedCode: ParsedCode?
     private var gradientHint = NumberGradientHint()
     private var lastGradientMessage: String?
+    /// FR-103 히스테리시스용 직전 표시 백분율
+    private var lastShownPercent: Int?
 
     init(mode: Mode) {
         self.mode = mode
@@ -147,6 +149,7 @@ final class ParkingARViewModel {
         raycastFailStreak = 0
         gradientHint.reset()
         lastGradientMessage = nil
+        lastShownPercent = nil
         // 좌표 무관 상태도 세션 단절과 함께 리셋 (PR#49 리뷰 M2):
         // neighborLogged가 남으면 estimator.reset() 후 인접 부스트가 영구 소실, 사진은 무관 기둥 레코드에 오귀속
         pendingFloorSave = nil
@@ -519,6 +522,33 @@ final class ParkingARViewModel {
         return "\(hint)\n\(action)"
     }
 
+    /// 보장 실패 원인별 행동 지시 — 원인을 단정하면 45m 떨어진 사용자에게 "거의 다 왔다"고 말하게 된다
+    static func failureAction(_ failure: GuidanceGeometry.GuaranteeFailure?) -> String {
+        switch failure {
+        case .proximity:
+            return "거의 다 온 것 같아요 — 주변 기둥 번호로 확인해보세요"
+        case .beyondObservationSpan:
+            return "아직 근거가 부족해요 — 가는 길의 기둥을 더 비춰주세요"
+        case .uncertaintyTooLarge, .none:
+            return "방향을 좁히는 중이에요 — 다른 기둥을 비춰주세요"
+        }
+    }
+
+    /// FR-103 히스테리시스 — 구간 경계(실선/점선·거리 표시)에서 표시가 깜빡이지 않게 한다.
+    /// 경계를 넘을 때만 값을 갱신하고, 경계 근방의 미세 진동은 직전 값을 유지한다.
+    private func hysteresisAdjusted(_ percent: Int) -> Int {
+        defer { lastShownPercent = percent }
+        guard let previous = lastShownPercent else { return percent }
+        let threshold = ParkingTuning.confidencePercentSolidThreshold
+        let crossingUp = previous < threshold && percent >= threshold
+        let crossingDown = previous >= threshold && percent < threshold
+        if crossingUp || crossingDown,
+           abs(percent - threshold) < ParkingTuning.confidencePercentHysteresis {
+            return previous   // 경계에서 이력 폭 안쪽의 진동 — 직전 표시 유지
+        }
+        return percent
+    }
+
     private func publishState(record: ParkingSessionRecord) {
         guard guidanceState.value != .arrived, let estimate = lastEstimate else { return }
 
@@ -554,9 +584,10 @@ final class ParkingARViewModel {
                 confidencePercent: estimate.confidencePercent
             )
             guard geometry.isDirectionGuaranteed else {
+                // 보장 실패 원인을 단정하지 않는다 — 원거리 외삽을 "근접"이라 말하던 문제 (PR#59 리뷰)
                 newState = .needMore(message: Self.combined(
                     hint: lastGradientMessage,
-                    action: "거의 다 온 것 같아요 — 주변 기둥 번호로 확인해보세요"
+                    action: Self.failureAction(geometry.failure)
                 ))
                 break
             }
@@ -565,7 +596,7 @@ final class ParkingARViewModel {
                 stageLabel: label,
                 arrowRadians: geometry.arrowRadians,
                 distanceMeters: geometry.isDistanceDisplayable ? geometry.distance : nil,
-                confidencePercent: estimate.confidencePercent
+                confidencePercent: hysteresisAdjusted(geometry.displayPercent)
             )
         }
 

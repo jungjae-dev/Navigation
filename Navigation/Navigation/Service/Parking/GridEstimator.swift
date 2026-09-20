@@ -115,6 +115,11 @@ struct GridEstimator: Sendable {
     private var span: Double = 0
     private var referencePitch: Double = 0
 
+    /// 세션 중 실제로 추정된 적 있는 축 피치 (FR-101) — 미지 축 불확실성에 정적 사전값보다 우선 사용.
+    /// 2D로 두 축을 학습한 뒤 관측 하나가 필터로 빠져 1D로 내려갈 때, 방금 학습한 값을 버리지 않기 위함.
+    private var observedZonePitch: Double?
+    private var observedNumberPitch: Double?
+
     // MARK: - Update
 
     mutating func markNeighborSighted() {
@@ -126,6 +131,8 @@ struct GridEstimator: Sendable {
         isDegraded = false
         consistentCount = 0
         neighborSighted = false
+        observedZonePitch = nil
+        observedNumberPitch = nil
     }
 
     /// 누적 관측 전체로 재추정 (매 관측 갱신마다 호출 — FR-011)
@@ -149,6 +156,9 @@ struct GridEstimator: Sendable {
         if usable.count >= 3,
            let (affine, normalMatrix) = fitAffine(usable) {
             referencePitch = affine.spacingEstimate
+            // 두 축을 실제로 추정했으므로 세션 값으로 기억 (FR-101 — 1D로 내려가도 재사용)
+            observedZonePitch = simd_length(affine.zoneVec)
+            observedNumberPitch = simd_length(affine.numVec)
             let residual = affine.residualRMS(over: usable)
             // 잔차는 4점부터만 의미(3점=정확결정계, 잔차 항등 0 — 설계 개정 v2)
             let residualInformative = usable.count >= ParkingTuning.residualInformativeMinCountAffine
@@ -178,13 +188,11 @@ struct GridEstimator: Sendable {
                                   residualInformative: residualInformative)
             }
 
-            // FR-101: 레버는 차단 기준이 아니라 측방 불확실성의 성분이 된다.
-            // 잔차×레버만으로는 부족하다 — J21은 잔차 0.10m·레버 7.0이라 0.7m로 과소평가되지만
-            // 실제 위험은 6스텝 외삽에 누적되는 격자 불규칙성이다(modelErrorPerStepRatio).
+            // FR-101: 레버는 차단 기준이 아니라 측방 불확실성의 성분이다.
+            // 잔차×레버만으로는 부족하다(J21은 잔차 0.10m라 0.7m로 과소평가) — 정확결정계에서도 0이 되지
+            // 않도록 바닥을 둔다. 배치 대비 외삽 위험은 스팬 상대 기준(GuidanceGeometry)이 맡는다.
             let lever = Self.affineLever(normalMatrix, targetZone: zi, targetNumber: n)
-            let steps = Self.extrapolationSteps(usable, targetZone: zi, targetNumber: n)
-            let fitUncertainty = residual * (lever ?? 1.0)
-                + ParkingTuning.modelErrorPerStepRatio * affine.spacingEstimate * steps
+            let fitUncertainty = max(ParkingTuning.fitUncertaintyFloor, residual * (lever ?? 1.0))
 
             let target = affine.predict(zoneIndex: zi, number: n)
             return makeResult(stage: .gridGuidance, target: target, residual: residual, count: usable.count,
@@ -236,16 +244,16 @@ struct GridEstimator: Sendable {
             // 미지 구역축 오프셋은 대칭 불확실성으로 표현되어 점추정을 이동시키지 않는다(FR-101).
             let zoneOffsetSteps = Self.offsetSteps(target: targetZoneIndex, observed: zones.first)
             let lever = fit.lever(at: Double(n))
-            let fitUncertainty = fit.residualRMS * lever
-                + ParkingTuning.modelErrorPerStepRatio * simd_length(fit.direction)
-                    * Self.extrapolationSteps1D(indices: usable.compactMap(\.numberValue), target: n)
+            let fitUncertainty = max(ParkingTuning.fitUncertaintyFloor, fit.residualRMS * lever)
+            observedNumberPitch = simd_length(fit.direction)
             return makeResult(stage: .axisGuidance(axis: .number), target: fit.predict(Double(n)),
                               residual: fit.residualRMS, count: usable.count,
                               origin: fit.base - fit.meanIndex * fit.direction, numVec: fit.direction,
                               residualInformative: residualInformative, lever: lever,
                               uncertainty: .init(
-                                  // 미지 축 = 구역축
-                                  unknownAxis: zoneOffsetSteps * ParkingTuning.unknownZoneAxisPitchPrior,
+                                  // 미지 축 = 구역축. 세션 중 추정된 적 있으면 그 값 우선 (FR-101)
+                                  unknownAxis: zoneOffsetSteps
+                                      * (observedZonePitch ?? ParkingTuning.unknownZoneAxisPitchPrior),
                                   fit: fitUncertainty,
                                   expansion: expansion
                               ),
@@ -279,16 +287,16 @@ struct GridEstimator: Sendable {
             // FR-109: 목표 번호가 관측 번호와 달라도 안내한다 (260919 J5 vs 관측 4행 사례)
             let numberOffsetSteps = Self.offsetSteps(target: targetNumber, observed: numbers.first)
             let lever = fit.lever(at: Double(zi))
-            let fitUncertainty = fit.residualRMS * lever
-                + ParkingTuning.modelErrorPerStepRatio * simd_length(fit.direction)
-                    * Self.extrapolationSteps1D(indices: usable.compactMap(\.zoneIndex), target: zi)
+            let fitUncertainty = max(ParkingTuning.fitUncertaintyFloor, fit.residualRMS * lever)
+            observedZonePitch = simd_length(fit.direction)
             return makeResult(stage: .axisGuidance(axis: .zone), target: fit.predict(Double(zi)),
                               residual: fit.residualRMS, count: usable.count,
                               origin: fit.base - fit.meanIndex * fit.direction, zoneVec: fit.direction,
                               residualInformative: residualInformative, lever: lever,
                               uncertainty: .init(
-                                  // 미지 축 = 번호축 (주차면 규모 — 구역축보다 세밀)
-                                  unknownAxis: numberOffsetSteps * ParkingTuning.unknownNumberAxisPitchPrior,
+                                  // 미지 축 = 번호축. 세션 중 추정된 적 있으면 그 값 우선 (FR-101)
+                                  unknownAxis: numberOffsetSteps
+                                      * (observedNumberPitch ?? ParkingTuning.unknownNumberAxisPitchPrior),
                                   fit: fitUncertainty,
                                   expansion: expansion
                               ),
@@ -366,9 +374,9 @@ struct GridEstimator: Sendable {
         // ① 관측 수 바닥
         var score: Double
         switch count {
-        case ...2: score = 0.25
-        case 3: score = 0.45
-        case 4: score = 0.55
+        case ..<ParkingTuning.observationsForSolid: score = 0.25
+        case ParkingTuning.observationsForSolid: score = 0.45
+        case ..<ParkingTuning.observationsForTop: score = 0.55
         default: score = 0.65
         }
 
@@ -392,13 +400,20 @@ struct GridEstimator: Sendable {
         // ⑤ 축 간격이 실측 정상 범위 밖이면 감점(차단은 FR-105 부조리 범위에서만)
         if !stepNormal { score *= 0.7 }
 
+        // ⑥ FR-104 최상위 구간 AND 게이트 — 관측 수·잔차 정보·인접 목격을 모두 만족해야 70% 위로 간다.
+        //    (PR#59 리뷰: 인접 목격이 가산일 뿐이라 5점·잔차만으로 80%에 도달하던 문제)
+        let topTierAllowed = count >= ParkingTuning.observationsForTop && residualInformative && neighborSighted
+        if !topTierAllowed {
+            cap = min(cap, Double(ParkingTuning.confidencePercentTopThreshold - 1) / 100.0)
+        }
+
         let clamped = min(cap, max(Double(ParkingTuning.confidencePercentFloor) / 100.0, score))
         return Int((clamped * 100).rounded())
     }
 
     /// 구 3단계 신뢰도 — 로그·도구 호환용 파생값 (FR-115)
-    private static func level(forPercent percent: Int) -> GridEstimate.Confidence {
-        if percent >= 70 { return .high }
+    static func level(forPercent percent: Int) -> GridEstimate.Confidence {
+        if percent >= ParkingTuning.confidencePercentTopThreshold { return .high }
         if percent >= ParkingTuning.confidencePercentSolidThreshold { return .medium }
         return .low
     }
@@ -423,23 +438,16 @@ struct GridEstimator: Sendable {
         return Double(abs(target - observed))
     }
 
-    /// 관측 인덱스 범위 밖으로 외삽한 스텝 수 (1D)
-    private static func extrapolationSteps1D(indices: [Int], target: Int) -> Double {
-        guard let lo = indices.min(), let hi = indices.max() else { return 0 }
-        return Double(max(0, max(lo - target, target - hi)))
-    }
-
-    /// 두 축 합산 외삽 스텝 수 (아핀)
-    private static func extrapolationSteps(_ usable: [GridObservation], targetZone: Int, targetNumber: Int) -> Double {
-        extrapolationSteps1D(indices: usable.compactMap(\.zoneIndex), target: targetZone)
-            + extrapolationSteps1D(indices: usable.compactMap(\.numberValue), target: targetNumber)
-    }
-
-    /// FR-108 팽창 — 가장 오래된 관측의 노화를 기준으로(보수적), 상한 적용
+    /// FR-108 팽창 — 채택 관측의 **평균** 노화 기준.
+    /// 최댓값을 쓰면 오래된 관측 하나가 딕셔너리에 남는 한 새 기둥을 아무리 비춰도 상한까지 래칫되어
+    /// "새 관측이 들어오면 회복된다"가 성립하지 않는다(PR#59 리뷰). 평균은 새 관측이 들어올수록 내려간다.
     private static func expansion(of observations: [GridObservation]) -> Double {
-        guard let oldest = observations.map(\.ageSeconds).max(), oldest > 0 else { return 0 }
-        return min(ParkingTuning.expansionMaxMeters, oldest * ParkingTuning.expansionMetersPerSecond)
+        guard !observations.isEmpty else { return 0 }
+        let mean = observations.map(\.ageSeconds).reduce(0, +) / Double(observations.count)
+        guard mean > 0 else { return 0 }
+        return min(ParkingTuning.expansionMaxMeters, mean * ParkingTuning.expansionMetersPerSecond)
     }
+
 
     /// FR-106 기준량 — 랜드마크 간 최대 이격
     private static func span(of observations: [GridObservation]) -> Double {
