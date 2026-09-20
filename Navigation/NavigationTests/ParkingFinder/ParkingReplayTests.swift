@@ -8,7 +8,7 @@ struct ParkingReplayTests {
 
     /// GridEstimatorTests의 3점 아핀 케이스와 동일 기하:
     /// A-1=(3,0), A-2=(6,0), B-1=(3,5) → 목표 B-2 = (6,5)
-    /// (B-3은 외삽 레버 3.0 > 2.5로 G1 가드가 차단 — 설계 개정 v2)
+    /// (v3에서 레버는 차단 기준이 아니라 불확실성 성분 — 화살표 차단은 스팬 상대 기준이 맡는다)
     private func syntheticLog(recordedStage: String, recordedTarget: [Double]) -> String {
         """
         {"t":0,"e":"sessionStart","mode":"find","target":{"raw":"B-2","floor":null,"skeleton":"Z-N"},"neighbors":[]}
@@ -18,7 +18,7 @@ struct ParkingReplayTests {
         {"t":2.5,"e":"codeObserved","raw":"A-2","conf":0.9,"hit":2,"pos":[6,0,0]}
         {"t":3.0,"e":"codeObserved","raw":"B-1","conf":0.9,"hit":1,"pos":[3,0,5]}
         {"t":3.5,"e":"codeObserved","raw":"B-1","conf":0.9,"hit":2,"pos":[3,0,5]}
-        {"t":3.6,"e":"gridUpdated","stage":"\(recordedStage)","obs":3,"residualRMS":0,"targetEst":\(recordedTarget),"confidence":1}
+        {"t":3.6,"e":"gridUpdated","stage":"\(recordedStage)","obs":3,"residualRMS":0,"targetEst":\(recordedTarget)}
         """
     }
 
@@ -65,15 +65,17 @@ struct ParkingReplayTests {
             .appendingPathComponent("Fixtures/\(name)")
     }
 
-    @Test func fieldLogFind1BlockedByLeverGuard() throws {
-        // 목표 "9", 관측 "2"·"3" — 인접 쌍에서 6스텝 외삽(레버 9.2)은 이제 G1이 차단 (설계 개정 v2).
-        // 개선 전 이 세션의 축 안내가 바로 "과소 관측 원거리 외삽" 부류였다
+    @Test func fieldLogFind1DegenerateAxisIsBlocked() throws {
+        // 목표 "9", 관측 "2"·"3" — 두 코드가 사실상 같은 지점(간격 0.0m)에서 관측됐다.
+        // 1스텝 변위가 0이면 축 자체가 성립하지 않으므로 v3의 위생 검사(FR-105)가 차단한다.
+        // v2는 같은 결과를 레버 가드로 냈지만, 실제 결함은 외삽 거리가 아니라 퇴화한 축이다
         let result = try ParkingEventReplayer.replay(
             fileURL: fieldLog("parking-20260710-180737-find.ndjson")
         )
         #expect(result.recomputedCount > 0)
         #expect(result.finalEstimate?.stage == .needMoreObservation(missing: .number),
                 "\(String(describing: result.finalEstimate?.stage))")
+        #expect(result.arrowShown == 0)   // 퇴화 축에서는 화살표가 나오지 않는다
     }
 
     @Test func fieldLogFind2ReplaysToAxisGuidance() throws {
@@ -96,13 +98,13 @@ struct ParkingReplayTests {
             fileURL: fieldLog("parking-20260801-111450-find.ndjson")
         )
         #expect(result.comparedCount == 168)
-        // 의도된 차이만 존재: 개선 전 과신 안내가 정직한 안내로만 바뀜 (신선도 260814 + 모호 표지판 제외 260911 —
-        // F3은 4.9m 위치 점프로 모호 처리). 재계산이 새로 격자 안내를 만드는 방향의 차이는 없어야 한다.
+        // v3: 낡은 관측을 제외하지 않으므로(FR-108) 이 세션은 더 이상 관측 고갈로 searching에 빠지지 않는다.
+        // 기록(개선 전 로직)과의 차이는 남지만, 화살표 표시 순간의 백분율이 과신 구간에 들어가지 않아야 한다
         #expect(!result.mismatches.isEmpty)
-        #expect(result.mismatches.allSatisfy { !$0.contains("재계산=gridGuidance") }, "\(result.mismatches.prefix(5))")
-        // 최종(t≈70s): 낡은·모호 좌표가 제외되어 searching
-        // (개선 전엔 이 시점에 10.2m 틀린 화살표를 high 신뢰도로 표시했다 — 도착은 직접 인식으로 별도 확정)
-        #expect(result.finalEstimate?.stage == .searching,
+        #expect(result.arrowShown > 0, "화살표 0회 — 도착 성공 세션에서 안내가 사라졌다")
+        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentTopThreshold)
+        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
+        #expect(result.finalEstimate?.stage != .searching,
                 "\(String(describing: result.finalEstimate?.stage))")
     }
 
@@ -114,15 +116,11 @@ struct ParkingReplayTests {
             fileURL: fieldLog("parking-20260911-102531-find.ndjson")
         )
         #expect(result.comparedCount == 76)
-        // 67건 = 기록(개정 전 과신: gridGuidance·high/medium)이 정직한 방향으로만 어긋남 —
-        // 리플레이어 confidence 비교 도입(PR#49 리뷰 L8)으로 신뢰도 하향 차이도 잡힌다
-        #expect(result.mismatches.count == 67, "\(result.mismatches.prefix(4))")
-        #expect(result.mismatches.allSatisfy {
-            $0.contains("기록=gridGuidance") || $0.contains("confidence 기록=")
-        }, "\(result.mismatches.prefix(4))")
-        // 설계 개정 v2: 최종 시점(관측 E·G구역, 목표 H22)은 레버 가드가 격자 화살표 대신 구역 관측 안내로
-        #expect(result.finalEstimate?.stage == .needMoreObservation(missing: .zone),
-                "\(String(describing: result.finalEstimate?.stage))")
+        // v3: 차이는 남되 방향이 정직해야 한다 — 기록된 과신(gridGuidance·high)이 낮은 백분율로 바뀌는 쪽
+        #expect(!result.mismatches.isEmpty)
+        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentTopThreshold)
+        // 도착에 성공한 세션이므로 화살표가 실질적으로 유지되어야 한다
+        #expect(result.arrowAvailability > 0.25, "가동률 \(result.arrowAvailability)")
     }
 
     @Test func fieldLog260911Session2SuppressesCorruptedAxis() throws {
@@ -132,19 +130,22 @@ struct ParkingReplayTests {
             fileURL: fieldLog("parking-20260911-121615-find.ndjson")
         )
         #expect(result.comparedCount == 120)
-        #expect(result.mismatches.allSatisfy { !$0.contains("재계산=gridGuidance") && !$0.contains("재계산=axisGuidance") },
-                "\(result.mismatches.prefix(4))")
-        #expect(result.finalEstimate?.stage == .searching)
+        // v3: 오염된 세션에서 화살표가 나오더라도 거리·실선 구간에는 들어가지 않아야 한다 (SC-103)
+        #expect(result.distanceShown == 0, "거리 표시 \(result.distanceShown)회")
+        #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentSolidThreshold)
+        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
     }
 
     @Test func fieldLog260911Session3AllTwinSignsLot() throws {
         // J21 세션(60s): B~D구역 전 코드가 7.3~8.2m 쌍둥이 표지판 → 대부분 모호 제외.
-        // 격자 대신 그라디언트 힌트(구역 안내)가 담당하는 케이스 — 재계산 최종은 searching
+        // 설계 개정 v2가 "무제한 외삽"으로 지목한 바로 그 세션 — 격자 대신 그라디언트 힌트가 담당한다
         let result = try ParkingEventReplayer.replay(
             fileURL: fieldLog("parking-20260911-122157-find.ndjson")
         )
         #expect(result.comparedCount == 117)
-        #expect(result.finalEstimate?.stage == .searching)
+        // J21: 스팬 12.9~26.0m에서 55~78m를 가리키던 화살표 — 스팬 상대 기준으로 전량 차단 (SC-103)
+        #expect(result.arrowShown == 0, "화살표 \(result.arrowShown)회, 최대 \(result.maxDistanceWhenShown)m")
+        #expect(result.distanceShown == 0)
     }
 
     @Test func fileRoundTrip() throws {

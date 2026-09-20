@@ -426,13 +426,16 @@ final class ParkingARViewController: UIViewController {
         case .needMore(let message):
             guidanceLabel.text = "  \(message)  "
 
-        case .guiding(let stageLabel, let arrowRadians, let distance, let confidence):
+        case .guiding(let stageLabel, let arrowRadians, let distance, let percent):
             guidanceLabel.text = "  \(targetCode) 찾는 중  "
             arrowImageView.isHidden = false
             arrowImageView.transform = CGAffineTransform(rotationAngle: arrowRadians)
+            // FR-103: 낮은 확신은 숨기지 않고 형태로 드러낸다 (점선·반투명은 P4에서 도형 교체)
+            arrowImageView.alpha = percent >= ParkingTuning.confidencePercentSolidThreshold ? 1.0 : 0.45
             guidanceInfoLabel.isHidden = false
-            let dots = ["●○○", "●●○", "●●●"][confidence.rawValue]
-            guidanceInfoLabel.text = "  ~\(Int(distance.rounded()))m 이 방향\n\(stageLabel) · 신뢰도 \(dots)  "
+            // FR-106: 거리는 표시 가능할 때만 — 낮은 확신에서 정밀해 보이는 숫자 금지
+            let distanceText = distance.map { "약 \(Int($0.rounded()))m 이 방향" } ?? "이 방향"
+            guidanceInfoLabel.text = "  \(distanceText)\n\(stageLabel) · 정확도 \(percent)%  "
 
         case .degraded(_, let hint):
             if let hint {

@@ -1,0 +1,1125 @@
+{"t":0.002,"lidar":true,"neighbors":[],"device":"iPhone","e":"sessionStart","mode":"find","target":{"floor":"B3","raw":"J5","skeleton":"ZN"}}
+{"e":"devicePose","t":0.56100000000000005,"heading":[0.13600000000000001,-0.99099999999999999],"pos":[0,0,0]}
+{"raw":"국민건:","e":"candidateRejected","reason":"low-conf","t":0.69399999999999995}
+{"raw":"n바른","e":"candidateRejected","reason":"low-conf","t":0.69599999999999995}
+{"raw":"냄실럽","e":"candidateRejected","reason":"low-conf","t":0.69599999999999995}
+{"raw":"초유기","e":"candidateRejected","reason":"low-conf","t":0.69599999999999995}
+{"raw":"검시","e":"candidateRejected","reason":"low-conf","t":0.69599999999999995}
+{"raw":"발산역 31","e":"candidateRejected","reason":"low-conf","t":0.69599999999999995}
+{"raw":"농심","e":"candidateRejected","reason":"low-conf","t":0.69699999999999995}
+{"t":0.92800000000000005,"raw":"협진도","e":"candidateRejected","reason":"low-conf"}
+{"t":0.92800000000000005,"raw":"ET 바른","e":"candidateRejected","reason":"low-conf"}
+{"reason":null,"t":1.2450000000000001,"e":"trackingChanged","state":"normal"}
+{"reason":"low-conf","e":"candidateRejected","t":1.345,"raw":"육민컵"}
+{"reason":"low-conf","e":"candidateRejected","t":1.347,"raw":"발상의 3C"}
+{"reason":"low-conf","e":"candidateRejected","t":1.3480000000000001,"raw":"No.l"}
+{"e":"devicePose","pos":[0.034000000000000002,0.128,-0.0040000000000000001],"heading":[0.30399999999999999,-0.95299999999999996],"t":1.5780000000000001}
+{"parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"pos":[1.8580000000000001,0.47399999999999998,-4.7249999999999996],"hit":1,"t":2.3140000000000001,"e":"codeObserved","src":"depth","conf":1,"raw":"F3"}
+{"numVec":null,"obs":0,"origin":null,"confidence":0,"t":2.3149999999999999,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"searching","residualRMS":0,"lever":null}
+{"t":2.3149999999999999,"e":"stateTransition","to":"searching","trigger":"obs=0","from":"-"}
+{"e":"devicePose","heading":[0.34399999999999997,-0.93899999999999995],"pos":[0.19700000000000001,0.38700000000000001,-0.14399999999999999],"t":2.5779999999999998}
+{"conf":1,"hit":2,"e":"codeObserved","t":2.6789999999999998,"parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"src":"depth","pos":[1.6890000000000001,0.315,-4.6449999999999996],"raw":"F3"}
+{"residualRMS":0,"zoneVec":null,"lever":null,"origin":null,"numVec":null,"stage":"searching","obs":1,"targetEst":null,"t":2.6789999999999998,"confidence":0,"e":"gridUpdated"}
+{"t":2.6789999999999998,"e":"stateTransition","to":"needMore","from":"searching","trigger":"obs=1"}
+{"e":"candidateRejected","raw":"397우 9398","t":2.681,"reason":"low-conf"}
+{"pos":[1.629,0.29299999999999998,-4.5019999999999998],"hit":3,"src":"raycast","raw":"F3","parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"conf":1,"t":2.9449999999999998,"e":"codeObserved"}
+{"e":"gridUpdated","lever":null,"residualRMS":0,"origin":null,"stage":"searching","obs":1,"targetEst":null,"zoneVec":null,"numVec":null,"confidence":0,"t":2.9460000000000002}
+{"e":"candidateRejected","raw":"397우 9396","t":2.9470000000000001,"reason":"low-conf"}
+{"parsed":{"num":3,"floor":null,"zone":"F","zoneIdx":5},"raw":"F3","hit":4,"conf":1,"t":3.3460000000000001,"src":"raycast","e":"codeObserved","pos":[1.53,0.311,-4.4249999999999998]}
+{"confidence":0,"targetEst":null,"lever":null,"obs":1,"t":3.3460000000000001,"residualRMS":0,"stage":"searching","e":"gridUpdated","origin":null,"zoneVec":null,"numVec":null}
+{"raw":"지희 3층","e":"candidateRejected","reason":"low-conf","t":3.347}
+{"e":"devicePose","pos":[0.223,0.36399999999999999,-0.61899999999999999],"heading":[0.20999999999999999,-0.97799999999999998],"t":3.5779999999999998}
+{"hit":5,"pos":[1.536,0.36299999999999999,-4.359],"src":"raycast","conf":1,"t":3.6949999999999998,"parsed":{"num":3,"zone":"F","zoneIdx":5,"floor":null},"e":"codeObserved","raw":"F3"}
+{"e":"gridUpdated","t":3.6960000000000002,"residualRMS":0,"targetEst":null,"origin":null,"obs":1,"zoneVec":null,"stage":"searching","confidence":0,"numVec":null,"lever":null}
+{"e":"candidateRejected","raw":"보병주의","t":3.6970000000000001,"reason":"low-conf"}
+{"e":"candidateRejected","raw":"CAUTION","t":3.6970000000000001,"reason":"low-conf"}
+{"e":"candidateRejected","raw":"3","t":3.698,"reason":"low-conf"}
+{"pos":[1.448,0.38400000000000001,-4.2080000000000002],"src":"raycast","conf":1,"parsed":{"num":3,"zone":"F","zoneIdx":5,"floor":null},"e":"codeObserved","hit":6,"t":3.9620000000000002,"raw":"F3"}
+{"lever":null,"zoneVec":null,"targetEst":null,"numVec":null,"obs":1,"stage":"searching","origin":null,"confidence":0,"t":3.9620000000000002,"e":"gridUpdated","residualRMS":0}
+{"e":"candidateRejected","raw":"397","t":3.9630000000000001,"reason":"skeleton-mismatch"}
+{"reason":"low-conf","e":"candidateRejected","t":4.3120000000000003,"raw":")^"}
+{"parsed":{"num":3,"floor":null,"zone":"F","zoneIdx":5},"raw":"F3","hit":7,"t":4.3129999999999997,"src":"raycast","e":"codeObserved","pos":[1.472,0.38500000000000001,-4.1150000000000002],"conf":1}
+{"residualRMS":0,"origin":null,"targetEst":null,"lever":null,"obs":1,"confidence":0,"t":4.3129999999999997,"e":"gridUpdated","stage":"searching","zoneVec":null,"numVec":null}
+{"reason":"low-conf","e":"candidateRejected","t":4.3140000000000001,"raw":"지하 3층"}
+{"e":"devicePose","heading":[0.22500000000000001,-0.97399999999999998],"pos":[0.57199999999999995,0.36399999999999999,-1.014],"t":4.5789999999999997}
+{"pos":[1.5429999999999999,0.39900000000000002,-4.085],"e":"codeObserved","t":4.6299999999999999,"parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"raw":"F3","hit":8,"conf":1,"src":"raycast"}
+{"stage":"searching","obs":1,"targetEst":null,"numVec":null,"confidence":0,"t":4.6299999999999999,"residualRMS":0,"origin":null,"lever":null,"zoneVec":null,"e":"gridUpdated"}
+{"e":"candidateRejected","raw":"지하 3층","t":4.6299999999999999,"reason":"low-conf"}
+{"e":"candidateRejected","raw":"CAUTION","t":4.6310000000000002,"reason":"low-conf"}
+{"hit":9,"parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"raw":"F3","t":4.9619999999999997,"pos":[1.5669999999999999,0.40899999999999997,-4.0739999999999998],"e":"codeObserved","conf":1,"src":"raycast"}
+{"residualRMS":0,"obs":1,"confidence":0,"stage":"searching","zoneVec":null,"numVec":null,"lever":null,"t":4.9630000000000001,"e":"gridUpdated","targetEst":null,"origin":null}
+{"src":"raycast","conf":1,"parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"pos":[1.544,0.41799999999999998,-4.0540000000000003],"t":5.3129999999999997,"hit":10,"e":"codeObserved","raw":"F3"}
+{"t":5.3129999999999997,"zoneVec":null,"confidence":0,"e":"gridUpdated","lever":null,"origin":null,"obs":1,"targetEst":null,"stage":"searching","residualRMS":0,"numVec":null}
+{"e":"candidateRejected","raw":"지하 3층","t":5.3140000000000001,"reason":"low-conf"}
+{"e":"devicePose","pos":[0.66900000000000004,0.29599999999999999,-1.5680000000000001],"heading":[-0.39500000000000002,-0.91900000000000004],"t":5.5789999999999997}
+{"src":"depth","parsed":{"num":3,"zoneIdx":5,"floor":null,"zone":"F"},"hit":11,"t":6.3319999999999999,"e":"codeObserved","raw":"F3","pos":[-6.226,0.47599999999999998,-5.7320000000000002],"conf":1}
+{"lever":null,"obs":0,"t":6.3319999999999999,"e":"gridUpdated","origin":null,"stage":"searching","targetEst":null,"residualRMS":0,"confidence":0,"numVec":null,"zoneVec":null}
+{"pos":[0.73999999999999999,0.29899999999999999,-1.8640000000000001],"t":6.5789999999999997,"e":"devicePose","heading":[-0.72799999999999998,-0.68600000000000005]}
+{"parsed":{"num":3,"zone":"F","zoneIdx":5,"floor":null},"pos":[-6.3029999999999999,0.50700000000000001,-5.7759999999999998],"hit":12,"t":6.6790000000000003,"e":"codeObserved","src":"depth","conf":1,"raw":"F3"}
+{"numVec":null,"obs":0,"origin":null,"confidence":0,"t":6.6799999999999997,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"searching","residualRMS":0,"lever":null}
+{"pos":[-6.2590000000000003,0.52600000000000002,-5.7469999999999999],"conf":1,"src":"depth","hit":13,"t":6.9960000000000004,"parsed":{"num":3,"floor":null,"zone":"F","zoneIdx":5},"e":"codeObserved","raw":"F3"}
+{"e":"gridUpdated","t":6.9969999999999999,"residualRMS":0,"targetEst":null,"origin":null,"obs":0,"zoneVec":null,"stage":"searching","confidence":0,"numVec":null,"lever":null}
+{"reason":"low-conf","e":"candidateRejected","t":6.9969999999999999,"raw":"지출 3층"}
+{"src":"depth","parsed":{"num":4,"floor":null,"zone":"F","zoneIdx":5},"hit":1,"t":6.9980000000000002,"e":"codeObserved","raw":"F4","pos":[-5.9130000000000003,0.55700000000000005,-10.387],"conf":1}
+{"lever":null,"obs":0,"t":6.9980000000000002,"e":"gridUpdated","origin":null,"stage":"searching","targetEst":null,"residualRMS":0,"confidence":0,"numVec":null,"zoneVec":null}
+{"consecutive":1,"e":"raycastFailed","t":6.9989999999999997,"raw":"F4"}
+{"pos":null,"parsed":{"num":4,"zone":"F","zoneIdx":5,"floor":null},"raw":"F4","t":6.9989999999999997,"e":"codeObserved","hit":2,"conf":1}
+{"obs":1,"residualRMS":0,"targetEst":null,"numVec":null,"confidence":0,"zoneVec":null,"origin":null,"lever":null,"t":6.9989999999999997,"e":"gridUpdated","stage":"searching"}
+{"t":7.3630000000000004,"conf":1,"e":"codeObserved","src":"depth","parsed":{"num":4,"zone":"F","zoneIdx":5,"floor":null},"raw":"F4","pos":[-6.0750000000000002,0.56399999999999995,-10.643000000000001],"hit":3}
+{"zoneVec":null,"numVec":null,"obs":1,"t":7.3630000000000004,"stage":"searching","residualRMS":0,"e":"gridUpdated","lever":null,"confidence":0,"origin":null,"targetEst":null}
+{"pos":[0.70399999999999996,0.23200000000000001,-2],"t":7.5789999999999997,"heading":[-0.82099999999999995,-0.57099999999999995],"e":"devicePose"}
+{"raw":"a.","e":"candidateRejected","reason":"low-conf","t":8.0129999999999999}
+{"parsed":{"zoneIdx":5,"zone":"F","floor":null,"num":3},"raw":"F3","e":"codeObserved","t":8.0139999999999993,"pos":[-6.3070000000000004,0.52300000000000002,-5.8239999999999998],"hit":14,"src":"depth","conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":8.0139999999999993,"e":"gridUpdated"}
+{"raw":"지험 3층","e":"candidateRejected","reason":"low-conf","t":8.0139999999999993}
+{"parsed":{"zoneIdx":5,"zone":"F","floor":null,"num":4},"raw":"F4","e":"codeObserved","t":8.0150000000000006,"pos":[-5.6849999999999996,0.55800000000000005,-10.167],"hit":4,"src":"depth","conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":8.0150000000000006,"e":"gridUpdated"}
+{"parsed":{"zoneIdx":5,"zone":"F","floor":null,"num":4},"raw":"F4","e":"codeObserved","t":8.016,"pos":[-5.2370000000000001,0.54800000000000004,-10.725],"hit":5,"src":"depth","conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":8.016,"e":"gridUpdated"}
+{"e":"devicePose","heading":[-0.90100000000000002,-0.433],"t":8.6790000000000003,"pos":[0.73199999999999998,0.32300000000000001,-2.1499999999999999]}
+{"hit":15,"src":"depth","conf":1,"parsed":{"num":3,"floor":null,"zone":"F","zoneIdx":5},"t":8.9960000000000004,"raw":"F3","pos":[-6.2190000000000003,0.51100000000000001,-5.7930000000000001],"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":8.9969999999999999,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"raw":"F4","consecutive":1,"t":8.9979999999999993,"e":"raycastFailed"}
+{"hit":6,"conf":1,"t":8.9979999999999993,"parsed":{"zoneIdx":5,"zone":"F","floor":null,"num":4},"raw":"F4","pos":null,"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":8.9979999999999993,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"t":9.6790000000000003,"reason":"low-conf","raw":"Gs","e":"candidateRejected"}
+{"raw":"F3","conf":1,"parsed":{"zoneIdx":5,"num":3,"floor":null,"zone":"F"},"pos":[-6.1840000000000002,0.52200000000000002,-5.7869999999999999],"t":9.6809999999999992,"hit":16,"e":"codeObserved","src":"depth"}
+{"t":9.6809999999999992,"zoneVec":null,"confidence":0,"e":"gridUpdated","lever":null,"origin":null,"obs":1,"targetEst":null,"stage":"searching","residualRMS":0,"numVec":null}
+{"t":9.6820000000000004,"reason":"low-conf","raw":"54","e":"candidateRejected"}
+{"t":9.6820000000000004,"heading":[-0.82899999999999996,-0.55900000000000005],"pos":[0.66900000000000004,0.26400000000000001,-2.5],"e":"devicePose"}
+{"parsed":{"zoneIdx":5,"num":3,"floor":null,"zone":"F"},"hit":17,"raw":"F3","conf":1,"t":9.9629999999999992,"src":"depth","e":"codeObserved","pos":[-6.2240000000000002,0.51100000000000001,-5.8259999999999996]}
+{"confidence":0,"targetEst":null,"lever":null,"obs":1,"t":9.9640000000000004,"residualRMS":0,"stage":"searching","e":"gridUpdated","origin":null,"zoneVec":null,"numVec":null}
+{"t":9.9640000000000004,"reason":"low-conf","raw":"지희 3월","e":"candidateRejected"}
+{"t":9.9649999999999999,"raw":"F4","consecutive":1,"e":"raycastFailed"}
+{"parsed":{"num":4,"floor":null,"zone":"F","zoneIdx":5},"hit":7,"raw":"F4","t":9.9649999999999999,"conf":1,"e":"codeObserved","pos":null}
+{"confidence":0,"targetEst":null,"lever":null,"obs":1,"t":9.9649999999999999,"residualRMS":0,"stage":"searching","e":"gridUpdated","origin":null,"zoneVec":null,"numVec":null}
+{"e":"codeObserved","hit":18,"conf":1,"raw":"F3","parsed":{"zoneIdx":5,"num":3,"floor":null,"zone":"F"},"pos":[-6.2249999999999996,0.50900000000000001,-5.8390000000000004],"src":"depth","t":10.313000000000001}
+{"e":"gridUpdated","stage":"searching","obs":1,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":10.313000000000001,"numVec":null}
+{"t":10.314,"reason":"low-conf","raw":"최를 10","e":"candidateRejected"}
+{"raw":"F4","hit":8,"conf":1,"pos":[-5.8810000000000002,0.54700000000000004,-10.457000000000001],"parsed":{"zoneIdx":5,"num":4,"floor":null,"zone":"F"},"e":"codeObserved","src":"depth","t":10.315}
+{"confidence":0,"t":10.315,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"t":10.315,"reason":"low-conf","raw":"F4","e":"candidateRejected"}
+{"pos":[-6.274,0.52100000000000002,-5.8540000000000001],"src":"depth","parsed":{"num":3,"floor":null,"zone":"F","zoneIdx":5},"raw":"F3","conf":1,"e":"codeObserved","hit":19,"t":10.631}
+{"confidence":0,"stage":"searching","zoneVec":null,"obs":1,"numVec":null,"targetEst":null,"origin":null,"residualRMS":0,"e":"gridUpdated","lever":null,"t":10.631}
+{"t":10.632,"reason":"low-conf","raw":"지히 1","e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","raw":"F4","t":10.632}
+{"e":"codeObserved","hit":9,"conf":1,"raw":"F4","parsed":{"num":4,"floor":null,"zone":"F","zoneIdx":5},"pos":[-5.3029999999999999,0.55300000000000005,-10.869],"src":"depth","t":10.632999999999999}
+{"e":"gridUpdated","stage":"searching","obs":1,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":10.632999999999999,"numVec":null}
+{"e":"devicePose","pos":[0.39100000000000001,0.23899999999999999,-3.0110000000000001],"heading":[-0.89000000000000001,-0.45600000000000002],"t":10.779999999999999}
+{"raw":"G3","e":"candidateRejected","reason":"low-conf","t":10.962999999999999}
+{"hit":20,"pos":[-6.2709999999999999,0.50800000000000001,-5.8330000000000002],"parsed":{"floor":null,"num":3,"zone":"F","zoneIdx":5},"t":10.965,"src":"depth","e":"codeObserved","raw":"F3","conf":1}
+{"targetEst":null,"residualRMS":0,"numVec":null,"confidence":0,"stage":"searching","origin":null,"zoneVec":null,"lever":null,"t":10.965,"e":"gridUpdated","obs":1}
+{"raw":"지하 3g","e":"candidateRejected","reason":"low-conf","t":10.965}
+{"raw":"F4","e":"raycastFailed","consecutive":1,"t":10.965999999999999}
+{"parsed":{"floor":null,"zoneIdx":5,"zone":"F","num":4},"hit":10,"pos":null,"e":"codeObserved","conf":1,"raw":"F4","t":10.965999999999999}
+{"obs":1,"confidence":0,"numVec":null,"zoneVec":null,"residualRMS":0,"origin":null,"lever":null,"targetEst":null,"e":"gridUpdated","stage":"searching","t":10.965999999999999}
+{"hit":21,"pos":[-6.2460000000000004,0.5,-5.8289999999999997],"parsed":{"floor":null,"zoneIdx":5,"zone":"F","num":3},"t":11.297000000000001,"src":"depth","e":"codeObserved","conf":1,"raw":"F3"}
+{"targetEst":null,"residualRMS":0,"numVec":null,"confidence":0,"stage":"searching","origin":null,"zoneVec":null,"lever":null,"t":11.297000000000001,"e":"gridUpdated","obs":1}
+{"reason":"low-conf","t":11.298,"raw":"지희 3원","e":"candidateRejected"}
+{"reason":"low-conf","raw":"G3","t":11.663,"e":"candidateRejected"}
+{"src":"depth","parsed":{"floor":null,"zoneIdx":5,"zone":"F","num":3},"hit":22,"t":11.664999999999999,"e":"codeObserved","raw":"F3","conf":1,"pos":[-6.2649999999999997,0.498,-5.8540000000000001]}
+{"lever":null,"obs":1,"t":11.664999999999999,"e":"gridUpdated","origin":null,"stage":"searching","targetEst":null,"residualRMS":0,"confidence":0,"numVec":null,"zoneVec":null}
+{"reason":"low-conf","t":11.666,"raw":"지하 3층","e":"candidateRejected"}
+{"heading":[-0.92200000000000004,-0.38600000000000001],"e":"devicePose","pos":[-0.091999999999999998,0.251,-3.5249999999999999],"t":11.779999999999999}
+{"parsed":{"zone":"F","zoneIdx":5,"floor":null,"num":4},"conf":1,"raw":"F4","hit":11,"e":"codeObserved","src":"depth","pos":[-5.9889999999999999,0.52200000000000002,-10.529],"t":12.680999999999999}
+{"lever":null,"e":"gridUpdated","obs":1,"targetEst":null,"stage":"searching","origin":null,"zoneVec":null,"numVec":null,"confidence":0,"t":12.680999999999999,"residualRMS":0}
+{"parsed":{"zone":"F","zoneIdx":5,"floor":null,"num":4},"conf":1,"raw":"F4","hit":12,"e":"codeObserved","src":"depth","pos":[-5.3079999999999998,0.50800000000000001,-10.791],"t":12.682}
+{"lever":null,"e":"gridUpdated","obs":1,"targetEst":null,"stage":"searching","origin":null,"zoneVec":null,"numVec":null,"confidence":0,"t":12.682,"residualRMS":0}
+{"raw":"SIAN","e":"candidateRejected","reason":"low-conf","t":12.682}
+{"e":"devicePose","t":12.779999999999999,"heading":[-0.67700000000000005,-0.73599999999999999],"pos":[-0.41599999999999998,0.33800000000000002,-4.2089999999999996]}
+{"e":"codeObserved","hit":13,"conf":1,"raw":"F4","parsed":{"floor":null,"zone":"F","zoneIdx":5,"num":4},"pos":[-5.9039999999999999,0.52700000000000002,-10.459],"src":"depth","t":12.981}
+{"e":"gridUpdated","stage":"searching","obs":1,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":12.981,"numVec":null}
+{"e":"codeObserved","hit":14,"conf":1,"raw":"F4","parsed":{"floor":null,"zone":"F","zoneIdx":5,"num":4},"pos":[-5.2779999999999996,0.497,-10.768000000000001],"src":"depth","t":12.981999999999999}
+{"e":"gridUpdated","stage":"searching","obs":1,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":12.981999999999999,"numVec":null}
+{"raw":"F4","conf":1,"parsed":{"zoneIdx":5,"zone":"F","num":4,"floor":null},"pos":[-5.9180000000000001,0.51800000000000002,-10.475],"t":13.347,"hit":15,"e":"codeObserved","src":"depth"}
+{"t":13.348000000000001,"zoneVec":null,"confidence":0,"e":"gridUpdated","lever":null,"origin":null,"obs":1,"targetEst":null,"stage":"searching","residualRMS":0,"numVec":null}
+{"e":"candidateRejected","reason":"low-conf","raw":"L","t":13.348000000000001}
+{"raw":"F4","conf":1,"parsed":{"zoneIdx":5,"zone":"F","num":4,"floor":null},"pos":[-5.2930000000000001,0.51200000000000001,-10.794],"t":13.349,"hit":16,"e":"codeObserved","src":"depth"}
+{"t":13.349,"zoneVec":null,"confidence":0,"e":"gridUpdated","lever":null,"origin":null,"obs":1,"targetEst":null,"stage":"searching","residualRMS":0,"numVec":null}
+{"e":"candidateRejected","reason":"low-conf","raw":"F4","t":13.35}
+{"e":"candidateRejected","reason":"low-conf","raw":"F4","t":13.630000000000001}
+{"hit":17,"src":"depth","conf":1,"parsed":{"zoneIdx":5,"zone":"F","num":4,"floor":null},"t":13.632,"raw":"F4","pos":[-5.258,0.51400000000000001,-10.714],"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":13.632,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"heading":[-0.69299999999999995,-0.72099999999999997],"e":"devicePose","pos":[-0.90200000000000002,0.36099999999999999,-4.5540000000000003],"t":13.797000000000001}
+{"parsed":{"zoneIdx":5,"zone":"F","num":4,"floor":null},"raw":"F4","hit":18,"conf":1,"t":14.013999999999999,"src":"depth","e":"codeObserved","pos":[-5.8959999999999999,0.52300000000000002,-10.441000000000001]}
+{"confidence":0,"targetEst":null,"lever":null,"obs":1,"t":14.013999999999999,"residualRMS":0,"stage":"searching","e":"gridUpdated","origin":null,"zoneVec":null,"numVec":null}
+{"e":"candidateRejected","reason":"low-conf","raw":"F4","t":14.015000000000001}
+{"raw":"F4","src":"depth","pos":[-5.8840000000000003,0.51800000000000002,-10.443],"parsed":{"zoneIdx":5,"num":4,"floor":null,"zone":"F"},"e":"codeObserved","hit":19,"t":14.331,"conf":1}
+{"lever":null,"zoneVec":null,"targetEst":null,"numVec":null,"obs":1,"stage":"searching","origin":null,"confidence":0,"t":14.331,"e":"gridUpdated","residualRMS":0}
+{"pos":[-5.2549999999999999,0.51000000000000001,-10.750999999999999],"src":"depth","raw":"F4","parsed":{"floor":null,"zone":"F","zoneIdx":5,"num":4},"e":"codeObserved","hit":20,"t":14.332000000000001,"conf":1}
+{"lever":null,"zoneVec":null,"targetEst":null,"numVec":null,"obs":1,"stage":"searching","origin":null,"confidence":0,"t":14.332000000000001,"e":"gridUpdated","residualRMS":0}
+{"pos":[-5.8819999999999997,0.51800000000000002,-10.436],"src":"depth","hit":21,"conf":1,"parsed":{"floor":null,"zone":"F","zoneIdx":5,"num":4},"raw":"F4","t":14.682,"e":"codeObserved"}
+{"e":"gridUpdated","lever":null,"residualRMS":0,"origin":null,"stage":"searching","obs":1,"targetEst":null,"zoneVec":null,"numVec":null,"confidence":0,"t":14.682}
+{"raw":"F4","hit":22,"t":14.683,"e":"codeObserved","pos":[-5.2320000000000002,0.51100000000000001,-10.709],"src":"depth","parsed":{"floor":null,"zone":"F","zoneIdx":5,"num":4},"conf":1}
+{"residualRMS":0,"stage":"searching","t":14.683,"targetEst":null,"zoneVec":null,"lever":null,"confidence":0,"obs":1,"origin":null,"e":"gridUpdated","numVec":null}
+{"e":"devicePose","t":14.797000000000001,"heading":[-0.73099999999999998,-0.68200000000000005],"pos":[-1.5289999999999999,0.33000000000000002,-4.8550000000000004]}
+{"e":"candidateRejected","t":15.013999999999999,"raw":"F4","reason":"low-conf"}
+{"e":"candidateRejected","t":15.015000000000001,"raw":"F4","reason":"low-conf"}
+{"hit":23,"parsed":{"floor":null,"zoneIdx":5,"num":3,"zone":"F"},"raw":"F3","t":15.348000000000001,"pos":[-6.2480000000000002,0.5,-5.8390000000000004],"e":"codeObserved","conf":1,"src":"raycast"}
+{"residualRMS":0,"obs":1,"confidence":0,"stage":"searching","zoneVec":null,"numVec":null,"lever":null,"t":15.348000000000001,"e":"gridUpdated","targetEst":null,"origin":null}
+{"raw":"F3","hit":24,"conf":1,"pos":[-6.2480000000000002,0.495,-5.8390000000000004],"parsed":{"floor":null,"zone":"F","num":3,"zoneIdx":5},"e":"codeObserved","src":"raycast","t":15.664999999999999}
+{"confidence":0,"t":15.664999999999999,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"e":"devicePose","heading":[-0.998,-0.060999999999999999],"pos":[-2.3450000000000002,0.315,-4.8479999999999999],"t":15.880000000000001}
+{"e":"candidateRejected","t":15.997,"reason":"low-conf","raw":"G3"}
+{"e":"candidateRejected","t":15.997999999999999,"reason":"low-conf","raw":"C3"}
+{"e":"codeObserved","parsed":{"floor":null,"zone":"F","num":3,"zoneIdx":5},"t":15.999000000000001,"hit":25,"pos":[-6.2460000000000004,0.501,-5.8479999999999999],"conf":1,"raw":"F3","src":"raycast"}
+{"e":"gridUpdated","confidence":0,"numVec":null,"lever":null,"obs":1,"origin":null,"t":15.999000000000001,"targetEst":null,"residualRMS":0,"zoneVec":null,"stage":"searching"}
+{"e":"candidateRejected","raw":"G3","reason":"low-conf","t":16.347000000000001}
+{"e":"candidateRejected","raw":":30두 18523","reason":"low-conf","t":16.347999999999999}
+{"e":"codeObserved","raw":"F3","t":16.349,"parsed":{"zoneIdx":5,"num":3,"floor":null,"zone":"F"},"pos":[-6.2110000000000003,0.499,-5.8300000000000001],"src":"raycast","conf":1,"hit":26}
+{"origin":null,"residualRMS":0,"numVec":null,"e":"gridUpdated","t":16.349,"stage":"searching","zoneVec":null,"confidence":0,"lever":null,"obs":1,"targetEst":null}
+{"e":"candidateRejected","raw":"지하 3층","reason":"low-conf","t":16.349}
+{"e":"candidateRejected","raw":"F3","reason":"low-conf","t":16.646999999999998}
+{"e":"candidateRejected","raw":"자하 3층","reason":"low-conf","t":16.648}
+{"e":"devicePose","pos":[-2.903,0.36899999999999999,-4.9630000000000001],"heading":[-0.997,-0.080000000000000002],"t":16.879999999999999}
+{"parsed":{"zoneIdx":5,"zone":"F","num":3,"floor":null},"pos":[-6.2030000000000003,0.49299999999999999,-5.8440000000000003],"t":16.998000000000001,"conf":1,"src":"raycast","e":"codeObserved","raw":"F3","hit":27}
+{"stage":"searching","targetEst":null,"confidence":0,"lever":null,"numVec":null,"t":16.998000000000001,"e":"gridUpdated","zoneVec":null,"residualRMS":0,"obs":1,"origin":null}
+{"raw":"151","reason":"low-conf","t":17.314,"e":"candidateRejected"}
+{"pos":[-6.2140000000000004,0.48999999999999999,-5.8419999999999996],"src":"raycast","hit":28,"conf":1,"raw":"F3","parsed":{"floor":null,"zoneIdx":5,"zone":"F","num":3},"t":17.315000000000001,"e":"codeObserved"}
+{"e":"gridUpdated","lever":null,"residualRMS":0,"origin":null,"stage":"searching","obs":1,"targetEst":null,"zoneVec":null,"numVec":null,"confidence":0,"t":17.315000000000001}
+{"raw":"지하 3층","reason":"low-conf","t":17.315999999999999,"e":"candidateRejected"}
+{"heading":[-0.90200000000000002,0.432],"pos":[-3.5390000000000001,0.374,-4.907],"t":17.896999999999998,"e":"devicePose"}
+{"e":"candidateRejected","t":18.013999999999999,"reason":"low-conf","raw":"30F 1852"}
+{"e":"candidateRejected","raw":"G3","reason":"low-conf","t":18.698}
+{"e":"candidateRejected","raw":"C3","reason":"low-conf","t":18.699000000000002}
+{"heading":[-0.86399999999999999,0.504],"t":18.997,"pos":[-4.2329999999999997,0.35699999999999998,-4.8419999999999996],"e":"devicePose"}
+{"t":18.998000000000001,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":18.998999999999999,"raw":"33","reason":"low-conf","e":"candidateRejected"}
+{"t":19,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":19.681000000000001,"e":"candidateRejected","raw":"G3","reason":"low-conf"}
+{"t":19.681999999999999,"e":"candidateRejected","raw":"G3","reason":"low-conf"}
+{"pos":[-4.9630000000000001,0.32800000000000001,-4.7009999999999996],"heading":[-0.82899999999999996,0.56000000000000005],"t":19.997,"e":"devicePose"}
+{"raw":"C3","e":"candidateRejected","t":19.998000000000001,"reason":"low-conf"}
+{"raw":"(3","e":"candidateRejected","t":19.998999999999999,"reason":"low-conf"}
+{"e":"candidateRejected","reason":"low-conf","raw":"8","t":20.347999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"33","t":20.349}
+{"pos":[-5.6399999999999997,0.34000000000000002,-4.4749999999999996],"e":"devicePose","heading":[-0.30099999999999999,0.95399999999999996],"t":20.998000000000001}
+{"reason":"low-conf","t":21.331,"e":"candidateRejected","raw":"F3"}
+{"raw":"SDS","reason":"low-conf","t":21.681000000000001,"e":"candidateRejected"}
+{"e":"codeObserved","parsed":{"zoneIdx":5,"num":3,"zone":"F","floor":null},"t":21.683,"hit":29,"pos":[-7.8129999999999997,0.52600000000000002,2.0259999999999998],"raw":"F3","conf":1,"src":"depth"}
+{"e":"gridUpdated","confidence":0,"numVec":null,"lever":null,"obs":1,"origin":null,"t":21.683,"targetEst":null,"residualRMS":0,"zoneVec":null,"stage":"searching"}
+{"raw":"비상빛","reason":"low-conf","t":21.684000000000001,"e":"candidateRejected"}
+{"raw":"010 0570-","reason":"low-conf","t":21.684000000000001,"e":"candidateRejected"}
+{"e":"candidateRejected","t":21.981000000000002,"reason":"low-conf","raw":"•01어 0570•"}
+{"e":"devicePose","heading":[-0.13700000000000001,0.99099999999999999],"t":21.998000000000001,"pos":[-6.3369999999999997,0.33400000000000002,-4.3979999999999997]}
+{"e":"candidateRejected","reason":"low-conf","raw":"•01어 0570•","t":22.364999999999998}
+{"reason":"skeleton-mismatch","raw":"3","e":"candidateRejected","t":23}
+{"t":23.097999999999999,"heading":[-0.72099999999999997,0.69299999999999995],"e":"devicePose","pos":[-7.375,0.34100000000000003,-4.4390000000000001]}
+{"reason":"low-conf","raw":"C3","e":"candidateRejected","t":23.364999999999998}
+{"raw":"GE","reason":"low-conf","t":23.648,"e":"candidateRejected"}
+{"t":24.032,"reason":"low-conf","raw":"•42수 6556","e":"candidateRejected"}
+{"t":24.033000000000001,"reason":"low-conf","raw":"¢3","e":"candidateRejected"}
+{"t":24.033000000000001,"reason":"low-conf","raw":"t2827000","e":"candidateRejected"}
+{"t":24.033999999999999,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"t":24.035,"raw":"G3","consecutive":1,"e":"raycastFailed"}
+{"e":"codeObserved","parsed":{"zoneIdx":6,"num":3,"floor":null,"zone":"G"},"raw":"G3","t":24.035,"conf":1,"pos":null,"hit":1}
+{"lever":null,"targetEst":null,"numVec":null,"e":"gridUpdated","obs":1,"residualRMS":0,"origin":null,"t":24.035,"confidence":0,"stage":"searching","zoneVec":null}
+{"t":24.198,"heading":[-0.80600000000000005,0.59299999999999997],"e":"devicePose","pos":[-8.2959999999999994,0.35999999999999999,-4.4989999999999997]}
+{"e":"candidateRejected","reason":"low-conf","raw":"•42수 6556","t":24.315000000000001}
+{"e":"candidateRejected","reason":"low-conf","raw":"C3","t":24.315999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"G3","t":24.315999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"G3","t":24.315999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"C3","t":24.632000000000001}
+{"e":"candidateRejected","reason":"low-conf","raw":"6533","t":24.632999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"G3","t":24.632999999999999}
+{"t":24.965,"raw":"-42수 6556-","reason":"low-conf","e":"candidateRejected"}
+{"t":24.966000000000001,"raw":"[28:175000","reason":"low-conf","e":"candidateRejected"}
+{"t":24.966000000000001,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":24.966999999999999,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":24.966999999999999,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":24.966999999999999,"raw":"H3","e":"raycastFailed","consecutive":2}
+{"conf":1,"parsed":{"floor":null,"zone":"H","zoneIdx":7,"num":3},"pos":null,"t":24.968,"hit":1,"e":"codeObserved","raw":"H3"}
+{"t":24.968,"zoneVec":null,"confidence":0,"e":"gridUpdated","lever":null,"origin":null,"obs":1,"targetEst":null,"stage":"searching","residualRMS":0,"numVec":null}
+{"raw":"IC","reason":"low-conf","t":24.968,"e":"candidateRejected"}
+{"heading":[-0.74399999999999999,0.66800000000000004],"pos":[-9.0079999999999991,0.36499999999999999,-4.5750000000000002],"t":25.198,"e":"devicePose"}
+{"reason":"low-conf","t":25.298999999999999,"raw":"135","e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","raw":"•42수","t":25.664999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"6556","t":25.666}
+{"e":"candidateRejected","reason":"low-conf","raw":"228컵 7600","t":25.667000000000002}
+{"e":"candidateRejected","reason":"low-conf","raw":"G3","t":25.667999999999999}
+{"e":"candidateRejected","reason":"low-conf","raw":"G3","t":25.667999999999999}
+{"raw":"•42수","t":25.981999999999999,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"6556:","t":25.983000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"C3","t":25.983000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"G3","t":25.983000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"지화 30","t":25.984000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"228권 7600","t":25.984000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"G3","t":25.984000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"t":26.199000000000002,"heading":[-0.70499999999999996,0.70899999999999996],"pos":[-9.5980000000000008,0.377,-4.6870000000000003],"e":"devicePose"}
+{"t":26.315000000000001,"reason":"low-conf","raw":"20","e":"candidateRejected"}
+{"t":26.649000000000001,"raw":"•42수","e":"candidateRejected","reason":"low-conf"}
+{"t":26.649999999999999,"raw":"6556+","e":"candidateRejected","reason":"low-conf"}
+{"t":26.649999999999999,"raw":"P28리 76000","e":"candidateRejected","reason":"low-conf"}
+{"t":26.649999999999999,"raw":"¢3","e":"candidateRejected","reason":"low-conf"}
+{"t":26.998999999999999,"e":"candidateRejected","reason":"low-conf","raw":"-42수 6556-"}
+{"t":27,"e":"candidateRejected","reason":"low-conf","raw":"G3"}
+{"t":27,"e":"candidateRejected","raw":"13","reason":"low-conf"}
+{"t":27,"e":"candidateRejected","raw":"728리 7600","reason":"low-conf"}
+{"heading":[-0.65200000000000002,0.75800000000000001],"e":"devicePose","t":27.199000000000002,"pos":[-10.157,0.376,-4.7830000000000004]}
+{"e":"candidateRejected","reason":"low-conf","t":27.350000000000001,"raw":"G1"}
+{"e":"candidateRejected","reason":"low-conf","t":27.350999999999999,"raw":"228리 7600"}
+{"e":"candidateRejected","reason":"low-conf","t":27.352,"raw":"G3"}
+{"e":"candidateRejected","reason":"low-conf","t":27.352,"raw":"¢3"}
+{"e":"candidateRejected","reason":"low-conf","t":27.352,"raw":"지하 3층"}
+{"t":27.649000000000001,"e":"candidateRejected","raw":"G3","reason":"low-conf"}
+{"t":28,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"heading":[-0.629,0.77800000000000002],"pos":[-10.827999999999999,0.33100000000000002,-4.875],"e":"devicePose","t":28.199000000000002}
+{"reason":"low-conf","raw":"G1","e":"candidateRejected","t":28.349}
+{"t":28.350999999999999,"raw":"¢3","e":"candidateRejected","reason":"low-conf"}
+{"t":28.352,"raw":"지하 30","e":"candidateRejected","reason":"low-conf"}
+{"t":28.699000000000002,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":28.699999999999999,"raw":"228리7600","reason":"low-conf","e":"candidateRejected"}
+{"t":28.983000000000001,"reason":"low-conf","raw":"지히 3층","e":"candidateRejected"}
+{"pos":[-11.503,0.308,-4.9180000000000001],"heading":[-0.50700000000000001,0.86199999999999999],"t":29.199999999999999,"e":"devicePose"}
+{"t":29.349,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"raw":"228리 7600","reason":"low-conf","t":29.666,"e":"candidateRejected"}
+{"raw":"G3","reason":"low-conf","t":29.667000000000002,"e":"candidateRejected"}
+{"raw":"지하 3층","reason":"low-conf","t":29.667000000000002,"e":"candidateRejected"}
+{"t":30.015999999999998,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"raw":"지하 3층","reason":"low-conf","t":30.016999999999999,"e":"candidateRejected"}
+{"raw":"228러 7600","reason":"low-conf","t":30.018000000000001,"e":"candidateRejected"}
+{"pos":[-12.233000000000001,0.30599999999999999,-4.9969999999999999],"heading":[-0.70999999999999996,0.70399999999999996],"t":30.298999999999999,"e":"devicePose"}
+{"e":"devicePose","t":31.298999999999999,"pos":[-12.731999999999999,0.34699999999999998,-5.5720000000000001],"heading":[-0.73099999999999998,-0.68200000000000005]}
+{"e":"candidateRejected","t":31.350000000000001,"raw":"G3","reason":"low-conf"}
+{"t":31.684000000000001,"reason":"low-conf","raw":"AZAEDUS","e":"candidateRejected"}
+{"t":31.684999999999999,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"t":32,"raw":"TRADERS","e":"candidateRejected","reason":"low-conf"}
+{"t":32.000999999999998,"raw":"WHDLESALE CLUB","e":"candidateRejected","reason":"low-conf"}
+{"t":32.002000000000002,"raw":"G3","e":"candidateRejected","reason":"low-conf"}
+{"heading":[-0.624,-0.78100000000000003],"e":"devicePose","t":32.298999999999999,"pos":[-13.257999999999999,0.35499999999999998,-5.6349999999999998]}
+{"raw":"C3","t":32.332999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"t":32.334000000000003,"reason":"low-conf","raw":"지하 3층","e":"candidateRejected"}
+{"t":32.335999999999999,"reason":"low-conf","raw":"WHOLESALE CLUB","e":"candidateRejected"}
+{"t":32.335999999999999,"reason":"low-conf","raw":"G3","e":"candidateRejected"}
+{"reason":"low-conf","e":"candidateRejected","t":32.665999999999997,"raw":"C3"}
+{"reason":"low-conf","e":"candidateRejected","t":32.667000000000002,"raw":"지하 3층"}
+{"reason":"low-conf","e":"candidateRejected","t":32.667999999999999,"raw":"WHCLESALE CLUB"}
+{"reason":"low-conf","e":"candidateRejected","t":32.667999999999999,"raw":"》>"}
+{"reason":"skeleton-mismatch","e":"candidateRejected","t":32.668999999999997,"raw":"3"}
+{"t":33,"reason":"low-conf","e":"candidateRejected","raw":"G4"}
+{"t":33.000999999999998,"reason":"low-conf","e":"candidateRejected","raw":"¢3"}
+{"pos":[-13.75,0.33300000000000002,-5.6689999999999996],"e":"devicePose","t":33.299999999999997,"heading":[-0.56399999999999995,-0.82599999999999996]}
+{"t":33.332999999999998,"reason":"low-conf","e":"candidateRejected","raw":"¢4"}
+{"t":33.334000000000003,"reason":"low-conf","e":"candidateRejected","raw":"G3"}
+{"t":33.667000000000002,"raw":"G3","reason":"low-conf","e":"candidateRejected"}
+{"t":33.668999999999997,"raw":"》","reason":"low-conf","e":"candidateRejected"}
+{"reason":"low-conf","t":34.017000000000003,"e":"candidateRejected","raw":"G4"}
+{"t":34.018000000000001,"e":"raycastFailed","raw":"G4","consecutive":3}
+{"e":"codeObserved","parsed":{"zone":"G","floor":null,"zoneIdx":6,"num":4},"raw":"G4","conf":1,"t":34.018000000000001,"hit":1,"pos":null}
+{"lever":null,"targetEst":null,"numVec":null,"e":"gridUpdated","obs":1,"residualRMS":0,"origin":null,"t":34.018000000000001,"confidence":0,"stage":"searching","zoneVec":null}
+{"reason":"low-conf","e":"candidateRejected","raw":"G3","t":34.018000000000001}
+{"heading":[-0.42599999999999999,-0.90500000000000003],"e":"devicePose","t":34.299999999999997,"pos":[-13.933,0.373,-5.6669999999999998]}
+{"raw":"G4","t":34.334000000000003,"consecutive":4,"e":"raycastFailed"}
+{"e":"codeObserved","hit":2,"conf":1,"raw":"G4","parsed":{"zone":"G","zoneIdx":6,"floor":null,"num":4},"pos":null,"t":34.334000000000003}
+{"e":"gridUpdated","stage":"searching","obs":1,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":34.334000000000003,"numVec":null}
+{"e":"raycastFailed","t":34.335000000000001,"consecutive":5,"raw":"G4"}
+{"hit":3,"pos":null,"parsed":{"zone":"G","zoneIdx":6,"floor":null,"num":4},"t":34.335000000000001,"e":"codeObserved","raw":"G4","conf":1}
+{"targetEst":null,"residualRMS":0,"numVec":null,"confidence":0,"stage":"searching","origin":null,"zoneVec":null,"lever":null,"t":34.335000000000001,"e":"gridUpdated","obs":1}
+{"t":34.335999999999999,"reason":"low-conf","e":"candidateRejected","raw":"G3"}
+{"t":34.338000000000001,"reason":"low-conf","e":"candidateRejected","raw":"3"}
+{"raw":"G4","reason":"low-conf","t":34.667000000000002,"e":"candidateRejected"}
+{"raw":"G4","t":34.667999999999999,"consecutive":6,"e":"raycastFailed"}
+{"parsed":{"zone":"G","zoneIdx":6,"floor":null,"num":4},"hit":4,"pos":null,"e":"codeObserved","conf":1,"raw":"G4","t":34.667999999999999}
+{"obs":1,"confidence":0,"numVec":null,"zoneVec":null,"residualRMS":0,"origin":null,"lever":null,"targetEst":null,"e":"gridUpdated","stage":"searching","t":34.667999999999999}
+{"reason":"low-conf","t":34.667999999999999,"raw":"G3","e":"candidateRejected"}
+{"reason":"low-conf","t":34.670000000000002,"raw":"레드","e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","t":35,"raw":"G4"}
+{"e":"candidateRejected","reason":"low-conf","t":35.000999999999998,"raw":"G3"}
+{"e":"devicePose","heading":[-0.57299999999999995,-0.81999999999999995],"pos":[-14.032,0.34499999999999997,-5.7489999999999997],"t":35.299999999999997}
+{"raw":"¢3","t":35.334000000000003,"e":"candidateRejected","reason":"low-conf"}
+{"e":"candidateRejected","reason":"low-conf","raw":"지하 3층","t":35.335000000000001}
+{"e":"candidateRejected","reason":"low-conf","raw":"WIADLESALE CLL B","t":35.335999999999999}
+{"raw":"G3","t":35.667000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"WHOLSSALE RAJE","t":35.668999999999997,"e":"candidateRejected","reason":"low-conf"}
+{"pos":[-22.475999999999999,0.51100000000000001,-8.7609999999999992],"src":"depth","parsed":{"zoneIdx":6,"zone":"G","floor":null,"num":3},"raw":"G3","conf":1,"e":"codeObserved","hit":2,"t":36.000999999999998}
+{"confidence":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"obs":2,"numVec":null,"targetEst":null,"origin":null,"residualRMS":0,"e":"gridUpdated","lever":null,"t":36.000999999999998}
+{"raw":"C4","t":36.000999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"raw":")","t":36.002000000000002,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"WHOLESA","t":36.003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"Jumbo Ste","t":36.003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"BOAGTED MDMONDS","t":36.003999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"heading":[-0.86599999999999999,-0.5],"pos":[-14.348000000000001,0.30299999999999999,-5.8959999999999999],"t":36.299999999999997,"e":"devicePose"}
+{"conf":1,"pos":[-22.974,0.442,-8.1549999999999994],"src":"depth","hit":2,"t":36.334000000000003,"parsed":{"num":3,"floor":null,"zoneIdx":7,"zone":"H"},"e":"codeObserved","raw":"H3"}
+{"e":"gridUpdated","t":36.334000000000003,"residualRMS":0,"targetEst":null,"origin":null,"obs":3,"zoneVec":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","confidence":1,"numVec":null,"lever":null}
+{"raw":"G3","t":36.335000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"G4","t":36.335000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"consecutive":1,"raw":"G4","t":36.335999999999999,"e":"raycastFailed"}
+{"conf":1,"t":36.335999999999999,"hit":5,"pos":null,"parsed":{"num":4,"floor":null,"zoneIdx":6,"zone":"G"},"e":"codeObserved","raw":"G4"}
+{"e":"gridUpdated","t":36.335999999999999,"residualRMS":0,"targetEst":null,"origin":null,"obs":3,"zoneVec":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","confidence":1,"numVec":null,"lever":null}
+{"e":"candidateRejected","raw":"1239 1162","reason":"low-conf","t":36.335999999999999}
+{"e":"candidateRejected","raw":"Jumbo Size쵸","reason":"low-conf","t":36.337000000000003}
+{"e":"candidateRejected","raw":"STADARG","reason":"low-conf","t":36.338999999999999}
+{"raw":"G3","reason":"low-conf","t":36.649999999999999,"e":"candidateRejected"}
+{"raw":"지하 3e","reason":"low-conf","t":36.651000000000003,"e":"candidateRejected"}
+{"raw":"Jumbo Size","reason":"low-conf","t":36.652999999999999,"e":"candidateRejected"}
+{"raw":"ROASTED ALMONDS","reason":"low-conf","t":36.652999999999999,"e":"candidateRejected"}
+{"e":"codeObserved","pos":[-21.445,0.54900000000000004,-13.606999999999999],"hit":6,"parsed":{"floor":null,"zone":"G","zoneIdx":6,"num":4},"conf":1,"t":36.655000000000001,"src":"depth","raw":"G4"}
+{"e":"gridUpdated","origin":null,"zoneVec":null,"confidence":1,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","numVec":null,"lever":4.7699999999999996,"t":36.655000000000001,"residualRMS":4.0250000000000004,"obs":4,"targetEst":null}
+{"heading":[-0.96999999999999997,-0.24099999999999999],"pos":[-14.676,0.24299999999999999,-6.1500000000000004],"t":37.299999999999997,"e":"devicePose"}
+{"reason":"low-conf","raw":"~","t":37.317999999999998,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"G3","t":38.033999999999999,"e":"candidateRejected"}
+{"t":38.299999999999997,"pos":[-14.737,0.42599999999999999,-6.2460000000000004],"e":"devicePose","heading":[0.22,-0.97599999999999998]}
+{"reason":"low-conf","raw":"G3","t":38.350999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","t":38.683999999999997,"e":"candidateRejected","raw":"G3"}
+{"heading":[-0.67200000000000004,-0.74099999999999999],"t":39.301000000000002,"pos":[-15.475,0.35299999999999998,-6.5490000000000004],"e":"devicePose"}
+{"raw":"」3","reason":"low-conf","t":40.051000000000002,"e":"candidateRejected"}
+{"raw":"C4","reason":"low-conf","t":40.052,"e":"candidateRejected"}
+{"raw":"C4","reason":"low-conf","t":40.052,"e":"candidateRejected"}
+{"pos":[-16.16,0.378,-7.0149999999999997],"e":"devicePose","t":40.301000000000002,"heading":[-0.76700000000000002,-0.64100000000000001]}
+{"parsed":{"zone":"G","floor":null,"num":3,"zoneIdx":6},"src":"depth","pos":[-22.268000000000001,0.48699999999999999,-8.7159999999999993],"conf":1,"hit":3,"raw":"G3","t":40.335000000000001,"e":"codeObserved"}
+{"residualRMS":3.972,"targetEst":null,"confidence":1,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","lever":4.7699999999999996,"zoneVec":null,"obs":4,"numVec":null,"t":40.335000000000001,"origin":null,"e":"gridUpdated"}
+{"t":40.335000000000001,"reason":"low-conf","e":"candidateRejected","raw":"지하 3층"}
+{"t":40.335999999999999,"reason":"low-conf","e":"candidateRejected","raw":"ㅢ"}
+{"t":40.337000000000003,"reason":"low-conf","e":"candidateRejected","raw":"¢4"}
+{"parsed":{"zone":"G","floor":null,"num":4,"zoneIdx":6},"src":"depth","pos":[-21.475000000000001,0.503,-13.632999999999999],"conf":1,"hit":7,"raw":"G4","t":40.337000000000003,"e":"codeObserved"}
+{"residualRMS":3.9809999999999999,"targetEst":null,"confidence":1,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","lever":4.7699999999999996,"zoneVec":null,"obs":4,"numVec":null,"t":40.337000000000003,"origin":null,"e":"gridUpdated"}
+{"e":"candidateRejected","t":40.667999999999999,"raw":"G3","reason":"low-conf"}
+{"e":"candidateRejected","t":40.667999999999999,"raw":"지하 3층","reason":"low-conf"}
+{"e":"candidateRejected","t":40.668999999999997,"raw":"4","reason":"low-conf"}
+{"e":"candidateRejected","t":40.668999999999997,"raw":"G4","reason":"low-conf"}
+{"e":"candidateRejected","t":40.668999999999997,"raw":"지회30","reason":"low-conf"}
+{"reason":"low-conf","raw":"J3","t":40.984000000000002,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"H","t":40.984999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"G4","t":40.985999999999997,"e":"candidateRejected"}
+{"src":"depth","hit":8,"pos":[-21.477,0.51700000000000002,-13.646000000000001],"e":"codeObserved","parsed":{"zoneIdx":6,"zone":"G","floor":null,"num":4},"t":40.985999999999997,"raw":"G4","conf":1}
+{"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","obs":4,"numVec":null,"lever":4.7699999999999996,"confidence":1,"zoneVec":null,"origin":null,"t":40.987000000000002,"e":"gridUpdated","residualRMS":3.9820000000000002,"targetEst":null}
+{"pos":[-16.661999999999999,0.375,-7.3550000000000004],"heading":[-0.73199999999999998,-0.68100000000000005],"t":41.301000000000002,"e":"devicePose"}
+{"reason":"skeleton-mismatch","raw":"3","t":41.335000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"3층","t":41.335999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"¢4","t":41.337000000000003,"e":"candidateRejected"}
+{"parsed":{"num":4,"floor":null,"zoneIdx":6,"zone":"G"},"raw":"G4","hit":9,"t":41.337000000000003,"src":"depth","e":"codeObserved","pos":[-21.468,0.52200000000000002,-13.625],"conf":1}
+{"residualRMS":3.9790000000000001,"origin":null,"targetEst":null,"lever":4.7699999999999996,"obs":4,"confidence":1,"t":41.337000000000003,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","zoneVec":null,"numVec":null}
+{"reason":"low-conf","raw":"지하 3","t":41.338000000000001,"e":"candidateRejected"}
+{"raw":"G4","t":41.651000000000003,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"G4","t":41.652000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"지하 39","t":41.652000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"-35057\/2","t":41.652000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"G4","e":"candidateRejected","reason":"low-conf","t":42.000999999999998}
+{"raw":"G4","e":"candidateRejected","reason":"low-conf","t":42.002000000000002}
+{"raw":"지하 30","e":"candidateRejected","reason":"low-conf","t":42.002000000000002}
+{"raw":"OUT","e":"candidateRejected","reason":"low-conf","t":42.003}
+{"pos":[-17.169,0.39600000000000002,-7.7279999999999998],"heading":[-0.67900000000000005,-0.73399999999999999],"t":42.301000000000002,"e":"devicePose"}
+{"reason":"low-conf","raw":"G4","t":42.317999999999998,"e":"candidateRejected"}
+{"raw":"G4","hit":10,"conf":1,"pos":[-21.454999999999998,0.51800000000000002,-13.631],"parsed":{"floor":null,"zoneIdx":6,"zone":"G","num":4},"e":"codeObserved","src":"depth","t":42.319000000000003}
+{"confidence":1,"t":42.319000000000003,"numVec":null,"targetEst":null,"obs":4,"residualRMS":3.976,"zoneVec":null,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","origin":null,"lever":4.7699999999999996}
+{"reason":"low-conf","raw":"지화3층","t":42.319000000000003,"e":"candidateRejected"}
+{"t":42.651000000000003,"reason":"low-conf","raw":"G4","e":"candidateRejected"}
+{"t":42.652000000000001,"reason":"low-conf","raw":"G4","e":"candidateRejected"}
+{"t":42.652999999999999,"reason":"low-conf","raw":"OU7","e":"candidateRejected"}
+{"t":43.018000000000001,"reason":"low-conf","raw":"¢4","e":"candidateRejected"}
+{"e":"devicePose","heading":[-0.93000000000000005,-0.36799999999999999],"pos":[-17.712,0.36399999999999999,-7.9640000000000004],"t":43.301000000000002}
+{"reason":"low-conf","t":43.686,"e":"candidateRejected","raw":"G3"}
+{"raw":"3","t":44.067999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"G3","t":44.069000000000003,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"지하 3층","t":44.07,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"보행주의","t":44.070999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"•23로 1162","t":44.070999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"pos":[-18.18,0.36699999999999999,-8.1189999999999998],"t":44.301000000000002,"heading":[-1,-0.028000000000000001],"e":"devicePose"}
+{"e":"candidateRejected","reason":"low-conf","t":44.335000000000001,"raw":"H3"}
+{"e":"candidateRejected","reason":"low-conf","t":44.335999999999999,"raw":"•23로"}
+{"e":"candidateRejected","reason":"low-conf","t":44.335999999999999,"raw":"G3"}
+{"e":"candidateRejected","reason":"low-conf","t":44.338999999999999,"raw":"보생주의"}
+{"e":"candidateRejected","reason":"low-conf","t":44.338999999999999,"raw":"CAUTIOM"}
+{"reason":"low-conf","raw":"H3","t":44.652999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"23원","t":44.654000000000003,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"1762","t":44.654000000000003,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"G3","t":44.654000000000003,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"지하 3층","t":44.655000000000001,"e":"candidateRejected"}
+{"e":"raycastFailed","t":45.052,"consecutive":1,"raw":"H3"}
+{"conf":1,"parsed":{"zone":"H","zoneIdx":7,"floor":null,"num":3},"hit":3,"raw":"H3","e":"codeObserved","pos":null,"t":45.052}
+{"numVec":null,"e":"gridUpdated","obs":3,"confidence":1,"origin":null,"lever":null,"zoneVec":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","t":45.052,"residualRMS":0,"targetEst":null}
+{"e":"candidateRejected","reason":"low-conf","t":45.052999999999997,"raw":"G3"}
+{"e":"candidateRejected","reason":"low-conf","t":45.054000000000002,"raw":"지하 3층"}
+{"e":"candidateRejected","reason":"low-conf","t":45.054000000000002,"raw":"5."}
+{"e":"candidateRejected","reason":"low-conf","t":45.054000000000002,"raw":"보행주의"}
+{"e":"candidateRejected","reason":"low-conf","t":45.055,"raw":"23로"}
+{"e":"devicePose","heading":[-1,0.0089999999999999993],"pos":[-18.571999999999999,0.374,-8.2720000000000002],"t":45.302}
+{"e":"raycastFailed","consecutive":2,"raw":"H3","t":45.335999999999999}
+{"hit":4,"conf":1,"pos":null,"raw":"H3","parsed":{"floor":null,"zoneIdx":7,"num":3,"zone":"H"},"t":45.335999999999999,"e":"codeObserved"}
+{"zoneVec":null,"numVec":null,"t":45.337000000000003,"e":"gridUpdated","obs":3,"confidence":1,"lever":null,"targetEst":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.zone)","residualRMS":0,"origin":null}
+{"raw":"G3","reason":"low-conf","t":45.337000000000003,"e":"candidateRejected"}
+{"raw":"지하 3층","reason":"low-conf","t":45.338000000000001,"e":"candidateRejected"}
+{"raw":"보행주의","reason":"low-conf","t":45.338000000000001,"e":"candidateRejected"}
+{"raw":"23로 1162","reason":"low-conf","t":45.338000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"G3","t":45.652000000000001,"e":"candidateRejected"}
+{"e":"devicePose","heading":[-0.56499999999999995,0.82499999999999996],"pos":[-18.931000000000001,0.33300000000000002,-8.1370000000000005],"t":46.302}
+{"e":"candidateRejected","reason":"low-conf","t":46.668999999999997,"raw":"B4~"}
+{"e":"candidateRejected","reason":"low-conf","t":46.670000000000002,"raw":"G3"}
+{"raw":"B4>","reason":"low-conf","t":47.018999999999998,"e":"candidateRejected"}
+{"raw":"G3","reason":"low-conf","t":47.020000000000003,"e":"candidateRejected"}
+{"raw":"지희 34","reason":"low-conf","t":47.021000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"B4~","t":47.351999999999997,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"(3","t":47.353000000000002,"e":"candidateRejected"}
+{"raw":"G3","hit":4,"conf":1,"pos":[-24.175999999999998,0.55000000000000004,-0.85899999999999999],"parsed":{"floor":null,"zoneIdx":6,"num":3,"zone":"G"},"e":"codeObserved","src":"depth","t":47.353999999999999}
+{"confidence":0,"t":47.353999999999999,"numVec":null,"targetEst":null,"obs":2,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","origin":null,"lever":null}
+{"reason":"low-conf","e":"candidateRejected","raw":"지하3층","t":47.353999999999999}
+{"e":"devicePose","heading":[-0.54500000000000004,0.83799999999999997],"pos":[-19.344000000000001,0.33000000000000002,-8.2759999999999998],"t":47.402000000000001}
+{"e":"candidateRejected","reason":"low-conf","t":47.652000000000001,"raw":"B4-〉"}
+{"e":"candidateRejected","reason":"low-conf","t":47.652999999999999,"raw":"G3"}
+{"heading":[-0.23799999999999999,0.97099999999999997],"t":48.402000000000001,"e":"devicePose","pos":[-19.760999999999999,0.10100000000000001,-8.2639999999999993]}
+{"reason":"low-conf","t":49.319000000000003,"e":"candidateRejected","raw":"84-"}
+{"reason":"low-conf","t":49.32,"e":"candidateRejected","raw":"G3"}
+{"reason":"low-conf","t":49.32,"e":"candidateRejected","raw":"지하 30"}
+{"t":49.502000000000002,"pos":[-20.117999999999999,0.19600000000000001,-8.0329999999999995],"e":"devicePose","heading":[-0.443,0.89600000000000002]}
+{"reason":"low-conf","e":"candidateRejected","t":49.686,"raw":"60"}
+{"reason":"low-conf","raw":"¢3","t":50.335999999999999,"e":"candidateRejected"}
+{"pos":[-20.614999999999998,0.029000000000000001,-7.8630000000000004],"t":50.502000000000002,"heading":[-0.044999999999999998,0.999],"e":"devicePose"}
+{"reason":"low-conf","raw":"G3","t":50.668999999999997,"e":"candidateRejected"}
+{"raw":"G3","t":51.036000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"pos":[-21.035,0.070000000000000007,-7.4459999999999997],"heading":[0.375,0.92700000000000005],"t":51.503,"e":"devicePose"}
+{"t":51.670000000000002,"reason":"low-conf","e":"candidateRejected","raw":"63"}
+{"t":51.670999999999999,"consecutive":1,"e":"raycastFailed","raw":"B4"}
+{"hit":1,"t":51.670999999999999,"raw":"B4","e":"codeObserved","conf":1,"pos":null,"parsed":{"zoneIdx":1,"floor":null,"zone":"B","num":4}}
+{"residualRMS":0,"t":51.670999999999999,"numVec":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","obs":2,"confidence":0,"e":"gridUpdated","origin":null,"targetEst":null,"lever":null,"zoneVec":null}
+{"heading":[0.60699999999999998,0.79500000000000004],"pos":[-21.416,0.066000000000000003,-6.9219999999999997],"t":52.503,"e":"devicePose"}
+{"reason":"low-conf","raw":"G3","t":53.32,"e":"candidateRejected"}
+{"heading":[0.70699999999999996,0.70799999999999996],"pos":[-21.815999999999999,0.086999999999999994,-6.2069999999999999],"t":53.503,"e":"devicePose"}
+{"raw":"G3","t":53.686999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"G3","t":53.686999999999998,"e":"candidateRejected","reason":"low-conf"}
+{"reason":"low-conf","t":54.020000000000003,"e":"candidateRejected","raw":"NO BOTK"}
+{"reason":"low-conf","t":54.021000000000001,"e":"candidateRejected","raw":"¢3"}
+{"pos":[-22.224,0.080000000000000002,-5.5599999999999996],"heading":[0.53600000000000003,0.84399999999999997],"t":54.503,"e":"devicePose"}
+{"reason":"low-conf","raw":"¢3","t":55.369999999999997,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"¢3","t":55.371000000000002,"e":"candidateRejected"}
+{"heading":[0.61099999999999999,0.79200000000000004],"pos":[-22.385999999999999,0.075999999999999998,-5.3780000000000001],"t":55.503,"e":"devicePose"}
+{"t":56.520000000000003,"pos":[-22.928999999999998,0.14299999999999999,-5.2469999999999999],"e":"devicePose","heading":[0.127,0.99199999999999999]}
+{"reason":"low-conf","t":56.719999999999999,"e":"candidateRejected","raw":"B4~>"}
+{"reason":"low-conf","t":56.720999999999997,"e":"candidateRejected","raw":"63"}
+{"reason":"low-conf","t":56.722000000000001,"e":"candidateRejected","raw":"지희 2"}
+{"pos":[-23.227,0.025999999999999999,-5.077],"heading":[-0.191,0.98199999999999998],"t":57.621000000000002,"e":"devicePose"}
+{"reason":"low-conf","raw":"C3","t":58.639000000000003,"e":"candidateRejected"}
+{"t":58.704000000000001,"pos":[-23.463999999999999,0.099000000000000005,-5.1280000000000001],"e":"devicePose","heading":[-0.317,0.94799999999999995]}
+{"heading":[-0.53400000000000003,0.84499999999999997],"pos":[-24.023,0.057000000000000002,-5.0300000000000002],"t":59.720999999999997,"e":"devicePose"}
+{"reason":"low-conf","raw":"7","t":60.338000000000001,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"230부184","t":60.338999999999999,"e":"candidateRejected"}
+{"reason":"low-conf","raw":"80","t":60.688000000000002,"e":"candidateRejected"}
+{"pos":[-24.864999999999998,0.060999999999999999,-4.8789999999999996],"heading":[-0.35499999999999998,0.93500000000000005],"t":60.720999999999997,"e":"devicePose"}
+{"t":60.988,"reason":"low-conf","e":"candidateRejected","raw":"657 76"}
+{"t":61.720999999999997,"pos":[-25.899999999999999,0.033000000000000002,-4.7999999999999998],"e":"devicePose","heading":[-0.40100000000000002,0.91600000000000004]}
+{"heading":[-0.74099999999999999,0.67100000000000004],"pos":[-26.908999999999999,0.17100000000000001,-4.7919999999999998],"t":62.725999999999999,"e":"devicePose"}
+{"src":"depth","e":"codeObserved","t":63.021999999999998,"parsed":{"num":3,"floor":null,"zone":"H","zoneIdx":7},"raw":"H3","hit":5,"conf":1,"pos":[-32.060000000000002,0.52600000000000002,-1.885]}
+{"stage":"searching","obs":1,"targetEst":null,"numVec":null,"confidence":0,"t":63.021999999999998,"residualRMS":0,"origin":null,"lever":null,"zoneVec":null,"e":"gridUpdated"}
+{"src":"depth","e":"codeObserved","t":63.023000000000003,"parsed":{"num":3,"floor":null,"zone":"H","zoneIdx":7},"raw":"H3","hit":6,"conf":1,"pos":[-32.542999999999999,0.53300000000000003,-2.4929999999999999]}
+{"stage":"searching","obs":1,"targetEst":null,"numVec":null,"confidence":0,"t":63.023000000000003,"residualRMS":0,"origin":null,"lever":null,"zoneVec":null,"e":"gridUpdated"}
+{"reason":"low-conf","raw":"H3","t":63.322000000000003,"e":"candidateRejected"}
+{"raw":"H3","t":63.738999999999997,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"H3","t":63.740000000000002,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"가족레스","t":63.740000000000002,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"협치","t":63.741,"reason":"low-conf","e":"candidateRejected"}
+{"t":63.741999999999997,"raw":"바동","reason":"low-conf","e":"candidateRejected"}
+{"heading":[-0.89900000000000002,0.438],"pos":[-27.84,0.222,-4.7960000000000003],"t":63.820999999999998,"e":"devicePose"}
+{"conf":1,"pos":[-31.978000000000002,0.53700000000000003,-1.841],"parsed":{"floor":null,"zone":"H","num":3,"zoneIdx":7},"src":"raycast","hit":7,"t":63.988999999999997,"e":"codeObserved","raw":"H3"}
+{"obs":1,"lever":null,"stage":"searching","residualRMS":0,"origin":null,"zoneVec":null,"numVec":null,"confidence":0,"t":63.988999999999997,"e":"gridUpdated","targetEst":null}
+{"t":64.355999999999995,"e":"codeObserved","conf":1,"pos":[-31.951000000000001,0.53000000000000003,-1.8520000000000001],"src":"raycast","hit":8,"raw":"H3","parsed":{"zone":"H","num":3,"floor":null,"zoneIdx":7}}
+{"t":64.355999999999995,"confidence":0,"obs":1,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"searching","residualRMS":0,"origin":null,"lever":null,"numVec":null}
+{"reason":"low-conf","raw":"H3","t":64.355999999999995,"e":"candidateRejected"}
+{"t":64.704999999999998,"e":"codeObserved","pos":[-31.969000000000001,0.53900000000000003,-1.8049999999999999],"src":"raycast","raw":"H3","conf":1,"hit":9,"parsed":{"zone":"H","floor":null,"num":3,"zoneIdx":7}}
+{"lever":null,"t":64.706000000000003,"residualRMS":0,"confidence":0,"stage":"searching","targetEst":null,"origin":null,"numVec":null,"e":"gridUpdated","zoneVec":null,"obs":1}
+{"reason":"low-conf","raw":"725","t":64.706000000000003,"e":"candidateRejected"}
+{"t":64.706999999999994,"e":"codeObserved","pos":[-32.212000000000003,0.53200000000000003,-2.5409999999999999],"src":"raycast","raw":"H3","conf":1,"hit":10,"parsed":{"zone":"H","floor":null,"num":3,"zoneIdx":7}}
+{"lever":null,"t":64.706999999999994,"residualRMS":0,"confidence":0,"stage":"searching","targetEst":null,"origin":null,"numVec":null,"e":"gridUpdated","zoneVec":null,"obs":1}
+{"reason":"low-conf","raw":"지하 3층","t":64.706999999999994,"e":"candidateRejected"}
+{"t":64.822999999999993,"heading":[-0.89500000000000002,0.44600000000000001],"pos":[-28.838999999999999,0.29699999999999999,-4.8109999999999999],"e":"devicePose"}
+{"t":65.004999999999995,"conf":1,"raw":"H3","parsed":{"zone":"H","floor":null,"num":3,"zoneIdx":7},"e":"codeObserved","src":"raycast","hit":11,"pos":[-31.963000000000001,0.53400000000000003,-1.8089999999999999]}
+{"origin":null,"obs":1,"targetEst":null,"numVec":null,"t":65.006,"stage":"searching","residualRMS":0,"e":"gridUpdated","zoneVec":null,"lever":null,"confidence":0}
+{"t":65.006,"conf":1,"raw":"H3","parsed":{"zone":"H","floor":null,"num":3,"zoneIdx":7},"e":"codeObserved","src":"raycast","hit":12,"pos":[-32.226999999999997,0.52700000000000002,-2.5419999999999998]}
+{"origin":null,"obs":1,"targetEst":null,"numVec":null,"t":65.006,"stage":"searching","residualRMS":0,"e":"gridUpdated","zoneVec":null,"lever":null,"confidence":0}
+{"t":65.007000000000005,"raw":"지해 3층","reason":"low-conf","e":"candidateRejected"}
+{"conf":1,"e":"codeObserved","t":65.372,"parsed":{"zone":"H","num":3,"floor":null,"zoneIdx":7},"raw":"H3","src":"raycast","hit":13,"pos":[-32.201999999999998,0.52100000000000002,-2.552]}
+{"residualRMS":0,"stage":"searching","targetEst":null,"obs":1,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":65.373000000000005,"numVec":null}
+{"t":65.721999999999994,"raw":"67라 5725%","reason":"low-conf","e":"candidateRejected"}
+{"t":65.722999999999999,"raw":"배려","reason":"low-conf","e":"candidateRejected"}
+{"raw":"H3","parsed":{"floor":null,"zone":"H","num":3,"zoneIdx":7},"e":"codeObserved","conf":1,"pos":[-32.219000000000001,0.53300000000000003,-2.5430000000000001],"t":65.724000000000004,"hit":14,"src":"raycast"}
+{"origin":null,"residualRMS":0,"confidence":0,"lever":null,"obs":1,"e":"gridUpdated","stage":"searching","targetEst":null,"t":65.724000000000004,"numVec":null,"zoneVec":null}
+{"t":65.921999999999997,"heading":[-0.69899999999999995,0.71499999999999997],"pos":[-29.850000000000001,0.34899999999999998,-4.7270000000000003],"e":"devicePose"}
+{"t":66.006,"reason":"low-conf","e":"candidateRejected","raw":"배려"}
+{"parsed":{"zone":"H","num":3,"floor":null,"zoneIdx":7},"raw":"H3","e":"codeObserved","t":66.007000000000005,"pos":[-32.222999999999999,0.53000000000000003,-2.5379999999999998],"hit":15,"src":"raycast","conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":66.007000000000005,"e":"gridUpdated"}
+{"t":66.007000000000005,"reason":"low-conf","e":"candidateRejected","raw":"지하 3층"}
+{"e":"candidateRejected","reason":"low-conf","t":66.338999999999999,"raw":"725~"}
+{"e":"candidateRejected","reason":"low-conf","t":66.340000000000003,"raw":"H려"}
+{"raw":"H3","hit":16,"conf":1,"pos":[-32.209000000000003,0.53300000000000003,-2.536],"parsed":{"floor":null,"zoneIdx":7,"zone":"H","num":3},"e":"codeObserved","src":"raycast","t":66.340000000000003}
+{"confidence":0,"t":66.340999999999994,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"raw":"려","e":"candidateRejected","t":66.655000000000001,"reason":"low-conf"}
+{"conf":1,"parsed":{"zone":"H","num":3,"floor":null,"zoneIdx":7},"t":66.656999999999996,"e":"codeObserved","hit":17,"raw":"H3","src":"raycast","pos":[-32.222999999999999,0.52900000000000003,-2.5390000000000001]}
+{"obs":1,"numVec":null,"t":66.656999999999996,"zoneVec":null,"targetEst":null,"residualRMS":0,"confidence":0,"e":"gridUpdated","lever":null,"stage":"searching","origin":null}
+{"heading":[-0.74199999999999999,0.67000000000000004],"e":"devicePose","pos":[-30.631,0.32600000000000001,-4.6349999999999998],"t":66.924000000000007}
+{"t":67.006,"e":"codeObserved","conf":1,"pos":[-32.210999999999999,0.53600000000000003,-2.5390000000000001],"src":"raycast","hit":18,"raw":"H3","parsed":{"floor":null,"zoneIdx":7,"num":3,"zone":"H"}}
+{"t":67.006,"confidence":0,"obs":1,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"searching","residualRMS":0,"origin":null,"lever":null,"numVec":null}
+{"t":67.006,"raw":"자하 3층","reason":"low-conf","e":"candidateRejected"}
+{"raw":"H3","reason":"low-conf","e":"candidateRejected","t":67.388999999999996}
+{"raw":"지하 3층","reason":"low-conf","e":"candidateRejected","t":67.390000000000001}
+{"raw":"•437 640","reason":"low-conf","e":"candidateRejected","t":67.390000000000001}
+{"t":67.704999999999998,"raw":"ㅢ3","reason":"low-conf","e":"candidateRejected"}
+{"t":67.706000000000003,"raw":"지하 3층","reason":"low-conf","e":"candidateRejected"}
+{"e":"devicePose","t":68.022000000000006,"heading":[-0.85799999999999998,0.51300000000000001],"pos":[-31.439,0.28899999999999998,-4.6299999999999999]}
+{"t":68.721999999999994,"raw":"•검니","reason":"low-conf","e":"candidateRejected"}
+{"raw":"\"","t":69.006,"reason":"low-conf","e":"candidateRejected"}
+{"heading":[-0.96799999999999997,0.251],"t":69.022000000000006,"e":"devicePose","pos":[-32.246000000000002,0.39400000000000002,-4.6870000000000003]}
+{"t":70.022999999999996,"raw":"검","reason":"low-conf","e":"candidateRejected"}
+{"t":70.024000000000001,"raw":"이바","reason":"low-conf","e":"candidateRejected"}
+{"e":"devicePose","pos":[-33.017000000000003,0.28299999999999997,-4.6660000000000004],"t":70.122,"heading":[-0.96599999999999997,0.25900000000000001]}
+{"reason":"low-conf","t":71.039000000000001,"raw":"2310.363","e":"candidateRejected"}
+{"t":71.122,"heading":[-0.998,0.058000000000000003],"pos":[-33.93,0.40000000000000002,-4.8449999999999998],"e":"devicePose"}
+{"raw":"23103","t":71.322999999999993,"reason":"low-conf","e":"candidateRejected"}
+{"e":"candidateRejected","t":71.688999999999993,"raw":"KM","reason":"low-conf"}
+{"e":"candidateRejected","t":71.689999999999998,"raw":"2310 3366","reason":"low-conf"}
+{"e":"candidateRejected","t":71.691000000000003,"raw":"국민관","reason":"low-conf"}
+{"e":"candidateRejected","t":71.691000000000003,"raw":"컴진!","reason":"low-conf"}
+{"t":72.123000000000005,"e":"devicePose","pos":[-34.731000000000002,0.433,-5.2000000000000002],"heading":[-0.60599999999999998,-0.79500000000000004]}
+{"t":72.706000000000003,"raw":"H3","reason":"low-conf","e":"candidateRejected"}
+{"t":72.706999999999994,"raw":"H3","reason":"low-conf","e":"candidateRejected"}
+{"pos":[-35.561,0.42799999999999999,-5.5490000000000004],"e":"devicePose","t":73.222999999999999,"heading":[-0.36499999999999999,-0.93100000000000005]}
+{"t":73.373000000000005,"raw":"H3","reason":"low-conf","e":"candidateRejected"}
+{"t":73.373999999999995,"raw":"NOENWY","reason":"low-conf","e":"candidateRejected"}
+{"t":73.375,"raw":"H4","consecutive":1,"e":"raycastFailed"}
+{"raw":"H4","pos":null,"parsed":{"num":4,"zoneIdx":7,"zone":"H","floor":null},"e":"codeObserved","hit":1,"conf":1,"t":73.375}
+{"t":73.375,"targetEst":null,"obs":0,"e":"gridUpdated","zoneVec":null,"lever":null,"stage":"searching","residualRMS":0,"origin":null,"confidence":0,"numVec":null}
+{"t":73.375,"raw":"NOETRY","e":"candidateRejected","reason":"low-conf"}
+{"t":73.376000000000005,"consecutive":2,"raw":"H4","e":"raycastFailed"}
+{"e":"codeObserved","hit":2,"conf":1,"raw":"H4","parsed":{"floor":null,"zoneIdx":7,"zone":"H","num":4},"pos":null,"t":73.376000000000005}
+{"e":"gridUpdated","stage":"searching","obs":0,"residualRMS":0,"targetEst":null,"lever":null,"origin":null,"confidence":0,"zoneVec":null,"t":73.376000000000005,"numVec":null}
+{"t":73.722999999999999,"raw":"14","reason":"skeleton-mismatch","e":"candidateRejected"}
+{"hit":19,"src":"depth","conf":1,"parsed":{"floor":null,"zoneIdx":7,"zone":"H","num":3},"t":73.724999999999994,"raw":"H3","pos":[-38.976999999999997,0.50900000000000001,-11.567],"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":73.724999999999994,"confidence":0,"e":"gridUpdated","obs":0,"stage":"searching","numVec":null}
+{"t":73.724999999999994,"raw":"지하 3층","reason":"low-conf","e":"candidateRejected"}
+{"t":73.724999999999994,"raw":"240 2408•","reason":"low-conf","e":"candidateRejected"}
+{"t":73.724999999999994,"raw":"H3","reason":"low-conf","e":"candidateRejected"}
+{"t":73.725999999999999,"raw":"H4","consecutive":1,"e":"raycastFailed"}
+{"hit":3,"conf":1,"t":73.725999999999999,"parsed":{"num":4,"zoneIdx":7,"zone":"H","floor":null},"raw":"H4","pos":null,"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":73.725999999999999,"confidence":0,"e":"gridUpdated","obs":0,"stage":"searching","numVec":null}
+{"t":73.725999999999999,"raw":"NOENTRY","e":"candidateRejected","reason":"low-conf"}
+{"t":73.727000000000004,"consecutive":2,"raw":"H4","e":"raycastFailed"}
+{"hit":4,"conf":1,"t":73.727000000000004,"parsed":{"floor":null,"zoneIdx":7,"zone":"H","num":4},"raw":"H4","pos":null,"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":73.727000000000004,"confidence":0,"e":"gridUpdated","obs":0,"stage":"searching","numVec":null}
+{"raw":"14","t":74.006,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"H3","t":74.007000000000005,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"지하 3층","t":74.007999999999996,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"재30","t":74.007999999999996,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"NOENTRY","t":74.007999999999996,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"NO ENTRY","t":74.007999999999996,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"H4","t":74.009,"consecutive":3,"e":"raycastFailed"}
+{"raw":"H4","pos":null,"t":74.009,"hit":5,"conf":1,"e":"codeObserved","parsed":{"zone":"H","zoneIdx":7,"num":4,"floor":null}}
+{"e":"gridUpdated","zoneVec":null,"numVec":null,"t":74.009,"targetEst":null,"obs":0,"stage":"searching","origin":null,"residualRMS":0,"confidence":0,"lever":null}
+{"t":74.009,"raw":"112너7763","reason":"low-conf","e":"candidateRejected"}
+{"pos":[-36.293999999999997,0.40300000000000002,-5.9279999999999999],"e":"devicePose","heading":[-0.16200000000000001,-0.98699999999999999],"t":74.222999999999999}
+{"parsed":{"num":3,"zoneIdx":7,"zone":"H","floor":null},"e":"codeObserved","conf":1,"hit":20,"src":"depth","raw":"H3","pos":[-38.957000000000001,0.53300000000000003,-11.541],"t":74.340000000000003}
+{"e":"gridUpdated","lever":null,"stage":"searching","obs":0,"residualRMS":0,"zoneVec":null,"confidence":0,"numVec":null,"origin":null,"targetEst":null,"t":74.340000000000003}
+{"e":"candidateRejected","t":74.340999999999994,"raw":"140 2408•","reason":"low-conf"}
+{"e":"candidateRejected","t":74.340999999999994,"raw":"NO ENTRY","reason":"low-conf"}
+{"e":"candidateRejected","t":74.340999999999994,"raw":"NO ENTRY","reason":"low-conf"}
+{"consecutive":1,"e":"raycastFailed","t":74.341999999999999,"raw":"H4"}
+{"parsed":{"zone":"H","floor":null,"zoneIdx":7,"num":4},"e":"codeObserved","hit":6,"conf":1,"raw":"H4","pos":null,"t":74.341999999999999}
+{"e":"gridUpdated","lever":null,"stage":"searching","obs":0,"residualRMS":0,"zoneVec":null,"confidence":0,"numVec":null,"origin":null,"targetEst":null,"t":74.341999999999999}
+{"t":74.341999999999999,"raw":"니!","reason":"low-conf","e":"candidateRejected"}
+{"t":74.341999999999999,"raw":"H4","consecutive":2,"e":"raycastFailed"}
+{"parsed":{"num":4,"zoneIdx":7,"zone":"H","floor":null},"e":"codeObserved","conf":1,"hit":7,"raw":"H4","pos":null,"t":74.341999999999999}
+{"e":"gridUpdated","lever":null,"stage":"searching","obs":0,"residualRMS":0,"zoneVec":null,"confidence":0,"numVec":null,"origin":null,"targetEst":null,"t":74.341999999999999}
+{"e":"candidateRejected","t":74.343000000000004,"raw":"11247763","reason":"low-conf"}
+{"conf":1,"parsed":{"zone":"H","floor":null,"num":3,"zoneIdx":7},"t":74.674000000000007,"e":"codeObserved","hit":21,"raw":"H3","src":"depth","pos":[-38.991999999999997,0.52500000000000002,-11.568]}
+{"obs":0,"numVec":null,"t":74.674000000000007,"zoneVec":null,"targetEst":null,"residualRMS":0,"confidence":0,"e":"gridUpdated","lever":null,"stage":"searching","origin":null}
+{"e":"candidateRejected","reason":"low-conf","t":74.674000000000007,"raw":"H3"}
+{"e":"candidateRejected","reason":"low-conf","t":74.674999999999997,"raw":"HA"}
+{"e":"candidateRejected","t":75.007000000000005,"raw":"NOENTRY","reason":"low-conf"}
+{"e":"candidateRejected","t":75.007999999999996,"raw":"4","reason":"low-conf"}
+{"e":"candidateRejected","t":75.007999999999996,"raw":"NOENTRY","reason":"low-conf"}
+{"e":"candidateRejected","t":75.007999999999996,"raw":"H3","reason":"low-conf"}
+{"e":"candidateRejected","t":75.007999999999996,"raw":"지하 3등","reason":"low-conf"}
+{"e":"candidateRejected","t":75.009,"raw":"H3","reason":"low-conf"}
+{"t":75.009,"consecutive":1,"raw":"H4","e":"raycastFailed"}
+{"raw":"H4","hit":8,"t":75.009,"e":"codeObserved","pos":null,"parsed":{"floor":null,"num":4,"zone":"H","zoneIdx":7},"conf":1}
+{"residualRMS":0,"stage":"searching","t":75.009,"targetEst":null,"zoneVec":null,"lever":null,"confidence":0,"obs":0,"origin":null,"e":"gridUpdated","numVec":null}
+{"e":"devicePose","pos":[-36.978999999999999,0.435,-6.5090000000000003],"t":75.224000000000004,"heading":[-0.159,-0.98699999999999999]}
+{"src":"depth","raw":"H3","pos":[-38.975999999999999,0.52800000000000002,-11.555],"t":75.340000000000003,"hit":22,"e":"codeObserved","parsed":{"num":3,"zone":"H","zoneIdx":7,"floor":null},"conf":1}
+{"stage":"searching","zoneVec":null,"numVec":null,"lever":null,"t":75.340999999999994,"e":"gridUpdated","obs":0,"targetEst":null,"confidence":0,"residualRMS":0,"origin":null}
+{"reason":"low-conf","e":"candidateRejected","t":75.340999999999994,"raw":"지하 3층"}
+{"reason":"low-conf","e":"candidateRejected","t":75.341999999999999,"raw":"보험주요"}
+{"reason":"low-conf","e":"candidateRejected","t":75.341999999999999,"raw":"14대 2408-"}
+{"src":"depth","pos":[-38.097999999999999,0.54300000000000004,-16.617000000000001],"raw":"H4","t":75.343000000000004,"hit":9,"e":"codeObserved","parsed":{"zone":"H","floor":null,"num":4,"zoneIdx":7},"conf":1}
+{"stage":"searching","zoneVec":null,"numVec":null,"lever":null,"t":75.343000000000004,"e":"gridUpdated","obs":1,"targetEst":null,"confidence":0,"residualRMS":0,"origin":null}
+{"reason":"low-conf","e":"candidateRejected","t":75.343000000000004,"raw":"NO ENTRY"}
+{"e":"raycastFailed","consecutive":1,"raw":"H4","t":75.343999999999994}
+{"pos":null,"t":75.343999999999994,"raw":"H4","hit":10,"e":"codeObserved","parsed":{"floor":null,"num":4,"zone":"H","zoneIdx":7},"conf":1}
+{"stage":"searching","zoneVec":null,"numVec":null,"lever":null,"t":75.343999999999994,"e":"gridUpdated","obs":1,"targetEst":null,"confidence":0,"residualRMS":0,"origin":null}
+{"t":75.656999999999996,"reason":"low-conf","raw":"H3","e":"candidateRejected"}
+{"t":75.658000000000001,"reason":"low-conf","raw":"지하 3층","e":"candidateRejected"}
+{"t":75.658000000000001,"reason":"low-conf","raw":"14대 2408","e":"candidateRejected"}
+{"e":"codeObserved","parsed":{"zoneIdx":7,"num":4,"floor":null,"zone":"H"},"raw":"H4","conf":1,"src":"depth","hit":11,"pos":[-38.070999999999998,0.53200000000000003,-16.471],"t":75.658000000000001}
+{"lever":null,"targetEst":null,"numVec":null,"e":"gridUpdated","obs":1,"residualRMS":0,"origin":null,"t":75.658000000000001,"confidence":0,"stage":"searching","zoneVec":null}
+{"t":75.659000000000006,"reason":"low-conf","raw":"NO ENTRY","e":"candidateRejected"}
+{"consecutive":1,"t":75.659000000000006,"raw":"H4","e":"raycastFailed"}
+{"e":"codeObserved","parsed":{"floor":null,"zoneIdx":7,"zone":"H","num":4},"raw":"H4","t":75.659000000000006,"conf":1,"hit":12,"pos":null}
+{"lever":null,"targetEst":null,"numVec":null,"e":"gridUpdated","obs":1,"residualRMS":0,"origin":null,"t":75.659000000000006,"confidence":0,"stage":"searching","zoneVec":null}
+{"src":"raycast","parsed":{"zoneIdx":7,"floor":null,"num":3,"zone":"H"},"hit":23,"t":76.025000000000006,"e":"codeObserved","raw":"H3","conf":1,"pos":[-38.959000000000003,0.53400000000000003,-11.542]}
+{"lever":null,"obs":1,"t":76.025000000000006,"e":"gridUpdated","origin":null,"stage":"searching","targetEst":null,"residualRMS":0,"confidence":0,"numVec":null,"zoneVec":null}
+{"t":76.025999999999996,"reason":"low-conf","raw":"보평주의","e":"candidateRejected"}
+{"t":76.025999999999996,"e":"candidateRejected","raw":"aaUmen","reason":"low-conf"}
+{"t":76.025999999999996,"e":"candidateRejected","raw":"149 2408-","reason":"low-conf"}
+{"t":76.027000000000001,"e":"candidateRejected","raw":"지하가","reason":"low-conf"}
+{"t":76.027000000000001,"reason":"low-conf","raw":"H4","e":"candidateRejected"}
+{"t":76.028000000000006,"reason":"low-conf","raw":"H4","e":"candidateRejected"}
+{"t":76.323999999999998,"heading":[-0.11700000000000001,-0.99299999999999999],"e":"devicePose","pos":[-37.607999999999997,0.42199999999999999,-7.2800000000000002]}
+{"t":76.340000000000003,"e":"candidateRejected","raw":"H3","reason":"low-conf"}
+{"t":76.340999999999994,"e":"candidateRejected","raw":"지화 3초","reason":"low-conf"}
+{"t":76.340999999999994,"e":"candidateRejected","raw":"H3","reason":"low-conf"}
+{"t":76.341999999999999,"e":"candidateRejected","raw":"NOENA","reason":"low-conf"}
+{"raw":"H4","src":"depth","e":"codeObserved","pos":[-38.100000000000001,0.53700000000000003,-16.457999999999998],"conf":1,"t":76.343000000000004,"hit":13,"parsed":{"zoneIdx":7,"num":4,"floor":null,"zone":"H"}}
+{"e":"gridUpdated","lever":null,"obs":1,"targetEst":null,"residualRMS":0,"numVec":null,"stage":"searching","origin":null,"confidence":0,"t":76.343000000000004,"zoneVec":null}
+{"e":"candidateRejected","t":76.689999999999998,"reason":"low-conf","raw":"08-"}
+{"e":"candidateRejected","reason":"low-conf","t":76.691000000000003,"raw":"H3"}
+{"e":"candidateRejected","reason":"low-conf","t":76.691000000000003,"raw":"지하 3층"}
+{"e":"candidateRejected","reason":"low-conf","t":76.691999999999993,"raw":"보쌈주의"}
+{"conf":1,"e":"codeObserved","t":76.692999999999998,"parsed":{"zoneIdx":7,"zone":"H","num":4,"floor":null},"hit":14,"src":"depth","raw":"H4","pos":[-38.07,0.54600000000000004,-16.451000000000001]}
+{"residualRMS":0,"stage":"searching","targetEst":null,"obs":1,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":76.692999999999998,"numVec":null}
+{"e":"raycastFailed","t":76.694000000000003,"consecutive":1,"raw":"H4"}
+{"conf":1,"e":"codeObserved","t":76.694000000000003,"raw":"H4","hit":15,"parsed":{"zoneIdx":7,"zone":"H","num":4,"floor":null},"pos":null}
+{"residualRMS":0,"stage":"searching","targetEst":null,"obs":1,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":76.694000000000003,"numVec":null}
+{"raw":"H3","e":"candidateRejected","t":76.989999999999995,"reason":"low-conf"}
+{"raw":"H3","t":77.340999999999994,"reason":"low-conf","e":"candidateRejected"}
+{"e":"devicePose","t":77.424000000000007,"heading":[-0.63500000000000001,-0.77200000000000002],"pos":[-38.377000000000002,0.371,-7.9889999999999999]}
+{"reason":"skeleton-mismatch","t":78.040999999999997,"raw":"13","e":"candidateRejected"}
+{"reason":"skeleton-mismatch","t":78.043000000000006,"raw":"14","e":"candidateRejected"}
+{"reason":"low-conf","t":78.043999999999997,"raw":"14대 2408-","e":"candidateRejected"}
+{"reason":"low-conf","t":78.340999999999994,"raw":"13","e":"candidateRejected"}
+{"reason":"skeleton-mismatch","t":78.341999999999999,"raw":"14","e":"candidateRejected"}
+{"reason":"low-conf","t":78.343000000000004,"raw":"SIAMDARO","e":"candidateRejected"}
+{"heading":[-0.80200000000000005,-0.59699999999999998],"pos":[-39.081000000000003,0.373,-8.6560000000000006],"t":78.424000000000007,"e":"devicePose"}
+{"raw":"13","t":78.674000000000007,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"14","t":78.674999999999997,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"2335 1005","t":78.676000000000002,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"13","t":79.025000000000006,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"3","t":79.025999999999996,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"13","t":79.025999999999996,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"14","t":79.027000000000001,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"14","t":79.027000000000001,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"끓3는 1005","t":79.027000000000001,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"SRARDURD","t":79.028000000000006,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"13","reason":"skeleton-mismatch","t":79.308000000000007,"e":"candidateRejected"}
+{"pos":[-39.951000000000001,0.41499999999999998,-9.2970000000000006],"e":"devicePose","t":79.507000000000005,"heading":[-0.86599999999999999,-0.5]}
+{"e":"candidateRejected","t":79.656999999999996,"reason":"low-conf","raw":"13"}
+{"e":"candidateRejected","t":79.659000000000006,"reason":"skeleton-mismatch","raw":"13"}
+{"raw":"14","reason":"skeleton-mismatch","t":79.659000000000006,"e":"candidateRejected"}
+{"raw":"14","reason":"low-conf","t":79.659999999999997,"e":"candidateRejected"}
+{"raw":"1005","reason":"low-conf","t":79.659999999999997,"e":"candidateRejected"}
+{"e":"candidateRejected","reason":"low-conf","t":80.024000000000001,"raw":"13"}
+{"e":"candidateRejected","reason":"low-conf","t":80.025000000000006,"raw":"13"}
+{"e":"candidateRejected","reason":"skeleton-mismatch","t":80.025999999999996,"raw":"13"}
+{"reason":"low-conf","raw":"33노 1005~","t":80.027000000000001,"e":"candidateRejected"}
+{"raw":"13","e":"candidateRejected","t":80.325000000000003,"reason":"skeleton-mismatch"}
+{"raw":"13","t":80.325999999999993,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"e":"devicePose","t":80.507000000000005,"heading":[-0.98099999999999998,-0.19600000000000001],"pos":[-40.692999999999998,0.41999999999999998,-9.7270000000000003]}
+{"t":80.658000000000001,"raw":"13","reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"13","t":81.007999999999996,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"raw":"3","t":81.308000000000007,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"t":81.507000000000005,"e":"devicePose","pos":[-41.406999999999996,0.46899999999999997,-10.220000000000001],"heading":[-0.85199999999999998,-0.52400000000000002]}
+{"e":"candidateRejected","t":81.707999999999998,"raw":"13","reason":"low-conf"}
+{"e":"candidateRejected","t":81.709000000000003,"raw":"13","reason":"skeleton-mismatch"}
+{"e":"candidateRejected","t":81.709999999999994,"raw":"14","reason":"skeleton-mismatch"}
+{"e":"candidateRejected","t":81.709999999999994,"raw":"B3L 1005","reason":"low-conf"}
+{"t":82.040999999999997,"raw":"13","reason":"low-conf","e":"candidateRejected"}
+{"t":82.043000000000006,"raw":"33노","reason":"low-conf","e":"candidateRejected"}
+{"t":82.043999999999997,"raw":"1","reason":"skeleton-mismatch","e":"candidateRejected"}
+{"reason":"low-conf","t":82.325000000000003,"e":"candidateRejected","raw":"3"}
+{"reason":"low-conf","t":82.325999999999993,"e":"candidateRejected","raw":"13"}
+{"heading":[-0.84499999999999997,-0.53400000000000003],"t":82.507999999999996,"e":"devicePose","pos":[-42.177999999999997,0.50700000000000001,-10.615]}
+{"reason":"skeleton-mismatch","t":82.658000000000001,"e":"candidateRejected","raw":"3"}
+{"reason":"skeleton-mismatch","t":82.659000000000006,"e":"candidateRejected","raw":"13"}
+{"e":"candidateRejected","t":82.991,"raw":"13","reason":"low-conf"}
+{"e":"candidateRejected","t":82.992999999999995,"raw":"13","reason":"skeleton-mismatch"}
+{"reason":"skeleton-mismatch","raw":"13","e":"candidateRejected","t":83.308000000000007}
+{"reason":"low-conf","raw":"1S","e":"candidateRejected","t":83.308999999999997}
+{"reason":"low-conf","raw":"13","e":"candidateRejected","t":83.310000000000002}
+{"heading":[-0.82699999999999996,-0.56200000000000006],"pos":[-42.994,0.50700000000000001,-10.975],"e":"devicePose","t":83.507999999999996}
+{"reason":"skeleton-mismatch","t":83.674999999999997,"e":"candidateRejected","raw":"3"}
+{"reason":"low-conf","t":83.676000000000002,"e":"candidateRejected","raw":"13"}
+{"t":84.040999999999997,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"t":84.043000000000006,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"reason":"skeleton-mismatch","t":84.341999999999999,"e":"candidateRejected","raw":"13"}
+{"reason":"low-conf","t":84.343999999999994,"e":"candidateRejected","raw":"3"}
+{"reason":"low-conf","t":84.343999999999994,"e":"candidateRejected","raw":"|3"}
+{"t":84.608000000000004,"e":"devicePose","pos":[-43.841999999999999,0.51100000000000001,-11.273999999999999],"heading":[-0.80900000000000005,-0.58699999999999997]}
+{"reason":"low-conf","t":84.691999999999993,"e":"candidateRejected","raw":"13"}
+{"reason":"low-conf","t":84.691999999999993,"e":"candidateRejected","raw":"|3"}
+{"t":84.992000000000004,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":84.992999999999995,"raw":"상","e":"candidateRejected","reason":"low-conf"}
+{"t":84.992999999999995,"raw":"3","e":"candidateRejected","reason":"low-conf"}
+{"t":84.992999999999995,"raw":"재3층","e":"candidateRejected","reason":"low-conf"}
+{"t":84.994,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"reason":"skeleton-mismatch","t":85.325000000000003,"raw":"13","e":"candidateRejected"}
+{"reason":"low-conf","t":85.325999999999993,"raw":"3","e":"candidateRejected"}
+{"reason":"low-conf","t":85.325999999999993,"raw":"13","e":"candidateRejected"}
+{"t":85.674999999999997,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"t":85.676000000000002,"raw":"차3출","e":"candidateRejected","reason":"low-conf"}
+{"t":85.676000000000002,"raw":"3","e":"candidateRejected","reason":"low-conf"}
+{"t":85.677000000000007,"raw":"지하3층","e":"candidateRejected","reason":"low-conf"}
+{"t":85.677000000000007,"raw":"TPADERS","e":"candidateRejected","reason":"low-conf"}
+{"t":85.677000000000007,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"t":85.677999999999997,"raw":"14","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":85.707999999999998,"heading":[-0.76700000000000002,-0.64100000000000001],"pos":[-44.668999999999997,0.52300000000000002,-11.592000000000001],"e":"devicePose"}
+{"t":86.009,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":86.010000000000005,"raw":"3","e":"candidateRejected","reason":"low-conf"}
+{"t":86.010000000000005,"raw":"자한3층)","e":"candidateRejected","reason":"low-conf"}
+{"t":86.010000000000005,"raw":"TRLADERS","e":"candidateRejected","reason":"low-conf"}
+{"t":86.010999999999996,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"t":86.325999999999993,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":86.326999999999998,"raw":"지하 3종","e":"candidateRejected","reason":"low-conf"}
+{"t":86.326999999999998,"raw":"TRADERS","e":"candidateRejected","reason":"low-conf"}
+{"t":86.326999999999998,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"t":86.659000000000006,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"t":86.659999999999997,"raw":"3","e":"candidateRejected","reason":"low-conf"}
+{"t":86.659999999999997,"raw":"지하 3층","e":"candidateRejected","reason":"low-conf"}
+{"t":86.659999999999997,"raw":"TRAERS","e":"candidateRejected","reason":"low-conf"}
+{"t":86.661000000000001,"raw":"13","e":"candidateRejected","reason":"low-conf"}
+{"pos":[-45.253,0.51600000000000001,-11.821999999999999],"e":"devicePose","heading":[-0.51800000000000002,-0.85599999999999998],"t":86.707999999999998}
+{"raw":"14","reason":"skeleton-mismatch","t":87.359999999999999,"e":"candidateRejected"}
+{"raw":"14","reason":"skeleton-mismatch","t":87.659000000000006,"e":"candidateRejected"}
+{"t":87.707999999999998,"pos":[-45.453000000000003,0.52600000000000002,-12.004],"e":"devicePose","heading":[0.017000000000000001,-1]}
+{"raw":"|4","t":88.042000000000002,"reason":"low-conf","e":"candidateRejected"}
+{"t":88.709000000000003,"pos":[-45.805,0.53700000000000003,-12.057],"e":"devicePose","heading":[-0.67400000000000004,-0.73899999999999999]}
+{"reason":"low-conf","t":88.992000000000004,"raw":"13","e":"candidateRejected"}
+{"reason":"low-conf","t":88.992999999999995,"raw":"지 3층","e":"candidateRejected"}
+{"reason":"low-conf","t":88.994,"raw":"3","e":"candidateRejected"}
+{"raw":"3","t":89.325999999999993,"reason":"skeleton-mismatch","e":"candidateRejected"}
+{"reason":"skeleton-mismatch","t":89.676000000000002,"raw":"13","e":"candidateRejected"}
+{"reason":"low-conf","t":89.677000000000007,"raw":"지하 3층","e":"candidateRejected"}
+{"reason":"low-conf","t":89.677000000000007,"raw":"WHOLESALE CLUB","e":"candidateRejected"}
+{"heading":[-0.77900000000000003,-0.627],"t":89.709000000000003,"pos":[-46.223999999999997,0.58299999999999996,-11.944000000000001],"e":"devicePose"}
+{"reason":"skeleton-mismatch","t":89.992999999999995,"raw":"13","e":"candidateRejected"}
+{"reason":"low-conf","t":90.326999999999998,"raw":"WHOLESALE CUUB","e":"candidateRejected"}
+{"raw":"14","reason":"low-conf","t":90.659000000000006,"e":"candidateRejected"}
+{"raw":"WHOLESALE CLMB","reason":"low-conf","t":90.661000000000001,"e":"candidateRejected"}
+{"t":90.709000000000003,"pos":[-46.582999999999998,0.621,-12.07],"e":"devicePose","heading":[-0.49099999999999999,-0.871]}
+{"raw":"14","reason":"skeleton-mismatch","e":"candidateRejected","t":91.027000000000001}
+{"raw":"13","reason":"skeleton-mismatch","e":"candidateRejected","t":91.027000000000001}
+{"t":91.028000000000006,"raw":"지하 3층","e":"candidateRejected","reason":"low-conf"}
+{"raw":"13","reason":"skeleton-mismatch","t":91.325999999999993,"e":"candidateRejected"}
+{"raw":"MOLESALE CLU","reason":"low-conf","t":91.328000000000003,"e":"candidateRejected"}
+{"t":91.709000000000003,"pos":[-47.046999999999997,0.54500000000000004,-12.188000000000001],"e":"devicePose","heading":[-0.80500000000000005,-0.59299999999999997]}
+{"t":91.992999999999995,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"raw":"13","reason":"skeleton-mismatch","e":"candidateRejected","t":92.310000000000002}
+{"t":92.659999999999997,"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13"}
+{"heading":[-0.92000000000000004,-0.39200000000000002],"t":92.709000000000003,"pos":[-47.786999999999999,0.49199999999999999,-12.257],"e":"devicePose"}
+{"e":"candidateRejected","raw":"|3","reason":"low-conf","t":93.010000000000005}
+{"e":"candidateRejected","raw":"지하 3층","reason":"low-conf","t":93.010000000000005}
+{"e":"candidateRejected","raw":"14","reason":"skeleton-mismatch","t":93.010999999999996}
+{"e":"candidateRejected","raw":"OTONES","reason":"low-conf","t":93.012}
+{"e":"candidateRejected","raw":"Jum","reason":"low-conf","t":93.012}
+{"t":93.325999999999993,"reason":"low-conf","e":"candidateRejected","raw":"4"}
+{"t":93.326999999999998,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"t":93.326999999999998,"reason":"low-conf","e":"candidateRejected","raw":"자희 3룹"}
+{"t":93.328000000000003,"reason":"low-conf","e":"candidateRejected","raw":"SZAADANG"}
+{"t":93.328000000000003,"reason":"low-conf","e":"candidateRejected","raw":"Jumbo"}
+{"t":93.329999999999998,"reason":"low-conf","e":"candidateRejected","raw":"정보"}
+{"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13","t":93.643000000000001}
+{"reason":"low-conf","e":"candidateRejected","raw":"14","t":93.644000000000005}
+{"reason":"low-conf","e":"candidateRejected","raw":"룴","t":93.644999999999996}
+{"e":"devicePose","heading":[-0.87,-0.49299999999999999],"t":93.709000000000003,"pos":[-48.572000000000003,0.48499999999999999,-12.411]}
+{"t":93.977000000000004,"raw":"13","e":"candidateRejected","reason":"skeleton-mismatch"}
+{"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13","t":94.326999999999998}
+{"reason":"low-conf","e":"candidateRejected","raw":"지희 3층","t":94.328000000000003}
+{"reason":"skeleton-mismatch","e":"candidateRejected","raw":"14","t":94.328000000000003}
+{"reason":"low-conf","e":"candidateRejected","raw":"2","t":94.328999999999994}
+{"e":"candidateRejected","raw":"13","reason":"skeleton-mismatch","t":94.643000000000001}
+{"heading":[-0.95599999999999996,-0.29399999999999998],"t":94.709999999999994,"pos":[-49.561999999999998,0.47099999999999997,-12.497999999999999],"e":"devicePose"}
+{"t":95.010000000000005,"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13"}
+{"t":95.012,"reason":"low-conf","e":"candidateRejected","raw":"RASEDALMUN"}
+{"e":"candidateRejected","raw":"13","reason":"low-conf","t":95.310000000000002}
+{"e":"candidateRejected","raw":"지치3","reason":"low-conf","t":95.311000000000007}
+{"e":"candidateRejected","raw":"13","reason":"low-conf","t":95.659999999999997}
+{"heading":[-0.89400000000000002,-0.44800000000000001],"e":"devicePose","pos":[-50.396000000000001,0.50800000000000001,-12.75],"t":95.709999999999994}
+{"t":95.992999999999995,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"t":95.994,"reason":"low-conf","e":"candidateRejected","raw":"지하 3층"}
+{"e":"candidateRejected","t":96.343999999999994,"reason":"low-conf","raw":"13"}
+{"e":"candidateRejected","t":96.344999999999999,"reason":"low-conf","raw":"지하 3층"}
+{"e":"candidateRejected","t":96.346999999999994,"reason":"low-conf","raw":"1"}
+{"e":"candidateRejected","t":96.677000000000007,"reason":"skeleton-mismatch","raw":"13"}
+{"e":"candidateRejected","t":96.677999999999997,"reason":"low-conf","raw":"짜하 3층"}
+{"e":"candidateRejected","t":96.677999999999997,"reason":"low-conf","raw":"1"}
+{"heading":[-0.84899999999999998,-0.52800000000000002],"t":96.709999999999994,"pos":[-51.240000000000002,0.52600000000000002,-12.981],"e":"devicePose"}
+{"e":"candidateRejected","t":96.994,"reason":"skeleton-mismatch","raw":"13"}
+{"e":"candidateRejected","t":97.326999999999998,"raw":"13","reason":"low-conf"}
+{"e":"candidateRejected","t":97.328999999999994,"raw":"지하 3층","reason":"low-conf"}
+{"e":"candidateRejected","t":97.661000000000001,"reason":"skeleton-mismatch","raw":"13"}
+{"heading":[-0.86299999999999999,-0.505],"t":97.727000000000004,"pos":[-51.969000000000001,0.53300000000000003,-13.196],"e":"devicePose"}
+{"e":"candidateRejected","raw":"13","reason":"skeleton-mismatch","t":98.061999999999998}
+{"e":"candidateRejected","raw":"지하 3층","reason":"low-conf","t":98.063000000000002}
+{"raw":"|3","reason":"low-conf","t":98.394000000000005,"e":"candidateRejected"}
+{"t":98.677000000000007,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"heading":[-0.91400000000000003,-0.40500000000000003],"e":"devicePose","pos":[-52.893999999999998,0.52200000000000002,-13.349],"t":98.826999999999998}
+{"e":"candidateRejected","raw":"13","reason":"low-conf","t":99.027000000000001}
+{"e":"candidateRejected","raw":"지하 3층","reason":"low-conf","t":99.028000000000006}
+{"e":"candidateRejected","raw":"Jumto Sins","reason":"low-conf","t":99.028999999999996}
+{"e":"candidateRejected","raw":"ROASTED A","reason":"low-conf","t":99.028999999999996}
+{"t":99.326999999999998,"reason":"low-conf","e":"candidateRejected","raw":"3"}
+{"e":"candidateRejected","raw":"13","reason":"low-conf","t":99.328999999999994}
+{"t":99.694000000000003,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"t":99.694999999999993,"reason":"low-conf","e":"candidateRejected","raw":"지해고층"}
+{"t":99.694999999999993,"reason":"low-conf","e":"candidateRejected","raw":"13"}
+{"heading":[-0.67000000000000004,-0.74199999999999999],"pos":[-53.68,0.54500000000000004,-13.461],"t":99.911000000000001,"e":"devicePose"}
+{"t":99.994,"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13"}
+{"t":99.995000000000005,"reason":"low-conf","e":"candidateRejected","raw":"지하 3층"}
+{"raw":"지의 3충","reason":"low-conf","t":100.328,"e":"candidateRejected"}
+{"raw":"지하 3층","reason":"low-conf","t":100.32899999999999,"e":"candidateRejected"}
+{"t":100.69499999999999,"reason":"skeleton-mismatch","e":"candidateRejected","raw":"13"}
+{"t":100.696,"reason":"low-conf","e":"candidateRejected","raw":"지아 3층"}
+{"pos":[-54.610999999999997,0.48599999999999999,-13.315],"t":100.92700000000001,"heading":[-0.996,-0.092999999999999999],"e":"devicePose"}
+{"t":101.711,"consecutive":2,"raw":"J3","e":"raycastFailed"}
+{"t":101.712,"hit":1,"raw":"J3","e":"codeObserved","parsed":{"zone":"J","floor":null,"num":3,"zoneIdx":9},"pos":null,"conf":1}
+{"lever":null,"t":101.712,"targetEst":null,"residualRMS":0,"stage":"searching","zoneVec":null,"confidence":0,"obs":1,"numVec":null,"e":"gridUpdated","origin":null}
+{"raw":"J3","t":101.712,"reason":"low-conf","e":"candidateRejected"}
+{"t":101.92700000000001,"pos":[-55.540999999999997,0.59199999999999997,-13.225],"heading":[-0.85099999999999998,0.52500000000000002],"e":"devicePose"}
+{"t":102.06100000000001,"consecutive":3,"raw":"J3","e":"raycastFailed"}
+{"parsed":{"zone":"J","floor":null,"num":3,"zoneIdx":9},"raw":"J3","e":"codeObserved","t":102.062,"pos":null,"hit":2,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":102.062,"e":"gridUpdated"}
+{"raw":"J3","t":102.062,"consecutive":4,"e":"raycastFailed"}
+{"parsed":{"num":3,"floor":null,"zone":"J","zoneIdx":9},"raw":"J3","e":"codeObserved","t":102.062,"pos":null,"hit":3,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":102.063,"e":"gridUpdated"}
+{"t":102.063,"consecutive":5,"raw":"K3","e":"raycastFailed"}
+{"parsed":{"zone":"K","floor":null,"num":3,"zoneIdx":10},"raw":"K3","e":"codeObserved","t":102.063,"pos":null,"hit":1,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":102.063,"e":"gridUpdated"}
+{"t":102.345,"consecutive":6,"e":"raycastFailed","raw":"J3"}
+{"t":102.345,"conf":1,"raw":"J3","parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"e":"codeObserved","hit":4,"pos":null}
+{"origin":null,"obs":1,"targetEst":null,"numVec":null,"t":102.345,"stage":"searching","residualRMS":0,"e":"gridUpdated","zoneVec":null,"lever":null,"confidence":0}
+{"t":102.346,"raw":"J3","reason":"low-conf","e":"candidateRejected"}
+{"t":102.346,"raw":"K3","reason":"low-conf","e":"candidateRejected"}
+{"e":"codeObserved","raw":"J3","t":102.72799999999999,"parsed":{"num":3,"floor":null,"zone":"J","zoneIdx":9},"pos":[-64.585999999999999,0.69699999999999995,-7.9139999999999997],"src":"depth","conf":1,"hit":5}
+{"origin":null,"residualRMS":0,"numVec":null,"e":"gridUpdated","t":102.72799999999999,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"confidence":0,"lever":null,"obs":2,"targetEst":null}
+{"t":102.729,"conf":1,"raw":"J3","parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"e":"codeObserved","src":"depth","hit":6,"pos":[-64.742000000000004,0.69599999999999995,-8.577]}
+{"origin":null,"obs":2,"targetEst":null,"numVec":null,"t":102.73,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","residualRMS":0,"e":"gridUpdated","zoneVec":null,"lever":null,"confidence":0}
+{"t":102.73,"e":"candidateRejected","reason":"low-conf","raw":"K3"}
+{"t":102.928,"pos":[-56.389000000000003,0.60899999999999999,-13.289999999999999],"heading":[-0.82399999999999995,0.56699999999999995],"e":"devicePose"}
+{"t":103.011,"reason":"low-conf","raw":"•55매 4677-","e":"candidateRejected"}
+{"pos":[-64.706000000000003,0.70399999999999996,-7.8159999999999998],"parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"hit":7,"t":103.012,"e":"codeObserved","src":"depth","conf":1,"raw":"J3"}
+{"numVec":null,"obs":2,"origin":null,"confidence":0,"t":103.01300000000001,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","residualRMS":0,"lever":null}
+{"t":103.01300000000001,"consecutive":1,"raw":"J3","e":"raycastFailed"}
+{"parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"raw":"J3","e":"codeObserved","hit":8,"conf":1,"t":103.01300000000001,"pos":null}
+{"lever":null,"t":103.01300000000001,"obs":2,"targetEst":null,"confidence":0,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","residualRMS":0,"zoneVec":null,"origin":null,"numVec":null}
+{"raw":"J3","parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"e":"codeObserved","conf":1,"pos":[-64.488,0.70699999999999996,-7.9580000000000002],"t":103.328,"hit":9,"src":"depth"}
+{"origin":null,"residualRMS":0,"confidence":0,"lever":null,"obs":2,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","targetEst":null,"t":103.32899999999999,"numVec":null,"zoneVec":null}
+{"src":"depth","hit":10,"conf":1,"raw":"J3","parsed":{"num":3,"floor":null,"zone":"J","zoneIdx":9},"e":"codeObserved","pos":[-64.522999999999996,0.68300000000000005,-7.9489999999999998],"t":103.678}
+{"zoneVec":null,"origin":null,"confidence":0,"numVec":null,"residualRMS":0,"e":"gridUpdated","lever":null,"targetEst":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","t":103.678,"obs":2}
+{"e":"codeObserved","parsed":{"num":3,"floor":null,"zone":"J","zoneIdx":9},"raw":"J3","conf":1,"src":"depth","hit":11,"pos":[-64.795000000000002,0.68500000000000005,-8.5519999999999996],"t":103.679}
+{"lever":null,"t":103.679,"obs":2,"residualRMS":0,"e":"gridUpdated","zoneVec":null,"confidence":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","numVec":null,"targetEst":null,"origin":null}
+{"t":103.679,"reason":"low-conf","e":"candidateRejected","raw":"LASSASSL"}
+{"t":103.68000000000001,"reason":"low-conf","e":"candidateRejected","raw":"ANHS"}
+{"t":104.011,"pos":[-57.314,0.60099999999999998,-13.318],"heading":[-0.80200000000000005,0.59799999999999998],"e":"devicePose"}
+{"t":104.02800000000001,"reason":"low-conf","e":"candidateRejected","raw":"•55머 4677-"}
+{"e":"codeObserved","hit":12,"pos":[-64.581999999999994,0.70199999999999996,-7.8799999999999999],"src":"depth","t":104.029,"parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"raw":"J3","conf":1}
+{"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","obs":2,"residualRMS":0,"zoneVec":null,"numVec":null,"lever":null,"confidence":0,"origin":null,"t":104.029,"targetEst":null,"e":"gridUpdated"}
+{"t":104.029,"reason":"low-conf","e":"candidateRejected","raw":"15546894"}
+{"t":104.03,"hit":13,"raw":"J3","e":"codeObserved","parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"src":"depth","conf":1,"pos":[-64.796000000000006,0.69999999999999996,-8.5220000000000002]}
+{"lever":null,"t":104.03,"targetEst":null,"residualRMS":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"confidence":0,"obs":2,"numVec":null,"e":"gridUpdated","origin":null}
+{"t":104.03,"reason":"low-conf","e":"candidateRejected","raw":"쇼핑카트"}
+{"t":104.328,"reason":"low-conf","e":"candidateRejected","raw":"•550 46773"}
+{"t":104.32899999999999,"reason":"low-conf","e":"candidateRejected","raw":"15596823"}
+{"parsed":{"num":3,"zoneIdx":9,"zone":"J","floor":null},"raw":"J3","e":"codeObserved","t":104.33,"pos":[-64.605999999999995,0.69299999999999995,-7.8570000000000002],"src":"depth","hit":14,"conf":1}
+{"targetEst":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":2,"t":104.33,"e":"gridUpdated"}
+{"parsed":{"num":3,"zoneIdx":9,"zone":"J","floor":null},"raw":"J3","e":"codeObserved","t":104.33,"pos":[-64.861999999999995,0.68000000000000005,-8.4619999999999997],"src":"depth","hit":15,"conf":1}
+{"targetEst":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":2,"t":104.33,"e":"gridUpdated"}
+{"t":104.33,"reason":"low-conf","e":"candidateRejected","raw":"스테이트"}
+{"pos":[-64.579999999999998,0.69399999999999995,-7.8659999999999997],"raw":"J3","src":"depth","e":"codeObserved","conf":1,"parsed":{"num":3,"zone":"J","zoneIdx":9,"floor":null},"hit":16,"t":104.645}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":104.645,"residualRMS":0,"obs":2}
+{"pos":[-64.834000000000003,0.69499999999999995,-8.5099999999999998],"raw":"J3","src":"depth","e":"codeObserved","conf":1,"parsed":{"num":3,"zone":"J","zoneIdx":9,"floor":null},"hit":17,"t":104.646}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":104.646,"residualRMS":0,"obs":2}
+{"pos":[-58.149999999999999,0.59799999999999998,-13.347],"heading":[-0.80900000000000005,0.58799999999999997],"t":105.02800000000001,"e":"devicePose"}
+{"t":105.045,"hit":18,"raw":"J3","e":"codeObserved","src":"depth","parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"conf":1,"pos":[-64.480000000000004,0.68400000000000005,-7.9260000000000002]}
+{"lever":null,"t":105.045,"targetEst":null,"residualRMS":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"confidence":0,"obs":2,"numVec":null,"e":"gridUpdated","origin":null}
+{"reason":"low-conf","raw":"155+6894","t":105.04600000000001,"e":"candidateRejected"}
+{"e":"codeObserved","pos":[-64.697999999999993,0.66500000000000004,-8.5920000000000005],"src":"depth","hit":19,"t":105.047,"parsed":{"zoneIdx":9,"num":3,"zone":"J","floor":null},"raw":"J3","conf":1}
+{"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","obs":2,"residualRMS":0,"zoneVec":null,"numVec":null,"lever":null,"confidence":0,"origin":null,"t":105.047,"targetEst":null,"e":"gridUpdated"}
+{"src":"depth","parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"raw":"J3","e":"codeObserved","hit":20,"conf":1,"pos":[-64.426000000000002,0.69299999999999995,-7.9409999999999998],"t":105.32899999999999}
+{"lever":null,"t":105.32899999999999,"obs":2,"targetEst":null,"confidence":0,"e":"gridUpdated","stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","residualRMS":0,"zoneVec":null,"origin":null,"numVec":null}
+{"conf":1,"e":"codeObserved","t":105.32899999999999,"parsed":{"zoneIdx":9,"num":3,"floor":null,"zone":"J"},"hit":21,"src":"depth","raw":"J3","pos":[-64.730000000000004,0.69699999999999995,-8.5410000000000004]}
+{"residualRMS":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","targetEst":null,"obs":2,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":105.33,"numVec":null}
+{"reason":"low-conf","t":105.33,"e":"candidateRejected","raw":"155주 6894"}
+{"e":"codeObserved","raw":"J3","t":105.712,"parsed":{"num":3,"zoneIdx":9,"zone":"J","floor":null},"pos":[-64.504999999999995,0.69799999999999995,-7.851],"src":"depth","conf":1,"hit":22}
+{"origin":null,"residualRMS":0,"numVec":null,"e":"gridUpdated","t":105.712,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"confidence":0,"lever":null,"obs":2,"targetEst":null}
+{"e":"codeObserved","raw":"J3","t":105.71299999999999,"parsed":{"num":3,"zoneIdx":9,"zone":"J","floor":null},"pos":[-64.736999999999995,0.68500000000000005,-8.5099999999999998],"src":"depth","conf":1,"hit":23}
+{"origin":null,"residualRMS":0,"numVec":null,"e":"gridUpdated","t":105.71299999999999,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","zoneVec":null,"confidence":0,"lever":null,"obs":2,"targetEst":null}
+{"t":106.02800000000001,"heading":[-0.78600000000000003,0.61799999999999999],"pos":[-58.914000000000001,0.59199999999999997,-13.397],"e":"devicePose"}
+{"raw":"J3","t":106.029,"pos":[-64.427000000000007,0.69499999999999995,-7.9329999999999998],"src":"depth","conf":1,"parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"hit":24,"e":"codeObserved"}
+{"origin":null,"zoneVec":null,"lever":null,"t":106.03,"e":"gridUpdated","numVec":null,"confidence":0,"obs":2,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","residualRMS":0,"targetEst":null}
+{"e":"codeObserved","parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"conf":1,"raw":"J3","t":106.03100000000001,"pos":[-64.668000000000006,0.69399999999999995,-8.5909999999999993],"hit":25,"src":"depth"}
+{"lever":null,"origin":null,"targetEst":null,"residualRMS":0,"zoneVec":null,"t":106.03100000000001,"numVec":null,"confidence":0,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","obs":2,"e":"gridUpdated"}
+{"hit":26,"src":"depth","e":"codeObserved","pos":[-64.682000000000002,0.67100000000000004,-8.5600000000000005],"conf":1,"t":106.379,"parsed":{"zone":"J","zoneIdx":9,"floor":null,"num":3},"raw":"J3"}
+{"e":"gridUpdated","lever":null,"obs":2,"targetEst":null,"residualRMS":0,"numVec":null,"stage":"needMoreObservation(missing: Navigation.GridEstimate.Axis.number)","origin":null,"confidence":0,"t":106.379,"zoneVec":null}
+{"hit":27,"src":"depth","conf":1,"parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"t":106.69499999999999,"raw":"J3","pos":[-64.742000000000004,0.70199999999999996,-8.4990000000000006],"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":106.696,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"t":106.696,"raw":"15656894","e":"candidateRejected","reason":"low-conf"}
+{"t":106.697,"raw":"유등카티","e":"candidateRejected","reason":"low-conf"}
+{"e":"devicePose","heading":[-0.72499999999999998,0.68799999999999994],"pos":[-59.703000000000003,0.57199999999999995,-13.478999999999999],"t":107.02800000000001}
+{"raw":"J3","t":107.062,"pos":[-64.810000000000002,0.68799999999999994,-8.4260000000000002],"conf":1,"src":"depth","parsed":{"num":3,"zone":"J","floor":null,"zoneIdx":9},"hit":28,"e":"codeObserved"}
+{"origin":null,"zoneVec":null,"lever":null,"t":107.062,"e":"gridUpdated","numVec":null,"confidence":0,"obs":1,"stage":"searching","residualRMS":0,"targetEst":null}
+{"raw":"지하 3층","t":107.063,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"쇼핑카트","t":107.06399999999999,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"50a 6205","t":107.06399999999999,"reason":"low-conf","e":"candidateRejected"}
+{"e":"codeObserved","src":"depth","hit":29,"pos":[-64.700999999999993,0.68799999999999994,-8.5229999999999997],"t":107.32899999999999,"parsed":{"zoneIdx":9,"floor":null,"num":3,"zone":"J"},"raw":"J3","conf":1}
+{"stage":"searching","obs":1,"residualRMS":0,"zoneVec":null,"numVec":null,"lever":null,"confidence":0,"origin":null,"t":107.32899999999999,"targetEst":null,"e":"gridUpdated"}
+{"raw":"155주6894","t":107.69499999999999,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"J3","parsed":{"zoneIdx":9,"floor":null,"zone":"J","num":3},"e":"codeObserved","conf":1,"pos":[-64.715000000000003,0.69099999999999995,-8.4979999999999993],"t":107.696,"hit":30,"src":"depth"}
+{"origin":null,"residualRMS":0,"confidence":0,"lever":null,"obs":1,"e":"gridUpdated","stage":"searching","targetEst":null,"t":107.697,"numVec":null,"zoneVec":null}
+{"raw":"스팸릿","t":107.697,"reason":"low-conf","e":"candidateRejected"}
+{"pos":[-60.529000000000003,0.56899999999999995,-13.512],"e":"devicePose","t":108.02800000000001,"heading":[-0.82499999999999996,0.56399999999999995]}
+{"conf":1,"parsed":{"zoneIdx":9,"floor":null,"num":3,"zone":"J"},"hit":31,"raw":"J3","e":"codeObserved","pos":[-64.727999999999994,0.69899999999999995,-8.4580000000000002],"src":"depth","t":108.04600000000001}
+{"numVec":null,"e":"gridUpdated","obs":1,"confidence":0,"origin":null,"lever":null,"zoneVec":null,"stage":"searching","t":108.04600000000001,"residualRMS":0,"targetEst":null}
+{"conf":1,"e":"codeObserved","t":108.379,"parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"hit":32,"src":"depth","raw":"J3","pos":[-64.709999999999994,0.70399999999999996,-8.4689999999999994]}
+{"residualRMS":0,"stage":"searching","targetEst":null,"obs":1,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":108.379,"numVec":null}
+{"e":"raycastFailed","raw":"J3","t":108.679,"consecutive":1}
+{"t":108.679,"hit":33,"raw":"J3","e":"codeObserved","parsed":{"zoneIdx":9,"floor":null,"num":3,"zone":"J"},"conf":1,"pos":null}
+{"lever":null,"t":108.679,"targetEst":null,"residualRMS":0,"stage":"searching","zoneVec":null,"confidence":0,"obs":1,"numVec":null,"e":"gridUpdated","origin":null}
+{"t":109.029,"heading":[-0.99399999999999999,0.113],"pos":[-61.363999999999997,0.55300000000000005,-13.675000000000001],"e":"devicePose"}
+{"raw":"27","reason":"low-conf","t":109.712,"e":"candidateRejected"}
+{"e":"devicePose","t":110.029,"heading":[-0.89200000000000002,-0.45200000000000001],"pos":[-62.107999999999997,0.58299999999999996,-13.879]}
+{"raw":"J3","e":"candidateRejected","reason":"low-conf","t":110.04600000000001}
+{"raw":"K3","consecutive":2,"e":"raycastFailed","t":110.414}
+{"pos":null,"raw":"K3","e":"codeObserved","conf":1,"parsed":{"floor":null,"zone":"K","zoneIdx":10,"num":3},"hit":2,"t":110.414}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"searching","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":110.414,"residualRMS":0,"obs":1}
+{"pos":[-71.043000000000006,0.66200000000000003,-17.809000000000001],"raw":"J3","src":"depth","e":"codeObserved","conf":1,"parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"hit":34,"t":110.41500000000001}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"searching","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":110.41500000000001,"residualRMS":0,"obs":0}
+{"t":110.416,"raw":"K4","consecutive":1,"e":"raycastFailed"}
+{"pos":null,"raw":"K4","e":"codeObserved","conf":1,"parsed":{"num":4,"zone":"K","zoneIdx":10,"floor":null},"hit":1,"t":110.416}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"searching","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":110.416,"residualRMS":0,"obs":0}
+{"raw":"KA","e":"candidateRejected","reason":"low-conf","t":110.416}
+{"e":"codeObserved","raw":"J3","parsed":{"num":3,"zone":"J","zoneIdx":9,"floor":null},"conf":1,"src":"depth","hit":35,"pos":[-71.177999999999997,0.67600000000000005,-17.783000000000001],"t":110.679}
+{"lever":null,"t":110.68000000000001,"obs":0,"residualRMS":0,"e":"gridUpdated","zoneVec":null,"confidence":0,"stage":"searching","numVec":null,"targetEst":null,"origin":null}
+{"e":"devicePose","t":111.029,"pos":[-62.892000000000003,0.58599999999999997,-14.105],"heading":[-0.90100000000000002,-0.433]}
+{"t":111.047,"hit":36,"raw":"J3","e":"codeObserved","parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"src":"depth","conf":1,"pos":[-71.302999999999997,0.67400000000000004,-17.864000000000001]}
+{"lever":null,"t":111.047,"targetEst":null,"residualRMS":0,"stage":"searching","zoneVec":null,"confidence":0,"obs":0,"numVec":null,"e":"gridUpdated","origin":null}
+{"raw":"K4","e":"candidateRejected","reason":"low-conf","t":111.047}
+{"raw":"J4","e":"candidateRejected","reason":"low-conf","t":111.048}
+{"raw":"J3","parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"e":"codeObserved","conf":1,"pos":[-71.290000000000006,0.66200000000000003,-17.864999999999998],"t":111.33,"hit":37,"src":"depth"}
+{"origin":null,"residualRMS":0,"confidence":0,"lever":null,"obs":0,"e":"gridUpdated","stage":"searching","targetEst":null,"t":111.33,"numVec":null,"zoneVec":null}
+{"raw":"J3","t":111.71299999999999,"conf":1,"e":"codeObserved","parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"src":"depth","hit":38,"pos":[-71.263000000000005,0.66200000000000003,-17.858000000000001]}
+{"zoneVec":null,"confidence":0,"t":111.71299999999999,"obs":0,"e":"gridUpdated","stage":"searching","residualRMS":0,"targetEst":null,"numVec":null,"origin":null,"lever":null}
+{"t":112.029,"pos":[-63.740000000000002,0.57399999999999995,-14.407999999999999],"e":"devicePose","heading":[-0.84199999999999997,-0.53900000000000003]}
+{"parsed":{"zone":"J","floor":null,"num":3,"zoneIdx":9},"src":"depth","e":"codeObserved","pos":[-71.224000000000004,0.67000000000000004,-17.827999999999999],"conf":1,"t":112.04600000000001,"hit":39,"raw":"J3"}
+{"e":"gridUpdated","lever":null,"obs":0,"targetEst":null,"residualRMS":0,"numVec":null,"stage":"searching","origin":null,"confidence":0,"t":112.047,"zoneVec":null}
+{"raw":"지하즈을","t":112.047,"reason":"low-conf","e":"candidateRejected"}
+{"raw":"14","t":112.048,"reason":"low-conf","e":"candidateRejected"}
+{"e":"codeObserved","raw":"J3","t":112.33,"parsed":{"zone":"J","num":3,"zoneIdx":9,"floor":null},"pos":[-71.295000000000002,0.66600000000000004,-17.861000000000001],"src":"depth","conf":1,"hit":40}
+{"origin":null,"residualRMS":0,"numVec":null,"e":"gridUpdated","t":112.33,"stage":"searching","zoneVec":null,"confidence":0,"lever":null,"obs":0,"targetEst":null}
+{"t":112.71299999999999,"raw":"K3","consecutive":1,"e":"raycastFailed"}
+{"conf":1,"parsed":{"num":3,"zone":"K","zoneIdx":10,"floor":null},"hit":3,"raw":"K3","e":"codeObserved","pos":null,"t":112.71299999999999}
+{"numVec":null,"e":"gridUpdated","obs":0,"confidence":0,"origin":null,"lever":null,"zoneVec":null,"stage":"searching","t":112.71299999999999,"residualRMS":0,"targetEst":null}
+{"conf":1,"parsed":{"num":3,"zone":"J","zoneIdx":9,"floor":null},"hit":41,"raw":"J3","e":"codeObserved","pos":[-71.045000000000002,0.69499999999999995,-17.802],"src":"depth","t":112.714}
+{"numVec":null,"e":"gridUpdated","obs":0,"confidence":0,"origin":null,"lever":null,"zoneVec":null,"stage":"searching","t":112.714,"residualRMS":0,"targetEst":null}
+{"reason":"low-conf","t":112.715,"raw":"지하3호","e":"candidateRejected"}
+{"consecutive":1,"t":112.71599999999999,"raw":"K4","e":"raycastFailed"}
+{"conf":1,"parsed":{"zone":"K","floor":null,"num":4,"zoneIdx":10},"hit":2,"raw":"K4","e":"codeObserved","pos":null,"t":112.71599999999999}
+{"numVec":null,"e":"gridUpdated","obs":0,"confidence":0,"origin":null,"lever":null,"zoneVec":null,"stage":"searching","t":112.71599999999999,"residualRMS":0,"targetEst":null}
+{"conf":1,"parsed":{"zone":"J","floor":null,"num":4,"zoneIdx":9},"hit":1,"raw":"J4","e":"codeObserved","pos":[-70.605000000000004,0.72399999999999998,-22.186],"src":"depth","t":112.71599999999999}
+{"numVec":null,"e":"gridUpdated","obs":0,"confidence":0,"origin":null,"lever":null,"zoneVec":null,"stage":"searching","t":112.71599999999999,"residualRMS":0,"targetEst":null}
+{"t":113.03,"pos":[-64.555999999999997,0.57099999999999995,-14.651999999999999],"heading":[-0.83999999999999997,-0.54200000000000004],"e":"devicePose"}
+{"reason":"low-conf","t":113.03,"raw":"NU","e":"candidateRejected"}
+{"reason":"skeleton-mismatch","t":113.03100000000001,"raw":"K","e":"candidateRejected"}
+{"parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":3},"hit":42,"pos":[-71.209000000000003,0.69699999999999995,-17.805],"src":"depth","e":"codeObserved","conf":1,"raw":"J3","t":113.03100000000001}
+{"obs":0,"confidence":0,"numVec":null,"zoneVec":null,"residualRMS":0,"origin":null,"lever":null,"targetEst":null,"e":"gridUpdated","stage":"searching","t":113.032}
+{"reason":"low-conf","t":113.032,"raw":"지하3층","e":"candidateRejected"}
+{"pos":[-70.954999999999998,0.73099999999999998,-22.581],"parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":4},"hit":2,"t":113.032,"e":"codeObserved","src":"depth","conf":1,"raw":"J4"}
+{"numVec":null,"obs":1,"origin":null,"confidence":0,"t":113.032,"zoneVec":null,"e":"gridUpdated","targetEst":null,"stage":"searching","residualRMS":0,"lever":null}
+{"reason":"low-conf","t":113.033,"raw":"STANDARD","e":"candidateRejected"}
+{"t":113.346,"raw":"K3","consecutive":1,"e":"raycastFailed"}
+{"parsed":{"zoneIdx":10,"zone":"K","num":3,"floor":null},"raw":"K3","e":"codeObserved","t":113.346,"pos":null,"hit":4,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":113.34699999999999,"e":"gridUpdated"}
+{"parsed":{"zoneIdx":9,"zone":"J","num":3,"floor":null},"raw":"J3","e":"codeObserved","t":113.34699999999999,"pos":[-71.174000000000007,0.69299999999999995,-17.800999999999998],"hit":43,"src":"depth","conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":113.34699999999999,"e":"gridUpdated"}
+{"reason":"low-conf","t":113.34699999999999,"raw":"지희 3층","e":"candidateRejected"}
+{"consecutive":1,"t":113.348,"raw":"K4","e":"raycastFailed"}
+{"parsed":{"zone":"K","floor":null,"num":4,"zoneIdx":10},"raw":"K4","e":"codeObserved","t":113.348,"pos":null,"hit":3,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":113.348,"e":"gridUpdated"}
+{"parsed":{"zone":"J","floor":null,"num":4,"zoneIdx":9},"raw":"J4","e":"codeObserved","t":113.349,"pos":[-70.725999999999999,0.72699999999999998,-22.311],"src":"depth","hit":3,"conf":1}
+{"targetEst":null,"stage":"searching","origin":null,"numVec":null,"confidence":0,"zoneVec":null,"residualRMS":0,"lever":null,"obs":1,"t":113.349,"e":"gridUpdated"}
+{"raw":"STANOARG","t":113.349,"e":"candidateRejected","reason":"low-conf"}
+{"conf":1,"pos":[-71.114999999999995,0.71799999999999997,-17.77],"parsed":{"zone":"J","floor":null,"num":3,"zoneIdx":9},"src":"depth","hit":44,"t":113.68000000000001,"e":"codeObserved","raw":"J3"}
+{"obs":1,"lever":null,"stage":"searching","residualRMS":0,"origin":null,"zoneVec":null,"numVec":null,"confidence":0,"t":113.681,"e":"gridUpdated","targetEst":null}
+{"t":114.047,"consecutive":1,"e":"raycastFailed","raw":"K3"}
+{"pos":null,"parsed":{"zoneIdx":10,"floor":null,"zone":"K","num":3},"raw":"K3","conf":1,"e":"codeObserved","hit":5,"t":114.047}
+{"confidence":0,"stage":"searching","zoneVec":null,"obs":1,"numVec":null,"targetEst":null,"origin":null,"residualRMS":0,"e":"gridUpdated","lever":null,"t":114.047}
+{"pos":[-71.078999999999994,0.71799999999999997,-17.745999999999999],"src":"depth","parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"raw":"J3","conf":1,"e":"codeObserved","hit":45,"t":114.048}
+{"confidence":0,"stage":"searching","zoneVec":null,"obs":1,"numVec":null,"targetEst":null,"origin":null,"residualRMS":0,"e":"gridUpdated","lever":null,"t":114.048}
+{"t":114.048,"e":"candidateRejected","raw":"지혁 3층","reason":"low-conf"}
+{"t":114.04900000000001,"e":"candidateRejected","raw":"J4","reason":"low-conf"}
+{"t":114.129,"pos":[-65.411000000000001,0.61199999999999999,-15.051],"heading":[-0.90400000000000003,-0.42799999999999999],"e":"devicePose"}
+{"consecutive":1,"t":114.34699999999999,"e":"raycastFailed","raw":"K3"}
+{"t":114.34699999999999,"e":"codeObserved","conf":1,"raw":"K3","parsed":{"zoneIdx":10,"floor":null,"zone":"K","num":3},"hit":6,"pos":null}
+{"origin":null,"zoneVec":null,"lever":null,"t":114.34699999999999,"e":"gridUpdated","obs":1,"stage":"searching","confidence":0,"numVec":null,"residualRMS":0,"targetEst":null}
+{"t":114.348,"e":"codeObserved","conf":1,"raw":"J3","parsed":{"zoneIdx":9,"floor":null,"zone":"J","num":3},"hit":46,"src":"depth","pos":[-71.072000000000003,0.70999999999999996,-17.754000000000001]}
+{"origin":null,"zoneVec":null,"lever":null,"t":114.348,"e":"gridUpdated","obs":1,"stage":"searching","confidence":0,"numVec":null,"residualRMS":0,"targetEst":null}
+{"raw":"K4","t":114.348,"consecutive":1,"e":"raycastFailed"}
+{"t":114.348,"e":"codeObserved","conf":1,"raw":"K4","parsed":{"zone":"K","zoneIdx":10,"floor":null,"num":4},"hit":4,"pos":null}
+{"origin":null,"zoneVec":null,"lever":null,"t":114.348,"e":"gridUpdated","obs":1,"stage":"searching","confidence":0,"numVec":null,"residualRMS":0,"targetEst":null}
+{"consecutive":2,"t":114.68000000000001,"raw":"K3","e":"raycastFailed"}
+{"hit":7,"conf":1,"parsed":{"zone":"K","floor":null,"num":3,"zoneIdx":10},"t":114.68000000000001,"raw":"K3","pos":null,"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":114.68000000000001,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"hit":47,"src":"depth","conf":1,"parsed":{"zone":"J","floor":null,"num":3,"zoneIdx":9},"t":114.681,"raw":"J3","pos":[-71.046999999999997,0.71099999999999997,-17.757999999999999],"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":114.681,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"raw":"지하 3층","reason":"low-conf","t":114.681,"e":"candidateRejected"}
+{"raw":"K4","t":114.682,"consecutive":1,"e":"raycastFailed"}
+{"hit":5,"conf":1,"parsed":{"zone":"K","zoneIdx":10,"floor":null,"num":4},"t":114.682,"raw":"K4","pos":null,"e":"codeObserved"}
+{"zoneVec":null,"lever":null,"residualRMS":0,"origin":null,"targetEst":null,"t":114.682,"confidence":0,"e":"gridUpdated","obs":1,"stage":"searching","numVec":null}
+{"src":"depth","hit":48,"t":115.047,"raw":"J3","e":"codeObserved","conf":1,"pos":[-71.049999999999997,0.72299999999999998,-17.773],"parsed":{"zoneIdx":9,"zone":"J","num":3,"floor":null}}
+{"residualRMS":0,"t":115.047,"numVec":null,"stage":"searching","obs":1,"confidence":0,"e":"gridUpdated","origin":null,"targetEst":null,"lever":null,"zoneVec":null}
+{"raw":"치화 1%","t":115.048,"e":"candidateRejected","reason":"low-conf"}
+{"t":115.13,"pos":[-66.126999999999995,0.61699999999999999,-15.452999999999999],"heading":[-0.91500000000000004,-0.40300000000000002],"e":"devicePose"}
+{"raw":"JUT-","reason":"low-conf","t":115.413,"e":"candidateRejected"}
+{"raw":"K3","t":115.414,"consecutive":1,"e":"raycastFailed"}
+{"raw":"K3","hit":8,"conf":1,"pos":null,"parsed":{"zone":"K","zoneIdx":10,"floor":null,"num":3},"e":"codeObserved","t":115.414}
+{"confidence":0,"t":115.414,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"raw":"J3","hit":49,"conf":1,"pos":[-71.049000000000007,0.71999999999999997,-17.757999999999999],"parsed":{"zone":"J","zoneIdx":9,"floor":null,"num":3},"e":"codeObserved","src":"depth","t":115.41500000000001}
+{"confidence":0,"t":115.41500000000001,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"raw":"지하 3층","t":115.41500000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"K4","t":115.416,"e":"raycastFailed","consecutive":1}
+{"raw":"K4","hit":6,"conf":1,"pos":null,"parsed":{"floor":null,"zone":"K","num":4,"zoneIdx":10},"e":"codeObserved","t":115.416}
+{"confidence":0,"t":115.416,"numVec":null,"targetEst":null,"obs":1,"residualRMS":0,"zoneVec":null,"e":"gridUpdated","stage":"searching","origin":null,"lever":null}
+{"raw":"K","t":115.68000000000001,"e":"candidateRejected","reason":"low-conf"}
+{"raw":"J3","parsed":{"zoneIdx":9,"zone":"J","num":3,"floor":null},"e":"codeObserved","conf":1,"pos":[-71.034000000000006,0.71399999999999997,-17.757999999999999],"t":115.681,"hit":50,"src":"depth"}
+{"origin":null,"residualRMS":0,"confidence":0,"lever":null,"obs":1,"e":"gridUpdated","stage":"searching","targetEst":null,"t":115.681,"numVec":null,"zoneVec":null}
+{"pos":[-71.022999999999996,0.71799999999999997,-17.763000000000002],"raw":"J3","src":"raycast","e":"codeObserved","conf":1,"parsed":{"floor":null,"zone":"J","num":3,"zoneIdx":9},"hit":51,"t":116.014}
+{"confidence":0,"lever":null,"e":"gridUpdated","stage":"searching","zoneVec":null,"targetEst":null,"numVec":null,"origin":null,"t":116.014,"residualRMS":0,"obs":1}
+{"raw":"피하 오문","t":116.014,"reason":"low-conf","e":"candidateRejected"}
+{"pos":[-66.665000000000006,0.59699999999999998,-15.978],"t":116.13,"heading":[-0.68000000000000005,-0.73299999999999998],"e":"devicePose"}
+{"raw":"K4","t":116.73,"e":"candidateRejected","reason":"low-conf"}
+{"conf":1,"e":"codeObserved","t":116.732,"raw":"J4","hit":4,"src":"depth","parsed":{"num":4,"zone":"J","zoneIdx":9,"floor":null},"pos":[-70.724999999999994,0.71499999999999997,-22.372]}
+{"residualRMS":0,"stage":"searching","targetEst":null,"obs":1,"origin":null,"confidence":0,"lever":null,"e":"gridUpdated","zoneVec":null,"t":116.732,"numVec":null}
+{"raw":"J4","t":117.014,"src":"depth","conf":1,"pos":[-70.706999999999994,0.71599999999999997,-22.359999999999999],"parsed":{"num":4,"zone":"J","zoneIdx":9,"floor":null},"hit":5,"e":"codeObserved"}
+{"origin":null,"zoneVec":null,"lever":null,"t":117.014,"e":"gridUpdated","numVec":null,"confidence":0,"obs":1,"stage":"searching","residualRMS":0,"targetEst":null}
+{"e":"devicePose","pos":[-67.209000000000003,0.60799999999999998,-16.567],"heading":[-0.317,-0.94899999999999995],"t":117.23}
+{"t":117.714,"e":"codeObserved","conf":1,"parsed":{"zone":"J","num":4,"zoneIdx":9,"floor":null},"raw":"J4","hit":6,"pos":[-70.774000000000001,0.73399999999999999,-22.422999999999998],"src":"depth"}
+{"origin":null,"zoneVec":null,"lever":null,"t":117.714,"e":"gridUpdated","obs":1,"stage":"searching","confidence":0,"numVec":null,"residualRMS":0,"targetEst":null}
+{"conf":1,"parsed":{"floor":null,"zone":"J","zoneIdx":9,"num":4},"t":118.03100000000001,"e":"codeObserved","hit":7,"raw":"J4","src":"depth","pos":[-70.724000000000004,0.72999999999999998,-22.378]}
+{"obs":1,"numVec":null,"t":118.03100000000001,"zoneVec":null,"targetEst":null,"residualRMS":0,"confidence":0,"e":"gridUpdated","lever":null,"stage":"searching","origin":null}
+{"t":118.23,"pos":[-67.608999999999995,0.59199999999999997,-17.129000000000001],"heading":[-0.27500000000000002,-0.96199999999999997],"e":"devicePose"}
+{"t":118.38200000000001,"reason":"low-conf","e":"candidateRejected","raw":"H"}
+{"t":119.23,"pos":[-67.933000000000007,0.34100000000000003,-17.739000000000001],"heading":[0.14299999999999999,-0.98999999999999999],"e":"devicePose"}
+{"raw":"밥화사이전볶들어몬드","reason":"low-conf","t":119.749,"e":"candidateRejected"}
+{"raw":"Tast","reason":"low-conf","t":119.751,"e":"candidateRejected"}
+{"t":120.048,"reason":"low-conf","raw":"BETTER Taste","e":"candidateRejected"}
+{"t":120.05,"reason":"low-conf","raw":"WNPWOIEE","e":"candidateRejected"}
+{"t":120.051,"reason":"low-conf","raw":"2었\/","e":"candidateRejected"}
+{"t":120.05200000000001,"reason":"low-conf","raw":"Jnir Stiee","e":"candidateRejected"}
+{"e":"devicePose","pos":[-68.147000000000006,0.30399999999999999,-18.626999999999999],"t":120.33,"heading":[0.126,-0.99199999999999999]}
+{"raw":"BETTEP TOOte","reason":"low-conf","t":120.348,"e":"candidateRejected"}
+{"t":120.749,"reason":"low-conf","raw":"NONPAREIL @","e":"candidateRejected"}
+{"t":120.75,"reason":"low-conf","raw":"넌매럴 100.","e":"candidateRejected"}
+{"t":120.751,"reason":"low-conf","raw":"정보사이즈","e":"candidateRejected"}
+{"t":120.752,"reason":"low-conf","raw":"we4os","e":"candidateRejected"}
+{"t":120.753,"reason":"low-conf","raw":"포스알아드트","e":"candidateRejected"}
+{"t":120.754,"reason":"low-conf","raw":"8200","e":"candidateRejected"}
+{"t":120.755,"reason":"low-conf","raw":"법정이 있고 젊은 클리와 고소한 맛을","e":"candidateRejected"}
+{"t":120.755,"reason":"low-conf","raw":"가장 좋은 올정이 이산드 새리","e":"candidateRejected"}
+{"reason":"low-conf","e":"candidateRejected","raw":"MONPRYM","t":121.033}
+{"reason":"low-conf","e":"candidateRejected","raw":"현매할 100.","t":121.03400000000001}
+{"t":121.33,"pos":[-68.165999999999997,0.33300000000000002,-19.204000000000001],"heading":[0.053999999999999999,-0.999],"e":"devicePose"}
+{"reason":"low-conf","e":"candidateRejected","raw":"BETTER Taste","t":121.348}
+{"t":121.714,"reason":"low-conf","raw":"검진","e":"candidateRejected"}
+{"t":121.71599999999999,"reason":"low-conf","raw":"BETTER Taste","e":"candidateRejected"}
+{"t":121.717,"reason":"low-conf","raw":"NONPAREL •","e":"candidateRejected"}
+{"t":121.717,"reason":"low-conf","raw":"년매일100.","e":"candidateRejected"}
+{"t":121.718,"reason":"low-conf","raw":"200","e":"candidateRejected"}
+{"t":121.71899999999999,"reason":"low-conf","raw":"정보 사이즈","e":"candidateRejected"}
+{"t":121.721,"reason":"low-conf","raw":"INY CALDG","e":"candidateRejected"}
+{"t":121.721,"reason":"low-conf","raw":"로스팅아온","e":"candidateRejected"}
+{"t":121.72199999999999,"reason":"low-conf","raw":"8스SC","e":"candidateRejected"}
+{"t":121.723,"reason":"low-conf","raw":"22 we","e":"candidateRejected"}
+{"e":"devicePose","pos":[-68.206000000000003,0.26500000000000001,-19.956],"heading":[-0.38300000000000001,-0.92400000000000004],"t":122.33199999999999}
+{"e":"sessionEnd","elapsed":122.91500000000001,"t":122.91500000000001,"by":"screen-exit"}

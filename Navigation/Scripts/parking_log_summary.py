@@ -11,6 +11,7 @@
 """
 import json
 import math
+import statistics
 import sys
 import collections
 from pathlib import Path
@@ -63,10 +64,30 @@ def summarize(path: Path) -> None:
         stages = collections.Counter(g["stage"].split("(")[0] for g in grid)
         print(f"  grid {len(grid)}건 — stage {dict(stages)}, confidence {dict(conf)}")
 
-    # 설계 개정 v2 주 지표: 화살표 가동률 + targetEst 자기불안정성 + 외삽 레버
+    # v3(spec 006) 지표 — stage는 "추정 가능"일 뿐 화살표 표시 여부와 다르다.
+    # guidanceShown이 전 안내 상태를 기록하므로(FR-115) 신규 로그는 이쪽이 실제 가동률이다.
+    shown = [e for e in events if e["e"] == "guidanceShown"]
+    if any("conf%" in e for e in shown):
+        arrows = [e for e in shown if e.get("arrowDeg") is not None]
+        pcts = [e["conf%"] for e in shown if e.get("conf%") is not None]
+        dists = [e["distanceM"] for e in arrows if e.get("distanceM") is not None]
+        print(f"  [v3] 화살표 표시: {len(arrows)}/{len(shown)} ({100*len(arrows)/len(shown):.0f}%)"
+              + (f", 거리 표시 {len(dists)}회(최대 {max(dists):.1f}m)" if dists else ", 거리 표시 없음"))
+        if pcts:
+            print(f"  [v3] 표시 백분율: 중앙 {statistics.median(pcts):.0f}%, 최대 {max(pcts)}%")
+        unc = [(g.get("uncU", 0), g.get("uncFit", 0), g.get("uncExp", 0)) for g in grid if "uncU" in g]
+        if unc:
+            print(f"  [v3] 측방 불확실성 평균 — 미지축 {statistics.mean(u[0] for u in unc):.1f}m"
+                  f" / 적합 {statistics.mean(u[1] for u in unc):.1f}m"
+                  f" / 팽창 {statistics.mean(u[2] for u in unc):.1f}m")
+        spans = [g["span"] for g in grid if g.get("span")]
+        if spans:
+            print(f"  [v3] 관측 스팬: 중앙 {statistics.median(spans):.1f}m, 최대 {max(spans):.1f}m")
+
+    # 구 지표(v2 이하 로그 호환) — stage 기준 "격자 추정 가능" 비율
     if grid:
         guiding = [g for g in grid if g["stage"].startswith(("axisGuidance", "gridGuidance"))]
-        print(f"  화살표 가동률: {len(guiding)}/{len(grid)} ({100*len(guiding)/len(grid):.0f}%)")
+        print(f"  격자 추정 가능: {len(guiding)}/{len(grid)} ({100*len(guiding)/len(grid):.0f}%)")
         ests = [g["targetEst"] for g in grid if g.get("targetEst")]
         if len(ests) >= 2:
             jumps = [math.hypot(a[0]-b[0], a[1]-b[1]) for a, b in zip(ests, ests[1:])]
