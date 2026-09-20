@@ -104,9 +104,15 @@ enum ParkingTuning {
     static let confidencePercentSolidThreshold = 45
     static let confidencePercentHysteresis = 5
 
-    /// FR-107 표지판 인스턴스 — 클러스터 채택 최소 표본 수, 조합 전수 평가 상한
+    /// FR-102 근접 판정 상한(m) — 보장 실패를 "근접"이라 부르려면 불확실성 자체가 이 이하여야 한다.
+    /// 그렇지 않으면 11m 앞에서 U가 69m인 상황(원거리 외삽 잔재)을 "거의 다 왔어요"로 오안내한다
+    static let proximityUncertaintyMax = 8.0
+
+    /// FR-107 표지판 인스턴스 — 클러스터 채택 최소 표본 수(동점 신호로만 사용), 조합 평가 상한
     static let instanceMinSamples = 2
     static let instanceCombinationLimit = 64
+    /// 조합이 바뀐 뒤 백분율이 회복되기까지의 안정 프레임 수 — 누적 페널티는 래칫이 된다
+    static let selectionStabilityFrames = 10
 
     /// FR-104 관측 수 게이트 — 실선·거리 구간(중간) 진입과 최상위 구간 진입의 최소 채택 관측 수
     static let observationsForSolid = 3

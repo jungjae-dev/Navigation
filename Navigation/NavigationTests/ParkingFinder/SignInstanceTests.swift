@@ -24,19 +24,54 @@ struct SignInstanceTests {
         set.add(position: SIMD2(0, 0), at: 0)
         set.add(position: SIMD2(11, 0), at: 1)      // 복수 표지판 간격(260911 실측 7~13m)
         #expect(set.instances.count == 2)
-        #expect(set.isMultiSign == false)           // 표본 1개짜리뿐이라 아직 채택 안 됨
-        set.add(position: SIMD2(11.2, 0), at: 2)
-        set.add(position: SIMD2(0.1, 0), at: 3)
+        // 표본 수로 미리 버리지 않는다 — 1표본 클러스터가 정답인 사례가 실측에 있다(H22 G22)
         #expect(set.accepted.count == 2)
         #expect(set.isMultiSign)
     }
 
-    @Test func singleInstanceSurvivesWithOneSample() {
-        // 표본 2개 규칙은 경쟁 인스턴스가 있을 때만 — 위치를 한 번만 확보한 정상 코드를 버리면
-        // raycast 실패가 잦은 주차장에서 v2보다 관측이 줄어든다(260710 세션 붕괴)
+    @Test func singleSampleInstanceIsKeptAsCandidate() {
+        // 표본 수는 버리는 기준이 아니라 동점 신호 — 프리필터는 260710을 45.5%→0%로,
+        // H22를 49.1%→29.8%로 떨어뜨렸다(정답 클러스터를 버림)
         var set = SignInstanceSet()
         set.add(position: SIMD2(3, 0), at: 0)
         #expect(set.accepted.count == 1)
+    }
+
+    @Test func tieBreakPrefersLargerSpanThenSamples() {
+        // 정확결정계(잔차 전부 0)에서 무엇이 조합을 고르는지 고정한다 —
+        // 명시하지 않으면 부등호 방향만으로 가동률이 ±13~20pt 흔들린다(PR#60 리뷰)
+        func instance(_ x: Double, _ y: Double, samples: Int, at time: Double) -> SignInstance {
+            var set = SignInstanceSet()
+            for step in 0..<samples { set.add(position: SIMD2(x, y), at: time + Double(step)) }
+            return set.instances[0]
+        }
+        let candidates = [
+            GridEstimator.GridCandidate(codeRaw: "A-1", zoneIndex: 0, numberValue: 1,
+                                        instances: [instance(0, 0, samples: 1, at: 0)]),
+            // 같은 잔차(2점은 항상 잔차 0)인 두 후보: 먼 쪽이 스팬을 키운다
+            GridEstimator.GridCandidate(codeRaw: "A-2", zoneIndex: 0, numberValue: 2,
+                                        instances: [instance(5, 0, samples: 3, at: 1),
+                                                    instance(30, 0, samples: 1, at: 2)]),
+        ]
+        let chosen = GridEstimator.selectInstances(from: candidates, nowSeconds: 5)
+        #expect(chosen.count == 2)
+        #expect(chosen.contains { $0.position.x == 30 }, "스팬이 큰 조합을 골라야 한다")
+    }
+
+    @Test func deviceProximityBreaksRemainingTies() {
+        // 스팬·표본까지 같으면 기기에 가까운 조합 (FR-107 동점 규칙 ⑤)
+        func single(_ x: Double, _ y: Double) -> SignInstance { SignInstance(position: SIMD2(x, y), at: 0) }
+        let candidates = [
+            GridEstimator.GridCandidate(codeRaw: "A-1", zoneIndex: 0, numberValue: 1, instances: [single(0, 0)]),
+            GridEstimator.GridCandidate(codeRaw: "A-2", zoneIndex: 0, numberValue: 2,
+                                        instances: [single(10, 0), single(-10, 0)]),
+        ]
+        let nearPositive = GridEstimator.selectInstances(from: candidates, nowSeconds: 1,
+                                                        devicePosition: SIMD2(12, 0))
+        let nearNegative = GridEstimator.selectInstances(from: candidates, nowSeconds: 1,
+                                                        devicePosition: SIMD2(-12, 0))
+        #expect(nearPositive.contains { $0.position.x == 10 })
+        #expect(nearNegative.contains { $0.position.x == -10 })
     }
 
     @Test func mostRecentPositionTracksLastSighting() {
@@ -101,16 +136,16 @@ struct SignInstanceTests {
                                         instances: [SignInstance(position: SIMD2(0, 4.8), at: 4)]),
         ]
         let estimate = estimator.estimate(candidates: candidates, targetZoneIndex: 9,
-                                          targetNumber: 5, nowSeconds: 5)
+                                          targetNumber: 5, nowSeconds: 5, devicePosition: nil)
         #expect(estimate.stage == .gridGuidance)
         #expect(estimate.targetPosition != nil)
     }
 
-    /// 표본 수를 늘리기 위한 헬퍼 — 같은 위치를 다시 관측한 것으로 본다
+    /// 같은 위치를 한 번 더 관측한 인스턴스를 만든다(표본 +1) — 이름대로 "한 번 병합"
     private func merged(_ instance: SignInstance, at time: Double) -> SignInstance {
         var set = SignInstanceSet()
-        set.add(position: instance.position, at: instance.lastSeen)
-        for _ in 0..<instance.samples { set.add(position: instance.position, at: time) }
+        for _ in 0..<instance.samples { set.add(position: instance.position, at: instance.lastSeen) }
+        set.add(position: instance.position, at: time)
         return set.instances[0]
     }
 }

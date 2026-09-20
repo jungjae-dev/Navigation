@@ -48,16 +48,14 @@ struct SignInstanceSet: Equatable, Sendable {
         }
     }
 
-    /// 격자에 쓸 수 있는 인스턴스.
+    /// 격자 후보로 넘길 인스턴스 — **표본 수로 미리 거르지 않는다**(FR-107 개정).
     ///
-    /// 표본 2개 미만 배제는 **경쟁 인스턴스가 있을 때만** 적용한다(FR-107). 그 규칙의 목적은
-    /// 단발 관측으로 생긴 유령 군집이 잘못된 조합에 뽑히는 것을 막는 데 있지, 위치를 한 번만 확보한
-    /// 정상 코드를 버리는 데 있지 않다 — 라이다 raycast 실패가 잦은 주차장에서는 그런 코드가 다수이며
-    /// 일괄 배제하면 v2보다 오히려 관측이 줄어든다(260710 세션이 45.5%→0%로 붕괴).
-    var accepted: [SignInstance] {
-        guard instances.count > 1 else { return instances }
-        return instances.filter { $0.samples >= ParkingTuning.instanceMinSamples }
-    }
+    /// 표본 2개 미만 배제는 원래 유령 군집을 막으려던 규칙이었으나, 실측에서 정반대로 작동했다:
+    /// H22 세션의 G22는 격자 예측과 0.5m인 **1표본 클러스터가 정답**이고, G21과 0.3m 떨어진
+    /// (같은 자리에 다른 코드가 있을 수 없으므로 오인식인) 7표본 클러스터가 오답이었다.
+    /// 표본 수 프리필터는 정답을 버리고 오답을 채택해 잔차를 0→4.21m로 키웠다(PR#60 리뷰).
+    /// 표본 수는 버리는 기준이 아니라 **동점 조합을 가르는 신호**로만 쓴다(GridEstimator.selectInstances).
+    var accepted: [SignInstance] { instances }
 
     /// 여러 인스턴스가 살아 있는가 = 다중 표지판 코드
     var isMultiSign: Bool { accepted.count > 1 }

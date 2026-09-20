@@ -67,9 +67,11 @@ nonisolated enum GuidanceGeometry {
             failure = nil
         } else if !withinSpan {
             failure = .beyondObservationSpan
-        } else if distance <= radius {
+        } else if distance <= radius && radius <= ParkingTuning.proximityUncertaintyMax {
+            // 진짜 근접: 불확실성이 작은데도 거리가 그보다 짧다
             failure = .proximity
         } else {
+            // 불확실성이 애초에 크다 — 11m 앞인데 U가 69m면 "거의 다 왔다"가 아니라 "아직 모른다" (PR#60 리뷰)
             failure = .uncertaintyTooLarge
         }
 

@@ -480,7 +480,8 @@ final class ParkingARViewModel {
             candidates: candidates,
             targetZoneIndex: targetParsedCode?.zoneIndex,
             targetNumber: targetParsedCode?.numberValue,
-            nowSeconds: sessionSeconds()
+            nowSeconds: sessionSeconds(),
+            devicePosition: lastDevicePosition   // FR-107 동점 조합은 기기에 가까운 쪽
         )
         lastEstimate = estimate
         cachedTargetPosition = estimate.targetPosition

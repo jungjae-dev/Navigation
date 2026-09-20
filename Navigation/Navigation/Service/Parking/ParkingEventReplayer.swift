@@ -133,7 +133,8 @@ struct ParkingEventReplayer {
                     candidates: candidates,
                     targetZoneIndex: targetParsed?.zoneIndex,
                     targetNumber: targetParsed?.numberValue,
-                    nowSeconds: eventTime
+                    nowSeconds: eventTime,
+                    devicePosition: devicePosition   // VM 패리티 — 동점 조합의 기기 근접 규칙
                 )
                 result.recomputedCount += 1
 

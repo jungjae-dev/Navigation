@@ -31,12 +31,12 @@ struct ArrowGuidanceGateTests {
         let result = try replay("parking-20260919-180117-find")
         #expect(result.arrowShown > 0, "화살표 0회")
         // P3 표지판 클러스터 도입으로 6.7% → 40.8% (제외하던 '3'행이 인스턴스로 살아나 스팬이 커졌다)
-        #expect(result.arrowAvailability > 0.3,
+        #expect(result.arrowAvailability > 0.35,
                 "가동률 \(Int(result.arrowAvailability * 100))%")
     }
 
-    @Test(.disabled("SC-101 목표 60% 미달(P3 클러스터 후 40.8%) — 남은 격차는 세션 초반 관측 공백이라 "
-                    + "P4 스캔 유도(FR-114)와 현장 검증 후 목표치 자체를 재검토한다"))
+    // 비-화살표 구간의 병목은 관측 공백(5.8%)이 아니라 스팬 상한(43.3%)이다 — 목표치를 현장 검증 후 재검토
+    @Test(.disabled("SC-101 목표 60% 미달: P3 클러스터 후 40.0%"))
     func meetsArrowAvailabilityTarget() throws {
         let result = try replay("parking-20260919-180117-find")
         #expect(result.arrowAvailability >= 0.6, "SC-101 미달: \(result.arrowAvailability)")
@@ -47,7 +47,8 @@ struct ArrowGuidanceGateTests {
         // (1차 구현에서는 스텝 수 기반 누적이 이 세션들을 4.5%/15.4%까지 죽였다 — 근거가 뒤집혀 있었다)
         for name in ["parking-20260801-111450-find", "parking-20260911-102531-find"] {
             let result = try replay(name)
-            #expect(result.arrowAvailability > 0.25,
+            // H22는 표본 수 프리필터 때문에 29.8%까지 떨어졌다가 제거 후 49.1%로 복귀 (PR#60 리뷰)
+            #expect(result.arrowAvailability > 0.3,
                     "\(name) 가동률 \(Int(result.arrowAvailability * 100))%")
         }
     }
