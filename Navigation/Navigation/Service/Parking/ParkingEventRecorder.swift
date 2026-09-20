@@ -103,12 +103,27 @@ final class ParkingEventRecorder {
             "origin": estimate.origin.map { [round3($0.x), round3($0.y)] } ?? NSNull(),
             "zoneVec": estimate.zoneVec.map { [round3($0.x), round3($0.y)] } ?? NSNull(),
             "numVec": estimate.numVec.map { [round3($0.x), round3($0.y)] } ?? NSNull(),
-            "confidence": estimate.confidence.rawValue,
-            "lever": estimate.extrapolationLever.map(round3) as Any,   // G1 튜닝용 (설계 개정 v2)
+            "confidence": estimate.confidence.rawValue,   // 구 3단계 — 기존 로그·도구 호환 (FR-115)
+            "lever": estimate.extrapolationLever.map(round3) as Any,
+            // v3 (spec 006): 연속 백분율과 측방 불확실성 성분 — 튜닝·리플레이 대조용
+            "conf%": estimate.confidencePercent,
+            "uncU": round3(estimate.uncertainty.unknownAxis),
+            "uncFit": round3(estimate.uncertainty.fit),
+            "uncExp": round3(estimate.uncertainty.expansion),
+            "span": round3(estimate.observationSpan),
         ])
     }
 
-    func guidanceShown(state: String, arrowDegrees: Double?, distanceMeters: Double?, confidence: Int?) {
+    /// FR-115: 모든 안내 상태를 기록. `confidence`(구 3단계)는 호환용으로 유지하고 `conf%`·`msg`를 병행 —
+    /// 260919 분석에서 "무엇이 표시됐는지"를 코드 추론에 의존해야 했던 공백을 메운다.
+    func guidanceShown(
+        state: String,
+        arrowDegrees: Double?,
+        distanceMeters: Double?,
+        confidence: Int?,
+        percent: Int? = nil,
+        message: String? = nil
+    ) {
         let now = Date()
         guard now.timeIntervalSince(lastGuidanceLoggedAt) >= 1.0 else { return }
         lastGuidanceLoggedAt = now
@@ -117,6 +132,8 @@ final class ParkingEventRecorder {
             "arrowDeg": arrowDegrees.map(round3) as Any,
             "distanceM": distanceMeters.map(round3) as Any,
             "confidence": confidence as Any,
+            "conf%": percent as Any,
+            "msg": message as Any,
         ])
     }
 

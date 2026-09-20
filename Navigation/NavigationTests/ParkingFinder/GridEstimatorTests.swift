@@ -75,7 +75,8 @@ struct GridEstimatorTests {
 
     @Test func numberAxisKnownButTargetInDifferentZone() {
         var estimator = GridEstimator()
-        // 번호축은 확보했으나 목표(B구역)가 축 밖 → 구역축 관측 요청
+        // v3(FR-109): 목표(B구역)가 축 밖이어도 안내를 포기하지 않는다 —
+        // 미지 구역축 오프셋은 대칭 불확실성이 되고 점추정은 번호축 위에 남는다
         let result = estimator.estimate(
             observations: [
                 obs("A-5", zone: 0, num: 5, 0, 0),
@@ -83,7 +84,10 @@ struct GridEstimatorTests {
             ],
             targetZoneIndex: 1, targetNumber: 3
         )
-        #expect(result.stage == .needMoreObservation(missing: .zone))
+        #expect(result.stage == .axisGuidance(axis: .number))
+        #expect(result.targetPosition != nil)
+        #expect(result.uncertainty.unknownAxis == ParkingTuning.unknownZoneAxisPitchPrior)   // 1스텝 × 구역축 사전값
+        #expect(result.confidencePercent < ParkingTuning.confidencePercentSolidThreshold)
     }
 
     // MARK: - 3개+: 2D 아핀 (FR-009d)
@@ -161,7 +165,8 @@ struct GridEstimatorTests {
         let before = estimator.estimate(observations: observations, targetZoneIndex: 0, targetNumber: 3)
         estimator.markNeighborSighted()
         let after = estimator.estimate(observations: observations, targetZoneIndex: 0, targetNumber: 3)
-        #expect(after.confidence > before.confidence)
+        // v3: 3단계가 아니라 연속 백분율이 오른다 (FR-103)
+        #expect(after.confidencePercent > before.confidencePercent)
     }
 
     @Test func confidenceGrowsWithObservations() {
@@ -174,7 +179,11 @@ struct GridEstimatorTests {
             obs("C-1", zone: 2, num: 1, 3, 10),
         ]
         let result = estimator.estimate(observations: five, targetZoneIndex: 1, targetNumber: 3)
-        #expect(result.confidence == .high)
+        var fewer = GridEstimator()
+        let three = fewer.estimate(observations: Array(five.prefix(3)), targetZoneIndex: 1, targetNumber: 3)
+        // v3: 관측이 늘수록 백분율이 오른다. 절대 등급 대신 단조성으로 고정(임계 튜닝에 깨지지 않게)
+        #expect(result.confidencePercent > three.confidencePercent)
+        #expect(result.confidencePercent <= ParkingTuning.confidencePercentCap)
     }
 
     @Test func fewObservationsCapConfidenceAtMedium() {
@@ -188,31 +197,36 @@ struct GridEstimatorTests {
         ]
         let result = estimator.estimate(observations: four, targetZoneIndex: 1, targetNumber: 3)
         #expect(result.stage == .gridGuidance)
-        #expect(result.confidence == .medium)
+        #expect(result.confidencePercent < 70)   // 4점·잔차 0이어도 최상위 구간에 닿지 않는다
 
-        // 인접 목격 부스트는 격자 품질과 독립적인 근접 신호 — 상한 이후에도 유효 (FR-013a)
+        // 인접 목격 부스트는 격자 품질과 독립적인 근접 신호 (FR-013a)
         estimator.markNeighborSighted()
         let boosted = estimator.estimate(observations: four, targetZoneIndex: 1, targetNumber: 3)
-        #expect(boosted.confidence == .high)
+        #expect(boosted.confidencePercent > result.confidencePercent)
     }
 
     // MARK: - 3중 가드 (설계 개정 v2)
 
-    @Test func leverGuardBlocksFarExtrapolation() {
-        // G1: B~C구역 관측으로 J구역(6+스텝 밖) 외삽 시도 → 화살표 대신 추가 관측 안내 (J21 세션 재현)
+    @Test func farExtrapolationRaisesUncertaintyInsteadOfBlocking() {
+        // v3(FR-101/105): 레버는 더 이상 차단 기준이 아니다 — 안내는 유지하되 불확실성이 커지고 백분율이 떨어진다.
+        // J21(6스텝 외삽·잔차 0.1m) 부류에서 잔차만 보면 위험이 0.5m로 과소평가되므로
+        // 스텝당 모델 오차가 누적되어야 한다
         var estimator = GridEstimator()
         let observations = [
             obs("B-3", zone: 1, num: 3, 0, 0),
-            obs("C-3", zone: 2, num: 3, 14, 0),   // 피치 14 — G2 경계(15) 부동소수 회피
+            obs("C-3", zone: 2, num: 3, 14, 0),
             obs("B-4", zone: 1, num: 4, 0, 10),
         ]
-        let result = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 3)
-        #expect(result.stage == .needMoreObservation(missing: .zone))
-        #expect((result.extrapolationLever ?? 0) > ParkingTuning.extrapolationLeverLimit)
+        let far = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 3)
+        let near = estimator.estimate(observations: observations, targetZoneIndex: 2, targetNumber: 4)
+        #expect(far.stage == .gridGuidance)
+        #expect(far.targetPosition != nil)
+        #expect(far.uncertainty.fit > near.uncertainty.fit)   // 7스텝 외삽 vs 범위 내
+        #expect(far.confidencePercent < near.confidencePercent)
+        #expect((far.extrapolationLever ?? 0) > ParkingTuning.extrapolationLeverLimit)
     }
 
-    @Test func leverGuardAllowsInterpolation() {
-        // 관측 범위 안(또는 근접) 목표는 통과
+    @Test func interpolationKeepsUncertaintyLow() {
         var estimator = GridEstimator()
         let observations = [
             obs("A-1", zone: 0, num: 1, 3, 0),
@@ -221,18 +235,42 @@ struct GridEstimatorTests {
         ]
         let result = estimator.estimate(observations: observations, targetZoneIndex: 1, targetNumber: 2)
         #expect(result.stage == .gridGuidance)
-        #expect((result.extrapolationLever ?? .infinity) <= ParkingTuning.extrapolationLeverLimit)
+        #expect(result.uncertainty.radius < 1.0)   // 범위 내 보간 — 외삽 누적 없음
     }
 
-    @Test func stepPriorRejectsAbsurdAxis() {
-        // G2: 한 스텝 21.5m 축(J22 세션의 오염 축) 기각 — 다중 표지판 재앵커 왜곡 차단
+    @Test func absurdStepIsBlockedButBoundaryIsPenalizedOnly() {
+        // v3(FR-105): 위생 검사는 부조리(25m 초과)만 차단하고, 실측 경계(21.5m)는 감점으로 처리.
+        // 정상 피치 16.9m를 기각하던 좁은 상한(15m)이 260919 가동률 0%의 원인 중 하나였다
         var estimator = GridEstimator()
-        let observations = [
-            obs("J-23", zone: 9, num: 23, 0, 0),
-            obs("J-24", zone: 9, num: 24, 5.3, -20.8),   // |step| = 21.5m
-        ]
-        let result = estimator.estimate(observations: observations, targetZoneIndex: 9, targetNumber: 22)
-        #expect(result.stage == .needMoreObservation(missing: .number))
+        let absurd = estimator.estimate(
+            observations: [
+                obs("J-23", zone: 9, num: 23, 0, 0),
+                obs("J-24", zone: 9, num: 24, 0, -30),   // |step| = 30m — 부조리
+            ],
+            targetZoneIndex: 9, targetNumber: 22
+        )
+        #expect(absurd.stage == .needMoreObservation(missing: .number))
+
+        var estimator2 = GridEstimator()
+        let boundary = estimator2.estimate(
+            observations: [
+                obs("J-23", zone: 9, num: 23, 0, 0),
+                obs("J-24", zone: 9, num: 24, 5.3, -20.8),   // |step| = 21.5m — 감점 대상
+            ],
+            targetZoneIndex: 9, targetNumber: 22
+        )
+        #expect(boundary.stage == .axisGuidance(axis: .number))
+        #expect(boundary.confidencePercent < ParkingTuning.confidencePercentSolidThreshold)
+
+        var estimator3 = GridEstimator()
+        let normalPitch = estimator3.estimate(
+            observations: [
+                obs("H-4", zone: 7, num: 4, 0, 0),
+                obs("J-4", zone: 9, num: 4, 0, 33),   // 16.5m/스텝 — 260919 실측 정상 피치
+            ],
+            targetZoneIndex: 9, targetNumber: 4
+        )
+        #expect(normalPitch.stage == .axisGuidance(axis: .zone))   // 구 상한 15m에서는 기각되던 격자
     }
 
     @Test func stepPriorAllowsNormalPitch() {
@@ -256,24 +294,46 @@ struct GridEstimatorTests {
         ]
         let result = estimator.estimate(observations: three, targetZoneIndex: 1, targetNumber: 2)
         #expect(result.residualRMS < 1e-9)        // 항등 0 확인 (부동소수)
-        #expect(result.confidence == .medium)     // 잔차 0이 high로 이어지지 않음
+        // FR-104①: 무정보 잔차는 가산이 아니라 상한 하향으로 처리 — 최상위 구간 진입 불가
+        #expect(result.confidencePercent < 70)
     }
 
-    // MARK: - 관측 신선도 (260801: 드리프트 낡은 좌표 오염)
+    // MARK: - 관측 노화 → 불확실성 팽창 (v3 FR-108, 구 신선도 제외의 대체)
 
-    @Test func staleObservationsAreExcludedFromFitting() {
+    @Test func staleObservationsExpandUncertaintyInsteadOfBeingExcluded() {
         var estimator = GridEstimator()
-        // 신선 2개(같은 번호·다른 구역) + 낡은 1개 — 낡은 관측이 제외되면 3점 아핀이 아니라 구역축 1D
-        let mixed = [
-            obs("D-3", zone: 3, num: 3, 22, 21),
-            obs("E-3", zone: 4, num: 3, 11, 9),
-            GridObservation(codeRaw: "F-4", zoneIndex: 5, numberValue: 4,
-                            position: SIMD2(3.6, -5.7), ageSeconds: 40),   // 임계 30s 초과
+        let fresh = [
+            obs("A-1", zone: 0, num: 1, 3, 0),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
         ]
-        let result = estimator.estimate(observations: mixed, targetZoneIndex: 3, targetNumber: 5)
-        #expect(result.observationCount == 2)
-        // 같은 번호(3) 쌍 → 구역축 확보, 목표 번호(5)는 축 밖 → 번호축 추가 관측 안내
-        #expect(result.stage == .needMoreObservation(missing: .number))
+        let aged = [
+            GridObservation(codeRaw: "A-1", zoneIndex: 0, numberValue: 1, position: SIMD2(3, 0), ageSeconds: 60),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+        ]
+        let freshResult = estimator.estimate(observations: fresh, targetZoneIndex: 1, targetNumber: 2)
+        var estimator2 = GridEstimator()
+        let agedResult = estimator2.estimate(observations: aged, targetZoneIndex: 1, targetNumber: 2)
+
+        // 제외되지 않는다 — 관측 수가 유지되고 점추정도 같다 (팽창은 점추정을 오염시키지 않는다)
+        #expect(agedResult.observationCount == 3)
+        #expect(agedResult.stage == .gridGuidance)
+        #expect(agedResult.targetPosition == freshResult.targetPosition)
+        // 대신 불확실성이 커지고 백분율이 낮아진다
+        #expect(agedResult.uncertainty.expansion > freshResult.uncertainty.expansion)
+        #expect(agedResult.confidencePercent < freshResult.confidencePercent)
+    }
+
+    @Test func expansionIsCapped() {
+        var estimator = GridEstimator()
+        let veryOld = [
+            GridObservation(codeRaw: "A-1", zoneIndex: 0, numberValue: 1, position: SIMD2(3, 0), ageSeconds: 100_000),
+            obs("A-2", zone: 0, num: 2, 6, 0),
+            obs("B-1", zone: 1, num: 1, 3, 5),
+        ]
+        let result = estimator.estimate(observations: veryOld, targetZoneIndex: 1, targetNumber: 2)
+        #expect(result.uncertainty.expansion == ParkingTuning.expansionMaxMeters)
     }
 
     @Test func freshObservationsAreNotExcluded() {

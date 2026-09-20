@@ -74,4 +74,45 @@ enum ParkingTuning {
     /// 1D 직선은 2점 정확결정계라 3점부터 의미를 가짐
     static let residualInformativeMinCountAffine = 4
     static let residualInformativeMinCount1D = 3
+
+    // MARK: - v3 점진 정확도 (spec 006 — 260919 로그·PR#58 교차 리뷰)
+
+    /// FR-101 측방 각도 보장 임계(rad). asin(U/d⁻) ≤ 이 값일 때만 화살표.
+    /// 초기값 30°, 도착 성공 세션 참값으로 캘리브레이션 (SC-102: 캘리브레이션·검증 세션 분리)
+    static let guaranteeMaxAngle: Double = 30.0 * .pi / 180.0
+
+    /// 미지 축 피치의 보수적 사전값(m/스텝) — 등방성 가정 금지(FR-101).
+    /// 축 역할별로 다르다: 구역축은 통로 폭 규모(실측 11.5~16.9), 번호축은 주차면 규모(실측 4.6~10.5).
+    /// 하나의 전역 상한(17m)을 쓰면 번호축이 미지일 때 보장이 35m 밖에서 끊겨 화살표가 과도하게 사라진다 —
+    /// 등방성을 깬 바로 그 실측(구역 16.4 vs 번호 4.8)이 축별 사전값을 쓰라는 근거다.
+    static let unknownZoneAxisPitchPrior = 17.0
+    static let unknownNumberAxisPitchPrior = 12.0
+
+    /// 외삽 1스텝당 누적되는 격자 불규칙성 비율 — 잔차가 못 보는 계통 오차.
+    /// 잔차×레버만 쓰면 J21(잔차 0.10m·6스텝 외삽)의 위험이 0.5m로 과소평가된다
+    static let modelErrorPerStepRatio = 0.15
+
+    /// FR-105 위생 검사 — 명백한 부조리만 차단(안전망 아님, 차단 책임은 FR-101)
+    static let axisStepAbsurdMin = 0.5
+    static let axisStepAbsurdMax = 25.0
+    /// 정상 범위(실측) — 벗어나면 차단이 아니라 백분율 감점
+    static let axisStepNormalMin = 1.5
+    static let axisStepNormalMax = 17.0
+
+    /// FR-106 표시 거리 상대 기준 — 랜드마크 간 최대 이격(관측 스팬)의 배수.
+    /// 기기 이동 경로는 분모에 넣지 않는다(걸을수록 관용이 커지는 역스케일링 방지)
+    static let displayDistanceSpanFactor = 1.2
+
+    /// FR-108 불확실성 팽창 — 관측 노화 m/s와 상한. 제외 대신 팽창(점추정은 오염하지 않음)
+    static let expansionMetersPerSecond = 0.05
+    static let expansionMaxMeters = 12.0
+
+    /// FR-103 백분율 — 상한 95(100 미표시), 실선·거리 표시 전환점, 경계 깜빡임 억제 이력
+    static let confidencePercentCap = 95
+    static let confidencePercentFloor = 5
+    static let confidencePercentSolidThreshold = 45
+    static let confidencePercentHysteresis = 5
+
+    /// FR-104 관측 수 게이트 — 상위 구간 진입 최소 채택 관측 수
+    static let observationsForSolid = 3
 }

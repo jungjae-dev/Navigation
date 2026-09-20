@@ -32,12 +32,31 @@ struct GridEstimate: Equatable, Sendable {
         static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
     }
 
+    /// 목표 점추정의 측방 불확실성 (FR-101) — 화살표 표시 보장의 입력.
+    /// 세 성분을 분리해 두는 이유: 사용자 안내 문구(무엇을 비추면 줄어드는가)와 디버그가 성분별로 달라진다.
+    struct Uncertainty: Equatable, Sendable {
+        /// 미지 축 오프셋 — 목표가 관측된 축 밖일 때 (스텝 수 × 축 피치). 대칭이므로 점추정은 이동하지 않는다
+        var unknownAxis: Double = 0
+        /// 적합·외삽 불확실성 — 잔차×레버 + 스텝당 모델 오차×외삽 스텝. 두 축이 성립해도 0이 아니다
+        var fit: Double = 0
+        /// 관측 노화 팽창 (FR-108)
+        var expansion: Double = 0
+
+        /// 등방 근사 반경(m) — 보수적으로 합산
+        var radius: Double { unknownAxis + fit + expansion }
+    }
+
     let stage: Stage
     /// 목표 외삽 위치 (xz) — axisGuidance/gridGuidance에서만 non-nil
     let targetPosition: SIMD2<Double>?
     let residualRMS: Double
     let confidence: Confidence
     let observationCount: Int
+    /// FR-103 표시 백분율 (5~95) — 연속 점수. confidence 3단계는 구 로그·도구 호환용으로 병존
+    var confidencePercent: Int = 0
+    var uncertainty: Uncertainty = .init()
+    /// FR-106 기준량 — 랜드마크 간 최대 이격(m). 기기 경로는 포함하지 않는다
+    var observationSpan: Double = 0
     /// 디버그 시각화용 피팅 모델 (DR-001) — 관측 인덱스의 예측 위치 재계산에 사용
     var origin: SIMD2<Double>? = nil
     var zoneVec: SIMD2<Double>? = nil
@@ -91,6 +110,11 @@ struct GridEstimator: Sendable {
     /// 저장된 인접 코드 목격 → 신뢰도 상승 (FR-013a)
     private(set) var neighborSighted = false
 
+    /// 이번 추정 회차의 파생량 (makeResult가 읽는다) — 순수 함수성 유지를 위해 estimate 진입 시 매번 재계산
+    private var expansion: Double = 0
+    private var span: Double = 0
+    private var referencePitch: Double = 0
+
     // MARK: - Update
 
     mutating func markNeighborSighted() {
@@ -110,8 +134,12 @@ struct GridEstimator: Sendable {
         targetZoneIndex: Int?,
         targetNumber: Int?
     ) -> GridEstimate {
-        // 신선도 필터: 오래 재관측 안 된 좌표는 드리프트 오염 가능 → 제외 (260801 로그 반영)
-        let usable = observations.filter { $0.ageSeconds <= ParkingTuning.observationStaleAfter }
+        // v3(FR-108): 오래된 관측을 제외하지 않는다 — 제외는 260919에서 관측 전멸을 낳았다.
+        // 대신 노화를 불확실성 팽창으로 흡수하고 점추정에는 손대지 않는다.
+        let usable = observations
+        expansion = Self.expansion(of: usable)
+        span = Self.span(of: usable)
+        referencePitch = 0
 
         guard usable.count >= 2 else {
             return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
@@ -120,6 +148,7 @@ struct GridEstimator: Sendable {
         // 2D 아핀 시도 (비공선 3개 이상) → 실패 시 1D 축으로 단계 하강
         if usable.count >= 3,
            let (affine, normalMatrix) = fitAffine(usable) {
+            referencePitch = affine.spacingEstimate
             let residual = affine.residualRMS(over: usable)
             // 잔차는 4점부터만 의미(3점=정확결정계, 잔차 항등 0 — 설계 개정 v2)
             let residualInformative = usable.count >= ParkingTuning.residualInformativeMinCountAffine
@@ -137,30 +166,32 @@ struct GridEstimator: Sendable {
                                   residualInformative: residualInformative)
             }
 
-            // G2 축 간격 사전확률 — 물리적으로 부조리한 축(21.5m/스텝 등) 기각
-            if !stepMagnitudeValid(affine.zoneVec) {
+            // FR-105 위생 검사 — 명백한 부조리만 차단(정상 16.9m/스텝을 기각하던 좁은 상한 폐기)
+            if Self.stepAbsurd(affine.zoneVec) {
                 return makeResult(stage: .needMoreObservation(missing: .zone), target: nil,
                                   residual: residual, count: usable.count,
                                   residualInformative: residualInformative)
             }
-            if !stepMagnitudeValid(affine.numVec) {
+            if Self.stepAbsurd(affine.numVec) {
                 return makeResult(stage: .needMoreObservation(missing: .number), target: nil,
                                   residual: residual, count: usable.count,
                                   residualInformative: residualInformative)
             }
 
-            // G1 외삽 레버 상한 — 관측 배치에서 너무 먼 외삽은 화살표 대신 추가 관측 안내
+            // FR-101: 레버는 차단 기준이 아니라 측방 불확실성의 성분이 된다.
+            // 잔차×레버만으로는 부족하다 — J21은 잔차 0.10m·레버 7.0이라 0.7m로 과소평가되지만
+            // 실제 위험은 6스텝 외삽에 누적되는 격자 불규칙성이다(modelErrorPerStepRatio).
             let lever = Self.affineLever(normalMatrix, targetZone: zi, targetNumber: n)
-            if let lever, lever > ParkingTuning.extrapolationLeverLimit {
-                return makeResult(stage: .needMoreObservation(missing: dominantMissingAxis(usable, zi: zi, n: n)),
-                                  target: nil, residual: residual, count: usable.count,
-                                  residualInformative: residualInformative, lever: lever)
-            }
+            let steps = Self.extrapolationSteps(usable, targetZone: zi, targetNumber: n)
+            let fitUncertainty = residual * (lever ?? 1.0)
+                + ParkingTuning.modelErrorPerStepRatio * affine.spacingEstimate * steps
 
             let target = affine.predict(zoneIndex: zi, number: n)
             return makeResult(stage: .gridGuidance, target: target, residual: residual, count: usable.count,
                               origin: affine.origin, zoneVec: affine.zoneVec, numVec: affine.numVec,
-                              residualInformative: residualInformative, lever: lever)
+                              residualInformative: residualInformative, lever: lever,
+                              uncertainty: .init(unknownAxis: 0, fit: fitUncertainty, expansion: expansion),
+                              stepNormal: Self.stepNormal(affine.zoneVec) && Self.stepNormal(affine.numVec))
         }
 
         return estimate1D(usable, targetZoneIndex: targetZoneIndex, targetNumber: targetNumber)
@@ -181,6 +212,7 @@ struct GridEstimator: Sendable {
             guard let fit = fitLine(usable, index: { $0.numberValue }) else {
                 return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
             }
+            referencePitch = simd_length(fit.direction)
             // 1D는 2점=정확결정계 — 잔차는 3점부터 의미 (설계 개정 v2)
             let residualInformative = usable.count >= ParkingTuning.residualInformativeMinCount1D
             if residualInformative {
@@ -190,34 +222,34 @@ struct GridEstimator: Sendable {
                 return makeResult(stage: .degraded, target: nil, residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
-            // 목표가 이 축 위인가 — 구역이 다르면 구역축 미지 (FR-009b)
-            let observedZone = zones.first
-            if let targetZone = targetZoneIndex, let obsZone = observedZone, targetZone != obsZone {
-                return makeResult(stage: .needMoreObservation(missing: .zone), target: nil,
-                                  residual: fit.residualRMS, count: usable.count,
-                                  residualInformative: residualInformative)
-            }
             guard let n = targetNumber else {
                 return makeResult(stage: .needMoreObservation(missing: .number), target: nil,
                                   residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
-            // G2 + G1 (1D)
-            if !stepMagnitudeValid(fit.direction) {
+            if Self.stepAbsurd(fit.direction) {
                 return makeResult(stage: .needMoreObservation(missing: .number), target: nil,
                                   residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
+            // FR-109: 목표 구역이 관측 구역과 달라도 안내를 포기하지 않는다.
+            // 미지 구역축 오프셋은 대칭 불확실성으로 표현되어 점추정을 이동시키지 않는다(FR-101).
+            let zoneOffsetSteps = Self.offsetSteps(target: targetZoneIndex, observed: zones.first)
             let lever = fit.lever(at: Double(n))
-            if lever > ParkingTuning.extrapolationLeverLimit {
-                return makeResult(stage: .needMoreObservation(missing: .number), target: nil,
-                                  residual: fit.residualRMS, count: usable.count,
-                                  residualInformative: residualInformative, lever: lever)
-            }
+            let fitUncertainty = fit.residualRMS * lever
+                + ParkingTuning.modelErrorPerStepRatio * simd_length(fit.direction)
+                    * Self.extrapolationSteps1D(indices: usable.compactMap(\.numberValue), target: n)
             return makeResult(stage: .axisGuidance(axis: .number), target: fit.predict(Double(n)),
                               residual: fit.residualRMS, count: usable.count,
                               origin: fit.base - fit.meanIndex * fit.direction, numVec: fit.direction,
-                              residualInformative: residualInformative, lever: lever)
+                              residualInformative: residualInformative, lever: lever,
+                              uncertainty: .init(
+                                  // 미지 축 = 구역축
+                                  unknownAxis: zoneOffsetSteps * ParkingTuning.unknownZoneAxisPitchPrior,
+                                  fit: fitUncertainty,
+                                  expansion: expansion
+                              ),
+                              stepNormal: Self.stepNormal(fit.direction))
         }
 
         // 같은 번호, 구역만 다름 → 구역축
@@ -225,6 +257,7 @@ struct GridEstimator: Sendable {
             guard let fit = fitLine(usable, index: { $0.zoneIndex }) else {
                 return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
             }
+            referencePitch = simd_length(fit.direction)
             let residualInformative = usable.count >= ParkingTuning.residualInformativeMinCount1D
             if residualInformative {
                 updateDegradation(residual: fit.residualRMS, spacing: simd_length(fit.direction))
@@ -233,32 +266,33 @@ struct GridEstimator: Sendable {
                 return makeResult(stage: .degraded, target: nil, residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
-            let observedNumber = numbers.first
-            if let targetNum = targetNumber, let obsNum = observedNumber, targetNum != obsNum {
-                return makeResult(stage: .needMoreObservation(missing: .number), target: nil,
-                                  residual: fit.residualRMS, count: usable.count,
-                                  residualInformative: residualInformative)
-            }
             guard let zi = targetZoneIndex else {
                 return makeResult(stage: .needMoreObservation(missing: .zone), target: nil,
                                   residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
-            if !stepMagnitudeValid(fit.direction) {
+            if Self.stepAbsurd(fit.direction) {
                 return makeResult(stage: .needMoreObservation(missing: .zone), target: nil,
                                   residual: fit.residualRMS, count: usable.count,
                                   residualInformative: residualInformative)
             }
+            // FR-109: 목표 번호가 관측 번호와 달라도 안내한다 (260919 J5 vs 관측 4행 사례)
+            let numberOffsetSteps = Self.offsetSteps(target: targetNumber, observed: numbers.first)
             let lever = fit.lever(at: Double(zi))
-            if lever > ParkingTuning.extrapolationLeverLimit {
-                return makeResult(stage: .needMoreObservation(missing: .zone), target: nil,
-                                  residual: fit.residualRMS, count: usable.count,
-                                  residualInformative: residualInformative, lever: lever)
-            }
+            let fitUncertainty = fit.residualRMS * lever
+                + ParkingTuning.modelErrorPerStepRatio * simd_length(fit.direction)
+                    * Self.extrapolationSteps1D(indices: usable.compactMap(\.zoneIndex), target: zi)
             return makeResult(stage: .axisGuidance(axis: .zone), target: fit.predict(Double(zi)),
                               residual: fit.residualRMS, count: usable.count,
                               origin: fit.base - fit.meanIndex * fit.direction, zoneVec: fit.direction,
-                              residualInformative: residualInformative, lever: lever)
+                              residualInformative: residualInformative, lever: lever,
+                              uncertainty: .init(
+                                  // 미지 축 = 번호축 (주차면 규모 — 구역축보다 세밀)
+                                  unknownAxis: numberOffsetSteps * ParkingTuning.unknownNumberAxisPitchPrior,
+                                  fit: fitUncertainty,
+                                  expansion: expansion
+                              ),
+                              stepNormal: Self.stepNormal(fit.direction))
         }
 
         // 구역·번호 모두 다름(혼합축) — 변위 분해 불가 (FR-009c)
@@ -293,14 +327,23 @@ struct GridEstimator: Sendable {
         zoneVec: SIMD2<Double>? = nil,
         numVec: SIMD2<Double>? = nil,
         residualInformative: Bool = false,
-        lever: Double? = nil
+        lever: Double? = nil,
+        uncertainty: GridEstimate.Uncertainty = .init(),
+        stepNormal: Bool = true
     ) -> GridEstimate {
-        GridEstimate(
+        let percent = confidencePercent(
+            residual: residual, count: count, residualInformative: residualInformative,
+            uncertainty: uncertainty, hasTarget: target != nil, stepNormal: stepNormal
+        )
+        return GridEstimate(
             stage: stage,
             targetPosition: target,
             residualRMS: residual,
-            confidence: confidence(residual: residual, count: count, residualInformative: residualInformative),
+            confidence: Self.level(forPercent: percent),
             observationCount: count,
+            confidencePercent: percent,
+            uncertainty: uncertainty,
+            observationSpan: span,
             origin: origin,
             zoneVec: zoneVec,
             numVec: numVec,
@@ -308,40 +351,106 @@ struct GridEstimator: Sendable {
         )
     }
 
-    private func confidence(residual: Double, count: Int, residualInformative: Bool) -> GridEstimate.Confidence {
-        // 잔차는 정확결정계(아핀 3점·1D 2점)에서 항등 0 — informative일 때만 품질 신호 (설계 개정 v2)
-        var level: GridEstimate.Confidence
-        if count >= ParkingTuning.minObservationsForHighConfidence && residualInformative && residual < 1.0 {
-            level = .high
-        } else if count >= 3 || (residualInformative && residual < 2.0) {
-            level = .medium
+    /// FR-103 연속 점수 → 백분율. 상한 95(100 미표시).
+    /// 설계 의도: 관측 수가 바닥을 정하고, 불확실성 비율이 그것을 깎고, 잔차·인접이 보정한다.
+    private func confidencePercent(
+        residual: Double,
+        count: Int,
+        residualInformative: Bool,
+        uncertainty: GridEstimate.Uncertainty,
+        hasTarget: Bool,
+        stepNormal: Bool
+    ) -> Int {
+        guard hasTarget else { return ParkingTuning.confidencePercentFloor }
+
+        // ① 관측 수 바닥
+        var score: Double
+        switch count {
+        case ...2: score = 0.25
+        case 3: score = 0.45
+        case 4: score = 0.55
+        default: score = 0.65
+        }
+
+        // ② 잔차 — 정확결정계에서는 항등 0이라 무정보(FR-104①). 가산하지 않고 상한만 낮춘다
+        var cap = Double(ParkingTuning.confidencePercentCap) / 100.0
+        if residualInformative {
+            if residual < 1.0 { score += 0.15 }
+            else if residual < 2.0 { score += 0.05 }
+            else { score -= 0.10 }
         } else {
-            level = .low
+            cap = min(cap, 0.60)   // 잔차가 무정보면 중간 구간 위로 올라갈 수 없다
         }
-        // 과신 방지 상한(FR-010, 260801)은 위 high 조건의 count 최소치가 이미 강제한다 — 별도 재검사는 도달 불가라 제거 (PR#49 리뷰).
-        // 인접 목격 부스트(FR-013a)는 격자 품질과 독립적인 "차 근처" 신호라 기본 레벨 판정 이후에 더한다.
-        if neighborSighted, level < .high {
-            level = GridEstimate.Confidence(rawValue: level.rawValue + 1) ?? .high
-        }
-        return level
+
+        // ③ 인접 코드 목격 — 격자 품질과 독립인 "차 근처" 신호 (005 FR-013a)
+        if neighborSighted { score += 0.10 }
+
+        // ④ 불확실성 비율 — 스텝 피치 대비 U가 클수록 감쇠. U=피치면 절반
+        let pitch = max(referencePitch, 1.0)
+        score *= 1.0 / (1.0 + uncertainty.radius / pitch)
+
+        // ⑤ 축 간격이 실측 정상 범위 밖이면 감점(차단은 FR-105 부조리 범위에서만)
+        if !stepNormal { score *= 0.7 }
+
+        let clamped = min(cap, max(Double(ParkingTuning.confidencePercentFloor) / 100.0, score))
+        return Int((clamped * 100).rounded())
     }
 
-    // MARK: - 3중 가드 헬퍼 (설계 개정 v2)
+    /// 구 3단계 신뢰도 — 로그·도구 호환용 파생값 (FR-115)
+    private static func level(forPercent percent: Int) -> GridEstimate.Confidence {
+        if percent >= 70 { return .high }
+        if percent >= ParkingTuning.confidencePercentSolidThreshold { return .medium }
+        return .low
+    }
 
-    /// G2: 인덱스 1스텝당 변위가 물리적 타당 범위인가
-    private func stepMagnitudeValid(_ step: SIMD2<Double>) -> Bool {
+    // MARK: - v3 헬퍼 (FR-101/105/108)
+
+    /// FR-105 위생 검사 — 명백한 부조리(안전망 아님)
+    private static func stepAbsurd(_ step: SIMD2<Double>) -> Bool {
         let magnitude = simd_length(step)
-        return magnitude >= ParkingTuning.axisStepMinMeters
-            && magnitude <= ParkingTuning.axisStepMaxMeters
+        return magnitude < ParkingTuning.axisStepAbsurdMin || magnitude > ParkingTuning.axisStepAbsurdMax
     }
 
-    /// G1 위반 시 어느 축의 관측이 부족한가 — 목표 인덱스가 관측 범위를 더 많이 벗어난 축
-    private func dominantMissingAxis(_ usable: [GridObservation], zi: Int, n: Int) -> GridEstimate.Axis {
-        let zones = usable.compactMap(\.zoneIndex)
-        let numbers = usable.compactMap(\.numberValue)
-        let zoneOut = zones.isEmpty ? 0 : max(0, max(zones.min()! - zi, zi - zones.max()!))
-        let numberOut = numbers.isEmpty ? 0 : max(0, max(numbers.min()! - n, n - numbers.max()!))
-        return zoneOut >= numberOut ? .zone : .number
+    /// 실측 정상 범위 — 벗어나면 백분율 감점
+    private static func stepNormal(_ step: SIMD2<Double>) -> Bool {
+        let magnitude = simd_length(step)
+        return magnitude >= ParkingTuning.axisStepNormalMin && magnitude <= ParkingTuning.axisStepNormalMax
+    }
+
+    /// 목표가 관측 축 밖으로 벗어난 스텝 수 (미지 축 오프셋)
+    private static func offsetSteps(target: Int?, observed: Int?) -> Double {
+        guard let target, let observed else { return 0 }
+        return Double(abs(target - observed))
+    }
+
+    /// 관측 인덱스 범위 밖으로 외삽한 스텝 수 (1D)
+    private static func extrapolationSteps1D(indices: [Int], target: Int) -> Double {
+        guard let lo = indices.min(), let hi = indices.max() else { return 0 }
+        return Double(max(0, max(lo - target, target - hi)))
+    }
+
+    /// 두 축 합산 외삽 스텝 수 (아핀)
+    private static func extrapolationSteps(_ usable: [GridObservation], targetZone: Int, targetNumber: Int) -> Double {
+        extrapolationSteps1D(indices: usable.compactMap(\.zoneIndex), target: targetZone)
+            + extrapolationSteps1D(indices: usable.compactMap(\.numberValue), target: targetNumber)
+    }
+
+    /// FR-108 팽창 — 가장 오래된 관측의 노화를 기준으로(보수적), 상한 적용
+    private static func expansion(of observations: [GridObservation]) -> Double {
+        guard let oldest = observations.map(\.ageSeconds).max(), oldest > 0 else { return 0 }
+        return min(ParkingTuning.expansionMaxMeters, oldest * ParkingTuning.expansionMetersPerSecond)
+    }
+
+    /// FR-106 기준량 — 랜드마크 간 최대 이격
+    private static func span(of observations: [GridObservation]) -> Double {
+        guard observations.count >= 2 else { return 0 }
+        var maximum = 0.0
+        for i in 0..<observations.count {
+            for j in (i + 1)..<observations.count {
+                maximum = max(maximum, simd_distance(observations[i].position, observations[j].position))
+            }
+        }
+        return maximum
     }
 
     /// G1: 아핀 외삽 레버 √(aᵀM⁻¹a), a = [1, 목표구역, 목표번호]

@@ -38,7 +38,8 @@ final class ParkingARViewModel {
     enum GuidanceState: Equatable {
         case searching
         case needMore(message: String)
-        case guiding(stageLabel: String, arrowRadians: Double, distanceMeters: Double, confidence: GridEstimate.Confidence)
+        /// distanceMeters는 표시 가능할 때만 non-nil (FR-106 — 낮은 확신에서 정밀해 보이는 숫자 금지)
+        case guiding(stageLabel: String, arrowRadians: Double, distanceMeters: Double?, confidencePercent: Int)
         case degraded(targetCode: String, hint: String?)
         case arrived
     }
@@ -511,6 +512,13 @@ final class ParkingARViewModel {
         }
     }
 
+    /// FR-110: 힌트(어디쯤인가)와 행동 지시(무엇을 비추면 좋아지는가)를 한 자리에서 함께 전달.
+    /// 260919에서는 힌트가 존재하면 축 지시가 영영 표시되지 않아 사용자가 개선 방법을 알 수 없었다.
+    private static func combined(hint: String?, action: String) -> String {
+        guard let hint, !hint.isEmpty else { return action }
+        return "\(hint)\n\(action)"
+    }
+
     private func publishState(record: ParkingSessionRecord) {
         guard guidanceState.value != .arrived, let estimate = lastEstimate else { return }
 
@@ -520,10 +528,13 @@ final class ParkingARViewModel {
             // 격자 불가 동안에도 확정 관측 기반 그라디언트 힌트로 안내 (위치 무관, 260911)
             newState = lastGradientMessage.map { .needMore(message: $0) } ?? .searching
         case .needMoreObservation(let missing):
-            let axisMessage = missing == .zone
-                ? "다른 구역의 기둥을 비춰주세요"
-                : "같은 구역의 다른 번호 기둥을 비춰주세요"
-            newState = .needMore(message: lastGradientMessage ?? axisMessage)
+            // FR-110: 그라디언트 힌트가 축 행동 지시를 가리지 않는다 — 둘을 함께 전달
+            newState = .needMore(message: Self.combined(
+                hint: lastGradientMessage,
+                action: missing == .zone
+                    ? "다른 구역의 기둥을 비춰주세요"
+                    : "같은 구역의 다른 번호 기둥을 비춰주세요"
+            ))
         case .degraded:
             newState = .degraded(targetCode: record.targetCodeRaw, hint: lastGradientMessage)
         case .axisGuidance, .gridGuidance:
@@ -533,37 +544,49 @@ final class ParkingARViewModel {
                 newState = .searching
                 break
             }
-            let toTarget = target - devicePos
-            let distance = simd_length(toTarget)
-            // G3 표시 거리 상한 — 주차장 물리 규모를 넘는 목표는 화살표 대신 힌트 (설계 개정 v2, J21 102m 차단)
-            if distance > ParkingTuning.maxGuidanceDisplayDistance {
-                newState = .needMore(message: lastGradientMessage
-                    ?? "목표가 아직 멀어요 — 가는 길의 기둥을 비춰주세요")
+            // FR-101: 측방 각도 보장이 성립할 때만 화살표. 무너지면 근접 모드로 넘긴다(FR-102)
+            let geometry = GuidanceGeometry.evaluate(
+                target: target,
+                uncertainty: estimate.uncertainty,
+                devicePosition: devicePos,
+                deviceForward: forward,
+                observationSpan: estimate.observationSpan,
+                confidencePercent: estimate.confidencePercent
+            )
+            guard geometry.isDirectionGuaranteed else {
+                newState = .needMore(message: Self.combined(
+                    hint: lastGradientMessage,
+                    action: "거의 다 온 것 같아요 — 주변 기둥 번호로 확인해보세요"
+                ))
                 break
             }
-            let direction = distance > 1e-6 ? toTarget / distance : forward
-            // 부호 규약: 전방 기준 시계방향(+) — 화면 회전값으로 직접 사용. 현장 검증(D2) 대상
-            let arrow = atan2(
-                forward.x * direction.y - forward.y * direction.x,
-                simd_dot(forward, direction)
-            )
             let label = estimate.stage == .gridGuidance ? "격자 안내" : "축 안내"
             newState = .guiding(
                 stageLabel: label,
-                arrowRadians: arrow,
-                distanceMeters: distance,
-                confidence: estimate.confidence
+                arrowRadians: geometry.arrowRadians,
+                distanceMeters: geometry.isDistanceDisplayable ? geometry.distance : nil,
+                confidencePercent: estimate.confidencePercent
             )
         }
 
         logTransitionIfNeeded(to: newState)
-        if case .guiding(_, let arrow, let distance, let conf) = newState {
-            recorder?.guidanceShown(
-                state: lastStateKey,
-                arrowDegrees: arrow * 180 / .pi,
-                distanceMeters: distance,
-                confidence: conf.rawValue
-            )
+        // FR-115: 화살표 상태뿐 아니라 모든 안내 상태를 기록 — 힌트가 실제 무엇을 표시했는지 로그에 남긴다
+        let percent = lastEstimate?.confidencePercent
+        let legacyConfidence = lastEstimate?.confidence.rawValue
+        switch newState {
+        case .guiding(_, let arrow, let distance, let shownPercent):
+            recorder?.guidanceShown(state: lastStateKey, arrowDegrees: arrow * 180 / .pi,
+                                    distanceMeters: distance, confidence: legacyConfidence,
+                                    percent: shownPercent, message: nil)
+        case .needMore(let message):
+            recorder?.guidanceShown(state: lastStateKey, arrowDegrees: nil, distanceMeters: nil,
+                                    confidence: legacyConfidence, percent: percent, message: message)
+        case .degraded(_, let hint):
+            recorder?.guidanceShown(state: lastStateKey, arrowDegrees: nil, distanceMeters: nil,
+                                    confidence: legacyConfidence, percent: percent, message: hint)
+        case .searching, .arrived:
+            recorder?.guidanceShown(state: lastStateKey, arrowDegrees: nil, distanceMeters: nil,
+                                    confidence: legacyConfidence, percent: percent, message: nil)
         }
         if newState != guidanceState.value {
             guidanceState.send(newState)
