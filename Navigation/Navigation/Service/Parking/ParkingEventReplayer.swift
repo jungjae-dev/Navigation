@@ -27,8 +27,11 @@ struct ParkingEventReplayer {
         var maxPercentWhenShown = 0
         /// 화살표 표시 순간의 표시 거리 최대치(m)
         var maxDistanceWhenShown = 0.0
-        /// 화살표 표시 순간의 관측 스팬 최소치(m) — 거리/스팬 비율 회귀 감시용
+        /// 화살표 표시 순간의 관측 스팬 최소치(m) — 진단용
         var minSpanWhenShown = Double.infinity
+        /// 화살표 표시 순간의 (표시 거리 / 관측 스팬) 최대 비율 — **같은 프레임 안에서** 계산.
+        /// 최대거리와 최소스팬을 프레임을 넘나들며 비교하면 실제 위반이 없어도 초과로 보인다
+        var maxDistanceSpanRatio = 0.0
 
         var isConsistent: Bool { mismatches.isEmpty }
         /// SC-101 화살표 가동률 — 세션 전체(포즈 이벤트) 기준
@@ -55,7 +58,8 @@ struct ParkingEventReplayer {
 
     static func replay(ndjson: String) throws -> ReplayResult {
         var estimator = GridEstimator()
-        var observations: [String: (parsed: ParsedCode, position: simd_float3?, hits: Int, positionUpdatedAt: Double?, ambiguous: Bool)] = [:]
+        // VM.Observation 패리티 — 같은 SignInstanceSet 타입을 쓴다 (FR-107)
+        var observations: [String: (parsed: ParsedCode, hits: Int, signs: SignInstanceSet)] = [:]
         var targetParsed: ParsedCode?
         var neighborRaws: Set<String> = []
         var sawSessionStart = false
@@ -90,21 +94,12 @@ struct ParkingEventReplayer {
                 let position: simd_float3? = (object["pos"] as? [Double]).flatMap { pos in
                     pos.count == 3 ? simd_float3(Float(pos[0]), Float(pos[1]), Float(pos[2])) : nil
                 }
-                let existing = observations[raw]
-                // VM.upsertObservation 패리티: 위치 점프 → 모호(다중 표지판) 플래그, 이후 좌표 동결
-                var ambiguous = existing?.ambiguous ?? false
-                var storedPosition = existing?.position
-                var storedPositionAt = existing?.positionUpdatedAt
+                // VM.upsertObservation 패리티: 좌표를 표지판 인스턴스로 분리 수용 (FR-107)
+                var signs = observations[raw]?.signs ?? SignInstanceSet()
                 if let position {
-                    if let old = storedPosition, !ambiguous,
-                       simd_length(position - old) > ParkingTuning.sameCodeJumpThreshold {
-                        ambiguous = true
-                    } else if !ambiguous {
-                        storedPosition = position
-                        storedPositionAt = eventTime
-                    }
+                    signs.add(position: SIMD2(Double(position.x), Double(position.z)), at: eventTime)
                 }
-                observations[raw] = (parsed, storedPosition, hit, storedPositionAt, ambiguous)
+                observations[raw] = (parsed, hit, signs)
 
                 // VM 패리티: 인접 목격 → 신뢰도 부스트, estimate 호출 이전에 (VM handleFindRecognition과 동일 순서)
                 if neighborRaws.contains(parsed.raw) {
@@ -112,32 +107,33 @@ struct ParkingEventReplayer {
                 }
 
                 // VM.runEstimate와 동일한 포함 규칙:
-                // 확정(hit≥2) + 위치 보유 + 격자 사용 가능 + 신선도 + 비모호 + 잘림 의심(진접두사) 제외
+                // 확정(hit≥2) + 채택 인스턴스 보유 + 격자 사용 가능 + 잘림 의심(진접두사) 제외.
+                // 다중 표지판은 제외가 아니라 인스턴스 후보로 넘긴다 (FR-107)
                 let confirmedRaws = Set(
                     observations.values.filter { $0.hits >= ParkingTuning.confirmHits }.map(\.parsed.raw)
                 )
-                let gridObservations = observations.values
-                    .filter { $0.hits >= ParkingTuning.confirmHits && !$0.ambiguous }
+                let candidates = observations.values
+                    .filter { $0.hits >= ParkingTuning.confirmHits }
                     .filter { entry in
                         !confirmedRaws.contains { other in
                             other != entry.parsed.raw && other.hasPrefix(entry.parsed.raw)
                         }
                     }
-                    .compactMap { entry -> GridObservation? in
-                        guard let p = entry.position, entry.parsed.isGridUsable else { return nil }
-                        return GridObservation(
+                    .compactMap { entry -> GridEstimator.GridCandidate? in
+                        guard entry.parsed.isGridUsable, !entry.signs.accepted.isEmpty else { return nil }
+                        return GridEstimator.GridCandidate(
                             codeRaw: entry.parsed.raw,
                             zoneIndex: entry.parsed.zoneIndex,
                             numberValue: entry.parsed.numberValue,
-                            position: SIMD2(Double(p.x), Double(p.z)),
-                            ageSeconds: entry.positionUpdatedAt.map { eventTime - $0 } ?? 0
+                            instances: entry.signs.accepted
                         )
                     }
                 // VM 패리티: 위치 있는 관측이 0개여도 추정 실행 (→ searching 기록됨)
                 lastRecomputed = estimator.estimate(
-                    observations: gridObservations,
+                    candidates: candidates,
                     targetZoneIndex: targetParsed?.zoneIndex,
-                    targetNumber: targetParsed?.numberValue
+                    targetNumber: targetParsed?.numberValue,
+                    nowSeconds: eventTime
                 )
                 result.recomputedCount += 1
 
@@ -207,6 +203,10 @@ struct ParkingEventReplayer {
                         result.maxPercentWhenShown = max(result.maxPercentWhenShown, geometry.displayPercent)
                         result.maxDistanceWhenShown = max(result.maxDistanceWhenShown, geometry.distance)
                         result.minSpanWhenShown = min(result.minSpanWhenShown, estimate.observationSpan)
+                        if estimate.observationSpan > 0 {
+                            result.maxDistanceSpanRatio = max(result.maxDistanceSpanRatio,
+                                                              geometry.distance / estimate.observationSpan)
+                        }
                         if geometry.isDistanceDisplayable { result.distanceShown += 1 }
                     }
                 }

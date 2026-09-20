@@ -135,6 +135,104 @@ struct GridEstimator: Sendable {
         observedNumberPitch = nil
     }
 
+    /// 다중 표지판 후보를 포함한 관측 집합 (FR-107) — 코드 하나가 복수 인스턴스를 가질 수 있다
+    struct GridCandidate: Equatable, Sendable {
+        let codeRaw: String
+        let zoneIndex: Int?
+        let numberValue: Int?
+        let instances: [SignInstance]
+    }
+
+    /// FR-107: 표지판 인스턴스를 **조합의 기하 일관성**으로 골라 추정한다.
+    ///
+    /// 코드마다 독립적으로 "가장 최근 인스턴스"를 고르면 서로 다른 열이 섞여도 잔차가 0으로 나온다 —
+    /// 실측 주차장은 11.5m 간격 평행 2열이라 잘못된 조합이 피치 12.95m(정상 20.98m)를 만들고
+    /// 목표가 13.8m 어긋난 채 모든 게이트를 통과했다(PR#58 리뷰). 그래서 조합 단위로 적합해 잔차 최소를 고른다.
+    mutating func estimate(
+        candidates: [GridCandidate],
+        targetZoneIndex: Int?,
+        targetNumber: Int?,
+        nowSeconds: Double
+    ) -> GridEstimate {
+        let chosen = Self.selectInstances(from: candidates, nowSeconds: nowSeconds)
+        return estimate(observations: chosen, targetZoneIndex: targetZoneIndex, targetNumber: targetNumber)
+    }
+
+    /// 조합 전수 평가 — 결정적(코드명 정렬)이라 리플레이가 같은 결과를 낸다.
+    /// 조합 수가 상한을 넘으면 각 코드에서 고정 관측 무게중심에 가장 가까운 인스턴스를 쓴다(결정적 폴백).
+    static func selectInstances(from candidates: [GridCandidate], nowSeconds: Double) -> [GridObservation] {
+        // 채택 규칙(표본 수)은 SignInstanceSet.accepted 한 곳에만 둔다 — 여기서 다시 거르면 규칙이 갈라진다.
+        // 실제로 한쪽만 완화했을 때 260710 세션이 0%로 남았다.
+        let sorted = candidates.sorted { $0.codeRaw < $1.codeRaw }
+        let usable = sorted.compactMap { candidate -> (GridCandidate, [SignInstance])? in
+            candidate.instances.isEmpty ? nil : (candidate, candidate.instances)
+        }
+        guard !usable.isEmpty else { return [] }
+
+        func observation(_ candidate: GridCandidate, _ instance: SignInstance) -> GridObservation {
+            GridObservation(
+                codeRaw: candidate.codeRaw,
+                zoneIndex: candidate.zoneIndex,
+                numberValue: candidate.numberValue,
+                position: instance.position,
+                ageSeconds: max(0, nowSeconds - instance.lastSeen)
+            )
+        }
+
+        let combinationCount = usable.reduce(1) { $0 * $1.1.count }
+        guard combinationCount > 1 else {
+            return usable.map { observation($0.0, $0.1[0]) }
+        }
+        guard combinationCount <= ParkingTuning.instanceCombinationLimit else {
+            // 폴백: 단일 인스턴스 코드들의 무게중심에 가장 가까운 쪽 (기기 포즈 불필요 — 리플레이 결정성 유지)
+            var anchors: [SIMD2<Double>] = usable.filter { $0.1.count == 1 }.map { $0.1[0].position }
+            if anchors.isEmpty {
+                anchors = usable.flatMap { $0.1 }.map(\.position)
+            }
+            var sum = SIMD2<Double>.zero
+            for anchor in anchors { sum += anchor }
+            let center = sum / Double(max(1, anchors.count))
+            return usable.map { candidate, instances in
+                let nearest = instances.min { simd_distance($0.position, center) < simd_distance($1.position, center) }!
+                return observation(candidate, nearest)
+            }
+        }
+
+        var best: (residual: Double, observations: [GridObservation])?
+        for index in 0..<combinationCount {
+            var remainder = index
+            var picked: [GridObservation] = []
+            picked.reserveCapacity(usable.count)
+            for (candidate, instances) in usable {
+                let choice = remainder % instances.count
+                remainder /= instances.count
+                picked.append(observation(candidate, instances[choice]))
+            }
+            let residual = Self.combinationResidual(picked)
+            if best == nil || residual < best!.residual - 1e-9 {
+                best = (residual, picked)
+            }
+        }
+        return best?.observations ?? []
+    }
+
+    /// 조합 품질 — 격자 적합 잔차(적합 불가 조합은 최악으로 취급해 자연 탈락)
+    private static func combinationResidual(_ observations: [GridObservation]) -> Double {
+        var estimator = GridEstimator()
+        if observations.count >= 3, let (affine, _) = estimator.fitAffine(observations) {
+            return affine.residualRMS(over: observations)
+        }
+        let zones = Set(observations.compactMap(\.zoneIndex))
+        let numbers = Set(observations.compactMap(\.numberValue))
+        if zones.count <= 1, numbers.count >= 2, let fit = estimator.fitLine(observations, index: { $0.numberValue }) {
+            return fit.residualRMS
+        }
+        if numbers.count <= 1, zones.count >= 2, let fit = estimator.fitLine(observations, index: { $0.zoneIndex }) {
+            return fit.residualRMS
+        }
+        return .greatestFiniteMagnitude
+    }
+
     /// 누적 관측 전체로 재추정 (매 관측 갱신마다 호출 — FR-011)
     mutating func estimate(
         observations: [GridObservation],
@@ -472,7 +570,7 @@ struct GridEstimator: Sendable {
     // MARK: - 아핀 피팅 (3+ 비공선)
 
     /// p ≈ origin + zoneIndex·zoneVec + number·numVec — x/y 성분이 분리되므로 3x3 정규방정식 2회
-    private struct AffineFit {
+    fileprivate struct AffineFit {
         let origin: SIMD2<Double>
         let zoneVec: SIMD2<Double>
         let numVec: SIMD2<Double>
@@ -498,7 +596,7 @@ struct GridEstimator: Sendable {
     }
 
     /// 반환에 정규방정식 행렬 M 포함 — G1 외삽 레버 계산용 (설계 개정 v2)
-    private func fitAffine(_ observations: [GridObservation]) -> (AffineFit, [[Double]])? {
+    fileprivate func fitAffine(_ observations: [GridObservation]) -> (AffineFit, [[Double]])? {
         let points = observations.compactMap { obs -> (z: Double, n: Double, p: SIMD2<Double>)? in
             guard let z = obs.zoneIndex, let n = obs.numberValue else { return nil }
             return (Double(z), Double(n), obs.position)
@@ -556,7 +654,7 @@ struct GridEstimator: Sendable {
 
     // MARK: - 1D 최소제곱
 
-    private struct LineFit {
+    fileprivate struct LineFit {
         let base: SIMD2<Double>       // 인덱스 평균 위치
         let meanIndex: Double
         let direction: SIMD2<Double>  // 인덱스 1스텝당 변위
@@ -576,7 +674,7 @@ struct GridEstimator: Sendable {
         }
     }
 
-    private func fitLine(
+    fileprivate func fitLine(
         _ observations: [GridObservation],
         index: (GridObservation) -> Int?
     ) -> LineFit? {

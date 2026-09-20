@@ -104,6 +104,10 @@ enum ParkingTuning {
     static let confidencePercentSolidThreshold = 45
     static let confidencePercentHysteresis = 5
 
+    /// FR-107 표지판 인스턴스 — 클러스터 채택 최소 표본 수, 조합 전수 평가 상한
+    static let instanceMinSamples = 2
+    static let instanceCombinationLimit = 64
+
     /// FR-104 관측 수 게이트 — 실선·거리 구간(중간) 진입과 최상위 구간 진입의 최소 채택 관측 수
     static let observationsForSolid = 3
     static let observationsForTop = 5
