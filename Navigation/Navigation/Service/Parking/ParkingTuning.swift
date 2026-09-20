@@ -114,6 +114,13 @@ enum ParkingTuning {
     /// 조합이 바뀐 뒤 백분율이 회복되기까지의 안정 프레임 수 — 누적 페널티는 래칫이 된다
     static let selectionStabilityFrames = 10
 
+    /// FR-112 근접 카드 표시 거리(m) — 이 안쪽에서는 방향보다 "이 기둥이 맞나"가 중요해진다
+    static let proximityCardDistance = 15.0
+
+    /// FR-114 스캔 등록 시 권장 인접 기둥 수 — 강제가 아니라 유도.
+    /// 되찾기에서 두 축이 서려면 목표 외에 최소 2개(같은 구역 다른 번호 + 다른 구역)가 필요하다
+    static let recommendedNeighborCount = 3
+
     /// FR-104 관측 수 게이트 — 실선·거리 구간(중간) 진입과 최상위 구간 진입의 최소 채택 관측 수
     static let observationsForSolid = 3
     static let observationsForTop = 5

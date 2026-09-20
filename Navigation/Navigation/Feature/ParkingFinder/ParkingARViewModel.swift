@@ -46,6 +46,41 @@ final class ParkingARViewModel {
         case arrived
     }
 
+    /// 레이더 미니맵이 그리는 한 순간 (FR-111) — 뷰는 이 스냅샷의 순수 함수.
+    /// 추정기가 이미 내주는 값만 쓴다(불확실성 성분·스팬·백분율) — 미니맵 전용 계산을 만들지 않는다.
+    struct MinimapSnapshot: Equatable {
+        struct Sign: Equatable {
+            let code: String
+            let position: SIMD2<Double>
+            /// 마지막 관측 이후 경과(s) — 오래될수록 흐리게
+            let ageSeconds: Double
+            /// 이번 회차 격자에 실제로 쓰인 인스턴스인가
+            let isChosen: Bool
+            /// 같은 코드의 복수 표지판 중 하나인가
+            let isMultiSign: Bool
+        }
+
+        let device: SIMD2<Double>
+        let forward: SIMD2<Double>
+        let signs: [Sign]
+        let target: SIMD2<Double>?
+        /// 불확실성 반경(m) — 두 축이 서면 원, 한 축만 서면 띠의 짧은 반경
+        let uncertaintyRadius: Double
+        /// 미지 축 방향(단위 벡터)과 그 길이(m) — non-nil이면 목표를 띠로 그린다
+        let uncertaintyBand: (direction: SIMD2<Double>, length: Double)?
+        let confidencePercent: Int
+        /// 기기 이동 자취 (최근 구간)
+        let trail: [SIMD2<Double>]
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.device == rhs.device && lhs.forward == rhs.forward && lhs.signs == rhs.signs
+                && lhs.target == rhs.target && lhs.uncertaintyRadius == rhs.uncertaintyRadius
+                && lhs.confidencePercent == rhs.confidencePercent && lhs.trail == rhs.trail
+                && lhs.uncertaintyBand?.length == rhs.uncertaintyBand?.length
+                && lhs.uncertaintyBand?.direction == rhs.uncertaintyBand?.direction
+        }
+    }
+
     /// 상태와 직교하는 배너 (data-model)
     enum Banner: Equatable {
         case floorMismatch(message: String)
@@ -60,6 +95,14 @@ final class ParkingARViewModel {
     let confirmedCodes = CurrentValueSubject<[String], Never>([])
     let guidanceState = CurrentValueSubject<GuidanceState, Never>(.searching)
     let banner = CurrentValueSubject<Banner?, Never>(nil)
+    /// FR-111 레이더 미니맵 스냅샷 — 포즈 갱신마다 발행
+    let minimapSnapshot = CurrentValueSubject<MinimapSnapshot?, Never>(nil)
+    /// FR-112 근접 카드 — non-nil이면 표시할 목표 코드.
+    /// 거리 기반만으로 두면 "화살표가 실선일 때만" 뜨고 정작 근접으로 보장이 깨진 순간엔 사라진다(PR#61 리뷰).
+    /// 그래서 ① 안내 중 충분히 가까움 ② 보장 실패 원인이 근접 — 두 경우 모두에서 발행한다
+    let proximityPrompt = CurrentValueSubject<String?, Never>(nil)
+    /// FR-114 스캔 등록 인접 확보 진행 — (확보 수, 권장 수)
+    let scanNeighborProgress = CurrentValueSubject<(captured: Int, recommended: Int)?, Never>(nil)
     /// DR-002 상태 스트립 텍스트 (디버그 활성 시에만 갱신)
     let debugStrip = CurrentValueSubject<String?, Never>(nil)
 
@@ -113,6 +156,10 @@ final class ParkingARViewModel {
     private var lastShownPercent: Int?
     /// 인스턴스 노화·리플레이 시간축 기준 (세션 시작 시각)
     private let sessionStartedAt = Date()
+    /// 미니맵 자취 — 최근 구간만 유지
+    private var deviceTrail: [SIMD2<Double>] = []
+    /// 이번 회차 격자에 실제로 쓰인 좌표 (미니맵 강조용)
+    private var chosenPositions: Set<String> = []
 
     init(mode: Mode) {
         self.mode = mode
@@ -154,6 +201,11 @@ final class ParkingARViewModel {
         gradientHint.reset()
         lastGradientMessage = nil
         lastShownPercent = nil
+        // 좌표계가 바뀌었으므로 미니맵 파생 상태도 리셋 — 옛 자취를 새 좌표계에 그리면 안 된다 (PR#61 리뷰)
+        deviceTrail.removeAll()
+        chosenPositions.removeAll()
+        minimapSnapshot.send(nil)
+        proximityPrompt.send(nil)
         // 좌표 무관 상태도 세션 단절과 함께 리셋 (PR#49 리뷰 M2):
         // neighborLogged가 남으면 estimator.reset() 후 인접 부스트가 영구 소실, 사진은 무관 기둥 레코드에 오귀속
         pendingFloorSave = nil
@@ -235,6 +287,13 @@ final class ParkingARViewModel {
         logger.info("[ParkingFinder] accepted '\(code)' hit=\(ParkingTuning.confirmHits) → confirmed")
         confirmedCodes.send(confirmedCodes.value + [code])
         timeoutTask?.cancel()
+
+        // FR-114: 인접 확보 진행 안내 — 저장을 막지도, 늦추지도 않는다.
+        // 260919 세션은 10초·인접 0개로 저장돼 되찾기 정확도의 상한이 등록 시점에 이미 정해졌다
+        if case .scan = mode {
+            scanNeighborProgress.send((captured: max(0, confirmedCodes.value.count - 1),
+                                       recommended: ParkingTuning.recommendedNeighborCount))
+        }
 
         if photoPaths.count < ParkingTuning.maxAutoPhotos, let path = capturePhoto?() {
             photoPaths.append(path)
@@ -476,6 +535,11 @@ final class ParkingARViewModel {
                 )
             }
 
+        chosenPositions = Set(
+            GridEstimator.selectInstances(from: candidates, nowSeconds: sessionSeconds(),
+                                          devicePosition: lastDevicePosition)
+                .map { Self.positionKey($0.position) }
+        )
         let estimate = estimator.estimate(
             candidates: candidates,
             targetZoneIndex: targetParsedCode?.zoneIndex,
@@ -517,10 +581,68 @@ final class ParkingARViewModel {
         if let heading = lastDeviceForward {
             recorder?.devicePose(position: position, heading: heading)
         }
+        // 자취 — 0.5m 이상 움직였을 때만 점을 추가하고 최근 구간만 유지
+        if let current = lastDevicePosition {
+            if let last = deviceTrail.last, simd_distance(last, current) < 0.5 {
+                // 제자리 — 점을 쌓지 않는다
+            } else {
+                deviceTrail.append(current)
+                if deviceTrail.count > 120 { deviceTrail.removeFirst(deviceTrail.count - 120) }
+            }
+        }
         // 포즈 틱마다 상태 재발행 — G3 거리 상한 등으로 내려간 안내가 걸어오면 복귀하도록 양방향 유지 (PR#49 리뷰 M5)
         if lastEstimate != nil {
             publishState(record: record)
         }
+        publishMinimapSnapshot()
+    }
+
+    /// FR-111 미니맵 스냅샷 — 추정기가 내준 값만 재배치한다(미니맵 전용 계산 금지)
+    private func publishMinimapSnapshot() {
+        guard let device = lastDevicePosition, let forward = lastDeviceForward else { return }
+        let now = sessionSeconds()
+        var signs: [MinimapSnapshot.Sign] = []
+        for observation in observations.values {
+            let multi = observation.isMultiSign
+            for instance in observation.signs.instances {
+                signs.append(MinimapSnapshot.Sign(
+                    code: observation.parsed.raw,
+                    position: instance.position,
+                    ageSeconds: max(0, now - instance.lastSeen),
+                    isChosen: chosenPositions.contains(Self.positionKey(instance.position)),
+                    isMultiSign: multi
+                ))
+            }
+        }
+        signs.sort { $0.code < $1.code }
+
+        // 미지 축이 남아 있으면 목표는 원이 아니라 띠 — 방향은 관측된 축에 수직(직교 격자 가정)
+        var band: (direction: SIMD2<Double>, length: Double)?
+        if let estimate = lastEstimate, estimate.uncertainty.unknownAxis > 0.01 {
+            let axis = estimate.numVec ?? estimate.zoneVec
+            if let axis, simd_length(axis) > 1e-6 {
+                let unit = simd_normalize(axis)
+                band = (SIMD2(-unit.y, unit.x), estimate.uncertainty.unknownAxis)
+            }
+        }
+        let shortRadius = (lastEstimate?.uncertainty.fit ?? 0) + (lastEstimate?.uncertainty.expansion ?? 0)
+
+        minimapSnapshot.send(MinimapSnapshot(
+            device: device,
+            forward: forward,
+            signs: signs,
+            target: cachedTargetPosition,
+            uncertaintyRadius: band == nil ? (lastEstimate?.uncertainty.radius ?? 0) : max(0.5, shortRadius),
+            uncertaintyBand: band,
+            // 보장이 깨지면 표시 백분율도 함께 내려야 한다 — lastShownPercent에 고착되면
+            // 화살표가 사라진 뒤에도 미니맵 테두리가 초록으로 남는다 (PR#61 리뷰)
+            confidencePercent: lastEstimate?.confidencePercent ?? 0,
+            trail: deviceTrail
+        ))
+    }
+
+    private static func positionKey(_ position: SIMD2<Double>) -> String {
+        "\(Int((position.x * 20).rounded())),\(Int((position.y * 20).rounded()))"
     }
 
     /// FR-110: 힌트(어디쯤인가)와 행동 지시(무엇을 비추면 좋아지는가)를 한 자리에서 함께 전달.
@@ -563,9 +685,11 @@ final class ParkingARViewModel {
         let newState: GuidanceState
         switch estimate.stage {
         case .searching:
+            proximityPrompt.send(nil)
             // 격자 불가 동안에도 확정 관측 기반 그라디언트 힌트로 안내 (위치 무관, 260911)
             newState = lastGradientMessage.map { .needMore(message: $0) } ?? .searching
         case .needMoreObservation(let missing):
+            proximityPrompt.send(nil)
             // FR-110: 그라디언트 힌트가 축 행동 지시를 가리지 않는다 — 둘을 함께 전달
             newState = .needMore(message: Self.combined(
                 hint: lastGradientMessage,
@@ -597,8 +721,12 @@ final class ParkingARViewModel {
                     hint: lastGradientMessage,
                     action: Self.failureAction(geometry.failure)
                 ))
+                // FR-102: 보장이 근접 때문에 깨진 순간이야말로 카드가 이어받아야 하는 지점
+                proximityPrompt.send(geometry.failure == .proximity ? record.targetCodeRaw : nil)
                 break
             }
+            proximityPrompt.send(geometry.distance <= ParkingTuning.proximityCardDistance
+                                 ? record.targetCodeRaw : nil)
             let label = estimate.stage == .gridGuidance ? "격자 안내" : "축 안내"
             newState = .guiding(
                 stageLabel: label,

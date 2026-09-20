@@ -100,6 +100,63 @@ final class ParkingARViewController: UIViewController {
         return view
     }()
 
+    /// FR-111 접이식 레이더 미니맵 — 기본 접힘, 탭하면 확대
+    private let minimap: ParkingMinimapView = {
+        let view = ParkingMinimapView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
+        return view
+    }()
+
+    /// FR-112 근접 카드 — 등록 사진(없으면 목표 코드)으로 최종 확인
+    private let proximityCard: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        view.layer.cornerRadius = Theme.CornerRadius.large
+        view.isHidden = true
+        return view
+    }()
+
+    private let proximityImageView: UIImageView = {
+        let view = UIImageView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.contentMode = .scaleAspectFill
+        view.clipsToBounds = true
+        view.layer.cornerRadius = Theme.CornerRadius.medium
+        return view
+    }()
+
+    private let proximityLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        return label
+    }()
+
+    /// FR-114 스캔 유도 전용 — codesLabel(확정 코드 목록)을 덮어쓰지 않는다 (PR#61 리뷰 회귀)
+    private let scanHintLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Theme.Fonts.footnote
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+        label.layer.cornerRadius = 8
+        label.clipsToBounds = true
+        label.isHidden = true
+        return label
+    }()
+
+    private var minimapSizeConstraint: NSLayoutConstraint?
+    /// 근접 카드 사진 — 1회만 로드해 캐시 (포즈 틱마다 디스크 I/O·JPEG 디코드 방지, PR#61 리뷰)
+    private var cachedRegisteredPhoto: UIImage??
+
     private let arrivedLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -211,11 +268,45 @@ final class ParkingARViewController: UIViewController {
         view.addSubview(manualButton)
         view.addSubview(photoButton)
         view.addSubview(manualSuggestionButton)
+        view.addSubview(scanHintLabel)
+        view.addSubview(minimap)
+        view.addSubview(proximityCard)
+        proximityCard.addSubview(proximityImageView)
+        proximityCard.addSubview(proximityLabel)
+        minimap.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggleMinimap)))
+        minimap.isUserInteractionEnabled = true
         view.addSubview(arrivedOverlay)
         arrivedOverlay.addSubview(arrivedLabel)
         arrivedOverlay.addSubview(arrivedConfirmButton)
 
+        let minimapSize = minimap.widthAnchor.constraint(equalToConstant: 64)
+        minimapSizeConstraint = minimapSize
+
         NSLayoutConstraint.activate([
+            scanHintLabel.topAnchor.constraint(equalTo: codesLabel.bottomAnchor, constant: Theme.Spacing.sm),
+            scanHintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scanHintLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: Theme.Spacing.lg),
+            scanHintLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+
+            minimapSize,
+            minimap.heightAnchor.constraint(equalTo: minimap.widthAnchor),
+            // 펼쳐도 안내 텍스트를 가리지 않도록 상단 경계 고정 (PR#61 리뷰)
+            minimap.topAnchor.constraint(greaterThanOrEqualTo: guidanceInfoLabel.bottomAnchor, constant: Theme.Spacing.sm),
+            minimap.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Theme.Spacing.lg),
+            minimap.bottomAnchor.constraint(equalTo: photoButton.topAnchor, constant: -Theme.Spacing.lg),
+
+            proximityCard.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            proximityCard.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -20),
+            proximityCard.widthAnchor.constraint(equalToConstant: 240),
+            proximityImageView.topAnchor.constraint(equalTo: proximityCard.topAnchor, constant: Theme.Spacing.md),
+            proximityImageView.leadingAnchor.constraint(equalTo: proximityCard.leadingAnchor, constant: Theme.Spacing.md),
+            proximityImageView.trailingAnchor.constraint(equalTo: proximityCard.trailingAnchor, constant: -Theme.Spacing.md),
+            proximityImageView.heightAnchor.constraint(equalToConstant: 150),
+            proximityLabel.topAnchor.constraint(equalTo: proximityImageView.bottomAnchor, constant: Theme.Spacing.sm),
+            proximityLabel.leadingAnchor.constraint(equalTo: proximityCard.leadingAnchor, constant: Theme.Spacing.md),
+            proximityLabel.trailingAnchor.constraint(equalTo: proximityCard.trailingAnchor, constant: -Theme.Spacing.md),
+            proximityLabel.bottomAnchor.constraint(equalTo: proximityCard.bottomAnchor, constant: -Theme.Spacing.md),
+
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Theme.Spacing.sm),
             closeButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Theme.Spacing.lg),
 
@@ -324,6 +415,41 @@ final class ParkingARViewController: UIViewController {
             self.manualSuggestionButton.isHidden = false
         }
 
+        // FR-111 미니맵 — find 모드에서만, 기본 접힘
+        viewModel.minimapSnapshot
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                guard let self, !self.isScanMode else { return }
+                self.minimap.isHidden = (snapshot == nil)
+                self.minimap.update(snapshot)
+            }
+            .store(in: &cancellables)
+
+        // FR-114 스캔 인접 확보 유도 — 저장을 막지도 늦추지도 않는다
+        viewModel.scanNeighborProgress
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] progress in
+                guard let self, self.isScanMode, let progress else { return }
+                if progress.captured >= progress.recommended {
+                    self.scanHintLabel.text = "  주변 기둥 \(progress.captured)개 확보 — 충분해요  "
+                } else {
+                    self.scanHintLabel.text = "  주변 기둥 \(progress.captured)/\(progress.recommended)개 — 더 비추면 나중에 찾기 쉬워요  "
+                }
+                self.scanHintLabel.isHidden = false
+            }
+            .store(in: &cancellables)
+
+        // FR-112: 근접 카드는 거리 조건이 아니라 VM 프롬프트가 결정한다 —
+        // 보장이 근접 때문에 깨진 순간에도 카드가 이어받아야 한다(FR-102)
+        viewModel.proximityPrompt
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] targetCode in
+                guard let self, !self.isScanMode else { return }
+                self.renderProximityCard(targetCode)
+            }
+            .store(in: &cancellables)
+
         viewModel.guidanceState
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
@@ -406,6 +532,52 @@ final class ParkingARViewController: UIViewController {
         }
     }
 
+    // MARK: - 미니맵·근접 카드 (FR-111/112)
+
+    @objc private func toggleMinimap() {
+        minimap.setExpanded(!minimap.isExpanded)
+        minimapSizeConstraint?.constant = minimap.isExpanded ? view.bounds.width * 0.45 : 64
+        UIView.animate(withDuration: 0.25) { self.view.layoutIfNeeded() }
+    }
+
+    /// 근접 구간에서는 등록 사진(없으면 목표 코드 카드)으로 최종 확인을 돕는다 (FR-112).
+    /// FR-113: 큰 요소는 한 번에 하나 — 카드가 뜨면 화살표를 내리고 미니맵을 접는다.
+    private func renderProximityCard(_ targetCode: String?) {
+        guard let targetCode else {
+            proximityCard.isHidden = true
+            return
+        }
+        proximityCard.isHidden = false
+        arrowImageView.isHidden = true
+        guidanceInfoLabel.isHidden = true
+        if minimap.isExpanded { toggleMinimap() }
+
+        if let image = registeredPhoto() {
+            proximityImageView.isHidden = false
+            proximityImageView.image = image
+            proximityLabel.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+            proximityLabel.text = "이 기둥이 맞나요? · \(targetCode)"
+        } else {
+            proximityImageView.isHidden = true
+            proximityLabel.font = UIFont.systemFont(ofSize: 30, weight: .bold)
+            proximityLabel.text = "\(targetCode)\n기둥을 찾아보세요"
+        }
+    }
+
+    /// 등록 사진 — 1회만 디스크에서 읽어 캐시. 포즈 틱(~10Hz)마다 재읽기하면
+    /// 메인스레드에서 원본 프레임을 반복 디코드하게 된다 (PR#61 리뷰)
+    private func registeredPhoto() -> UIImage? {
+        if let cached = cachedRegisteredPhoto { return cached }
+        guard case .find(let record) = viewModel.mode, let relative = record.photoPaths.first else {
+            cachedRegisteredPhoto = .some(nil)
+            return nil
+        }
+        let url = URL.documentsDirectory.appendingPathComponent(relative)
+        let image = (try? Data(contentsOf: url)).flatMap(UIImage.init(data:))
+        cachedRegisteredPhoto = .some(image)
+        return image
+    }
+
     // MARK: - Find HUD (T025/T026) — GuidanceState의 순수 함수
 
     private func renderGuidance(_ state: ParkingARViewModel.GuidanceState) {
@@ -430,8 +602,12 @@ final class ParkingARViewController: UIViewController {
             guidanceLabel.text = "  \(targetCode) 찾는 중  "
             arrowImageView.isHidden = false
             arrowImageView.transform = CGAffineTransform(rotationAngle: arrowRadians)
-            // FR-103: 낮은 확신은 숨기지 않고 형태로 드러낸다 (점선·반투명은 P4에서 도형 교체)
-            arrowImageView.alpha = percent >= ParkingTuning.confidencePercentSolidThreshold ? 1.0 : 0.45
+            // FR-103: 낮은 확신은 숨기지 않고 **형태로** 드러낸다 — 저구간은 속 빈 화살표 + 반투명
+            let solid = percent >= ParkingTuning.confidencePercentSolidThreshold
+            arrowImageView.image = UIImage(systemName: solid ? "location.north.fill" : "location.north")
+            arrowImageView.alpha = solid ? 1.0 : 0.5
+            arrowImageView.tintColor = percent >= ParkingTuning.confidencePercentTopThreshold
+                ? .systemGreen : (solid ? .white : UIColor.white.withAlphaComponent(0.8))
             guidanceInfoLabel.isHidden = false
             // FR-106: 거리는 표시 가능할 때만 — 낮은 확신에서 정밀해 보이는 숫자 금지
             let distanceText = distance.map { "약 \(Int($0.rounded()))m 이 방향" } ?? "이 방향"
