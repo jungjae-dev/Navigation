@@ -97,6 +97,10 @@ final class ParkingARViewModel {
     let banner = CurrentValueSubject<Banner?, Never>(nil)
     /// FR-111 레이더 미니맵 스냅샷 — 포즈 갱신마다 발행
     let minimapSnapshot = CurrentValueSubject<MinimapSnapshot?, Never>(nil)
+    /// FR-112 근접 카드 — non-nil이면 표시할 목표 코드.
+    /// 거리 기반만으로 두면 "화살표가 실선일 때만" 뜨고 정작 근접으로 보장이 깨진 순간엔 사라진다(PR#61 리뷰).
+    /// 그래서 ① 안내 중 충분히 가까움 ② 보장 실패 원인이 근접 — 두 경우 모두에서 발행한다
+    let proximityPrompt = CurrentValueSubject<String?, Never>(nil)
     /// FR-114 스캔 등록 인접 확보 진행 — (확보 수, 권장 수)
     let scanNeighborProgress = CurrentValueSubject<(captured: Int, recommended: Int)?, Never>(nil)
     /// DR-002 상태 스트립 텍스트 (디버그 활성 시에만 갱신)
@@ -197,6 +201,11 @@ final class ParkingARViewModel {
         gradientHint.reset()
         lastGradientMessage = nil
         lastShownPercent = nil
+        // 좌표계가 바뀌었으므로 미니맵 파생 상태도 리셋 — 옛 자취를 새 좌표계에 그리면 안 된다 (PR#61 리뷰)
+        deviceTrail.removeAll()
+        chosenPositions.removeAll()
+        minimapSnapshot.send(nil)
+        proximityPrompt.send(nil)
         // 좌표 무관 상태도 세션 단절과 함께 리셋 (PR#49 리뷰 M2):
         // neighborLogged가 남으면 estimator.reset() 후 인접 부스트가 영구 소실, 사진은 무관 기둥 레코드에 오귀속
         pendingFloorSave = nil
@@ -625,7 +634,9 @@ final class ParkingARViewModel {
             target: cachedTargetPosition,
             uncertaintyRadius: band == nil ? (lastEstimate?.uncertainty.radius ?? 0) : max(0.5, shortRadius),
             uncertaintyBand: band,
-            confidencePercent: lastShownPercent ?? lastEstimate?.confidencePercent ?? 0,
+            // 보장이 깨지면 표시 백분율도 함께 내려야 한다 — lastShownPercent에 고착되면
+            // 화살표가 사라진 뒤에도 미니맵 테두리가 초록으로 남는다 (PR#61 리뷰)
+            confidencePercent: lastEstimate?.confidencePercent ?? 0,
             trail: deviceTrail
         ))
     }
@@ -674,9 +685,11 @@ final class ParkingARViewModel {
         let newState: GuidanceState
         switch estimate.stage {
         case .searching:
+            proximityPrompt.send(nil)
             // 격자 불가 동안에도 확정 관측 기반 그라디언트 힌트로 안내 (위치 무관, 260911)
             newState = lastGradientMessage.map { .needMore(message: $0) } ?? .searching
         case .needMoreObservation(let missing):
+            proximityPrompt.send(nil)
             // FR-110: 그라디언트 힌트가 축 행동 지시를 가리지 않는다 — 둘을 함께 전달
             newState = .needMore(message: Self.combined(
                 hint: lastGradientMessage,
@@ -708,8 +721,12 @@ final class ParkingARViewModel {
                     hint: lastGradientMessage,
                     action: Self.failureAction(geometry.failure)
                 ))
+                // FR-102: 보장이 근접 때문에 깨진 순간이야말로 카드가 이어받아야 하는 지점
+                proximityPrompt.send(geometry.failure == .proximity ? record.targetCodeRaw : nil)
                 break
             }
+            proximityPrompt.send(geometry.distance <= ParkingTuning.proximityCardDistance
+                                 ? record.targetCodeRaw : nil)
             let label = estimate.stage == .gridGuidance ? "격자 안내" : "축 안내"
             newState = .guiding(
                 stageLabel: label,

@@ -85,6 +85,47 @@ struct MinimapSnapshotTests {
         #expect(percent <= ParkingTuning.confidencePercentCap)
     }
 
+    /// 미니맵 투영이 화살표 규약(전방 기준 시계방향 +)과 같은 쪽을 가리키는지 —
+    /// 부호가 반대면 화살표는 오른쪽, 미니맵은 왼쪽을 가리킨다(PR#61 리뷰에서 실제로 그랬다)
+    @Test func minimapProjectionMatchesArrowConvention() {
+        let forward = SIMD2<Double>(0, -1)            // 전방 -z
+        let delta = SIMD2<Double>(5, 0)               // 월드 기준 오른쪽 5m
+        // 화살표 각 (GuidanceGeometry와 동일 식)
+        let unit = simd_normalize(delta)
+        let arrow = atan2(forward.x * unit.y - forward.y * unit.x, simd_dot(forward, unit))
+        // 미니맵 투영 x (ParkingMinimapView.project와 동일 식)
+        let projectedX = forward.x * delta.y - forward.y * delta.x
+        #expect(arrow > 0, "화살표는 시계방향(오른쪽)")
+        #expect(projectedX > 0, "미니맵도 화면 오른쪽이어야 한다")
+    }
+
+    @Test func proximityPromptAppearsOnlyNearTarget() {
+        let viewModel = makeViewModel()
+        #expect(viewModel.proximityPrompt.value == nil)
+        for code in ["B2-A-1", "B2-A-5"] {
+            for _ in 0..<2 {
+                let x: Float = code.hasSuffix("1") ? 0 : 8
+                viewModel.addRecognition(text: code, confidence: 0.9, position: simd_float3(x, 0, 0))
+            }
+        }
+        pose(viewModel, x: 0, z: 2)
+        // 목표 A-3은 (4,0) 부근 — 기기가 (0,2)면 근접 임계 안쪽
+        #expect(viewModel.proximityPrompt.value == "B2-A-3")
+    }
+
+    @Test func invalidationClearsMinimapState() {
+        let viewModel = makeViewModel()
+        pose(viewModel, x: 0, z: 0)
+        pose(viewModel, x: 0, z: -5)
+        #expect(viewModel.minimapSnapshot.value?.trail.isEmpty == false)
+        viewModel.invalidateObservations()
+        // 좌표계가 바뀌었으므로 옛 자취를 새 좌표계에 그리면 안 된다
+        #expect(viewModel.minimapSnapshot.value == nil)
+        #expect(viewModel.proximityPrompt.value == nil)
+        pose(viewModel, x: 0, z: 0)
+        #expect(viewModel.minimapSnapshot.value?.trail.count == 1)
+    }
+
     @Test func scanModeGuidesNeighborCapture() {
         // FR-114: 스캔 중 인접 확보 진행이 안내되되 저장을 막지 않는다
         let viewModel = ParkingARViewModel(mode: .scan)

@@ -44,6 +44,11 @@ final class ParkingMinimapView: UIView {
             layer.borderColor = Self.confidenceColor(snapshot.confidencePercent)
                 .withAlphaComponent(0.85).cgColor
             scaleRadius = Self.autoScale(snapshot)
+            accessibilityValue = snapshot.target == nil
+                ? "목표 위치 추정 전"
+                : "정확도 \(snapshot.confidencePercent)퍼센트, 기둥 \(snapshot.signs.count)개"
+        } else {
+            accessibilityValue = nil
         }
         setNeedsDisplay()
     }
@@ -59,8 +64,10 @@ final class ParkingMinimapView: UIView {
         let forward = snapshot.forward
         func project(_ world: SIMD2<Double>) -> CGPoint {
             let delta = world - snapshot.device
-            // 전방을 -y(위)로 보내는 회전
-            let x = delta.x * forward.y - delta.y * forward.x
+            // 전방을 위(-y)로 보내는 **순수 회전**. 측방 부호는 GuidanceGeometry의 화살표 규약
+            // (전방 기준 시계방향 +)과 같아야 한다 — 반대로 쓰면 행렬식이 -1(거울 반사)이 되어
+            // 화살표는 오른쪽, 미니맵은 왼쪽을 가리킨다(PR#61 리뷰에서 실측 확인).
+            let x = forward.x * delta.y - forward.y * delta.x
             let y = delta.x * forward.x + delta.y * forward.y
             return CGPoint(x: center.x + CGFloat(x * pixelsPerMeter),
                            y: center.y - CGFloat(y * pixelsPerMeter))
@@ -108,7 +115,6 @@ final class ParkingMinimapView: UIView {
 
         if let band = snapshot.uncertaintyBand {
             // 띠: 미지 축 방향으로 ±length, 수직으로 ±radius
-            let half = CGFloat(band.length * pixelsPerMeter)
             let thickness = CGFloat(max(snapshot.uncertaintyRadius, 0.8) * pixelsPerMeter)
             let end1 = project(target + band.direction * band.length)
             let end2 = project(target - band.direction * band.length)
@@ -121,7 +127,6 @@ final class ParkingMinimapView: UIView {
             context.addLine(to: end2)
             context.strokePath()
             context.restoreGState()
-            _ = half
         } else {
             let radius = CGFloat(max(snapshot.uncertaintyRadius, 0.8) * pixelsPerMeter)
             context.setFillColor(color.withAlphaComponent(0.28).cgColor)
@@ -173,7 +178,7 @@ final class ParkingMinimapView: UIView {
         context.closePath()
         context.fillPath()
 
-        context.setFillColor(UIColor.systemBlue.cgColor)
+        context.setFillColor(Theme.Colors.accent.cgColor)
         let size: CGFloat = isExpanded ? 8 : 6
         context.fillEllipse(in: CGRect(x: center.x - size / 2, y: center.y - size / 2,
                                        width: size, height: size))
@@ -204,19 +209,23 @@ final class ParkingMinimapView: UIView {
 
     /// 목표와 관측이 모두 들어오는 반경 — 목표가 아주 멀면 가장자리 클램프에 맡긴다
     private static func autoScale(_ snapshot: ParkingARViewModel.MinimapSnapshot) -> Double {
+        // 축척 기준은 **관측 배치**다. 멀리 있는 목표까지 축척에 넣으면 0.4px/m가 되어
+        // 정작 주변 기둥이 중앙에 뭉개진다 — 먼 목표는 가장자리 클램프가 표현한다(PR#61 리뷰)
         var maximum = 8.0
         for sign in snapshot.signs {
             maximum = max(maximum, simd_distance(sign.position, snapshot.device))
         }
         if let target = snapshot.target {
-            maximum = max(maximum, min(simd_distance(target, snapshot.device), 60))
+            // 목표가 관측 범위 안이면 포함, 밖이면 관측 기준 유지
+            maximum = max(maximum, min(simd_distance(target, snapshot.device), maximum * 1.4))
         }
-        return min(maximum * 1.15, 70)
+        return min(maximum * 1.15, 40)
     }
 
+    /// 정확도 색 — 화살표·게이지와 같은 체계 (Theme 토큰 경유, constitution 디자인 토큰 조항)
     private static func confidenceColor(_ percent: Int) -> UIColor {
-        if percent >= ParkingTuning.confidencePercentTopThreshold { return .systemGreen }
-        if percent >= ParkingTuning.confidencePercentSolidThreshold { return .systemYellow }
+        if percent >= ParkingTuning.confidencePercentTopThreshold { return Theme.Colors.success }
+        if percent >= ParkingTuning.confidencePercentSolidThreshold { return .systemYellow }   // Theme에 warning 토큰 없음
         return .systemGray
     }
 }
