@@ -18,15 +18,17 @@ final class ParkingARViewModel {
     /// 확정(hit ≥ confirmHits)된 코드의 누적 관측
     struct Observation {
         let parsed: ParsedCode
-        var position: simd_float3?   // nil = raycast 실패 관측 (층·도착 전용, FR-015)
         var hits: Int
         var firstSeenAt: Date
         var lastSeenAt: Date
-        /// 좌표가 마지막으로 갱신된 시각 — 신선도 판정 기준 (드리프트 오염 방지, 260801 반영)
-        var positionUpdatedAt: Date?
-        /// 같은 코드가 멀리 떨어진 복수 표지판에서 관측됨(주차면 번호 반복 표기) —
-        /// 좌표가 유일하지 않아 격자에서 제외, 층·도착 확인엔 계속 사용 (260911 반영)
-        var isPositionAmbiguous = false
+        /// 같은 코드의 관측 좌표를 표지판 인스턴스로 분리 보관 (FR-107).
+        /// v2는 복수 위치를 "모호"로 보고 격자에서 통째로 뺐고, 그 결과 260919에서 '3'행이 전멸했다.
+        var signs = SignInstanceSet()
+
+        /// 층 확인·도착·디버그용 대표 좌표 — 가장 최근 인스턴스 (격자 선택과 무관)
+        var position: SIMD2<Double>? { signs.mostRecentPosition }
+        /// 다중 표지판 코드인가 (디버그 표시·로그용)
+        var isMultiSign: Bool { signs.isMultiSign }
     }
 
     /// 저장 직전 층 확인이 필요한 보류 상태 (FR-005)
@@ -109,6 +111,8 @@ final class ParkingARViewModel {
     private var lastGradientMessage: String?
     /// FR-103 히스테리시스용 직전 표시 백분율
     private var lastShownPercent: Int?
+    /// 인스턴스 노화·리플레이 시간축 기준 (세션 시작 시각)
+    private let sessionStartedAt = Date()
 
     init(mode: Mode) {
         self.mode = mode
@@ -206,23 +210,25 @@ final class ParkingARViewModel {
     private func upsertObservation(_ parsed: ParsedCode, position: simd_float3?) -> Bool {
         let key = parsed.raw
         var observation = observations[key] ?? Observation(
-            parsed: parsed, position: nil, hits: 0, firstSeenAt: Date(), lastSeenAt: Date(),
-            positionUpdatedAt: nil
+            parsed: parsed, hits: 0, firstSeenAt: Date(), lastSeenAt: Date()
         )
         observation.hits += 1
         observation.lastSeenAt = Date()
         if let position {
-            if let existing = observation.position, !observation.isPositionAmbiguous,
-               simd_length(position - existing) > ParkingTuning.sameCodeJumpThreshold {
-                observation.isPositionAmbiguous = true
-                logger.info("[ParkingFinder] '\(key)' position jump \(String(format: "%.1f", simd_length(position - existing)))m → ambiguous (multi-sign), excluded from grid")
-            } else if !observation.isPositionAmbiguous {
-                observation.position = position   // 재관측 시 최신 위치로 갱신
-                observation.positionUpdatedAt = Date()
+            let before = observation.signs.instances.count
+            observation.signs.add(position: SIMD2(Double(position.x), Double(position.z)),
+                                  at: sessionSeconds())
+            if observation.signs.instances.count > before, before > 0 {
+                logger.info("[ParkingFinder] '\(key)' new sign instance #\(observation.signs.instances.count) (multi-sign lot)")
             }
         }
         observations[key] = observation
         return observation.hits == ParkingTuning.confirmHits
+    }
+
+    /// 세션 기준 경과 초 — 인스턴스 노화(FR-108)와 리플레이 시간축을 맞추기 위한 단조 시계
+    private func sessionSeconds() -> Double {
+        Date().timeIntervalSince(sessionStartedAt)
     }
 
     private func codeConfirmed(_ code: String) {
@@ -448,32 +454,34 @@ final class ParkingARViewModel {
     }
 
     private func runEstimate(record: ParkingSessionRecord) {
-        // 격자 제외 규칙 (260911): ① 다중 표지판 모호 코드 ② 잘림 의심 — 다른 확정 코드의 진접두사(G25→"G2")
+        // 격자 제외 규칙: 잘림 의심 — 다른 확정 코드의 진접두사(G25→"G2").
+        // 다중 표지판은 더 이상 제외하지 않는다 — 인스턴스로 나눠 추정기가 조합을 고른다 (FR-107)
         let confirmedRaws = Set(
             observations.values.filter { $0.hits >= ParkingTuning.confirmHits }.map(\.parsed.raw)
         )
-        let gridObservations = observations.values
-            .filter { $0.hits >= ParkingTuning.confirmHits && !$0.isPositionAmbiguous }
+        let candidates = observations.values
+            .filter { $0.hits >= ParkingTuning.confirmHits }
             .filter { observation in
                 !confirmedRaws.contains { other in
                     other != observation.parsed.raw && other.hasPrefix(observation.parsed.raw)
                 }
             }
-            .compactMap { observation -> GridObservation? in
-                guard let p = observation.position, observation.parsed.isGridUsable else { return nil }
-                return GridObservation(
+            .compactMap { observation -> GridEstimator.GridCandidate? in
+                guard observation.parsed.isGridUsable, !observation.signs.accepted.isEmpty else { return nil }
+                return GridEstimator.GridCandidate(
                     codeRaw: observation.parsed.raw,
                     zoneIndex: observation.parsed.zoneIndex,
                     numberValue: observation.parsed.numberValue,
-                    position: SIMD2(Double(p.x), Double(p.z)),
-                    ageSeconds: observation.positionUpdatedAt.map { Date().timeIntervalSince($0) } ?? 0
+                    instances: observation.signs.accepted
                 )
             }
 
         let estimate = estimator.estimate(
-            observations: gridObservations,
+            candidates: candidates,
             targetZoneIndex: targetParsedCode?.zoneIndex,
-            targetNumber: targetParsedCode?.numberValue
+            targetNumber: targetParsedCode?.numberValue,
+            nowSeconds: sessionSeconds(),
+            devicePosition: lastDevicePosition   // FR-107 동점 조합은 기기에 가까운 쪽
         )
         lastEstimate = estimate
         cachedTargetPosition = estimate.targetPosition

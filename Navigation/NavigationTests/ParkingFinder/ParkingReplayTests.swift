@@ -103,7 +103,8 @@ struct ParkingReplayTests {
         #expect(!result.mismatches.isEmpty)
         #expect(result.arrowShown > 0, "화살표 0회 — 도착 성공 세션에서 안내가 사라졌다")
         #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentTopThreshold)
-        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
+        #expect(result.maxDistanceSpanRatio <= ParkingTuning.displayDistanceSpanFactor + 0.01,
+                "거리/스팬 \(result.maxDistanceSpanRatio)")
         #expect(result.finalEstimate?.stage != .searching,
                 "\(String(describing: result.finalEstimate?.stage))")
     }
@@ -133,7 +134,8 @@ struct ParkingReplayTests {
         // v3: 오염된 세션에서 화살표가 나오더라도 거리·실선 구간에는 들어가지 않아야 한다 (SC-103)
         #expect(result.distanceShown == 0, "거리 표시 \(result.distanceShown)회")
         #expect(result.maxPercentWhenShown < ParkingTuning.confidencePercentSolidThreshold)
-        #expect(result.maxDistanceWhenShown <= result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor + 0.01)
+        #expect(result.maxDistanceSpanRatio <= ParkingTuning.displayDistanceSpanFactor + 0.01,
+                "거리/스팬 \(result.maxDistanceSpanRatio)")
     }
 
     @Test func fieldLog260911Session3AllTwinSignsLot() throws {

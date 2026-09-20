@@ -35,17 +35,24 @@ final class ParkingDebugEntities {
     func syncCodeLabels(_ observations: [String: ParkingARViewModel.Observation]) {
         guard let arView else { return }
         for (code, observation) in observations {
-            guard let position = observation.position else { continue }
             let confirmed = observation.hits >= ParkingTuning.confirmHits
-
-            if let existing = codeAnchors[code] {
-                existing.position = position
-                continue
+            // FR-107: 다중 표지판은 인스턴스마다 라벨을 띄운다 — 제외된 게 아니라 나뉘어 있음을 보여준다
+            for (index, instance) in observation.signs.instances.enumerated() {
+                let key = index == 0 ? code : "\(code)#\(index + 1)"
+                let position = simd_float3(Float(instance.position.x), 0, Float(instance.position.y))
+                if let existing = codeAnchors[key] {
+                    existing.position = position
+                    continue
+                }
+                let label = observation.isMultiSign ? "\(code)·\(index + 1)" : code
+                let color: UIColor = confirmed
+                    ? (instance.samples >= ParkingTuning.instanceMinSamples ? .white : .systemOrange)
+                    : .systemYellow
+                let anchor = AnchorEntity(world: position)
+                anchor.addChild(Self.textEntity(label, color: color))
+                arView.scene.addAnchor(anchor)
+                codeAnchors[key] = anchor
             }
-            let anchor = AnchorEntity(world: position)
-            anchor.addChild(Self.textEntity(code, color: confirmed ? .white : .systemYellow))
-            arView.scene.addAnchor(anchor)
-            codeAnchors[code] = anchor
         }
     }
 
@@ -76,13 +83,14 @@ final class ParkingDebugEntities {
 
         let anchor = AnchorEntity(world: .zero)
         for observation in observations.values {
-            guard let actual = observation.position,
+            guard let actual2 = observation.position,
                   observation.hits >= ParkingTuning.confirmHits,
                   let predicted = estimate.predictedPosition(
                     zoneIndex: observation.parsed.zoneIndex,
                     number: observation.parsed.numberValue
                   ) else { continue }
 
+            let actual = simd_float3(Float(actual2.x), 0, Float(actual2.y))
             let predicted3 = simd_float3(Float(predicted.x), actual.y, Float(predicted.y))
             // 고스트 격자점 (예측 위치)
             let ghost = ModelEntity(

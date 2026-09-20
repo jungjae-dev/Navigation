@@ -120,6 +120,12 @@ struct GridEstimator: Sendable {
     private var observedZonePitch: Double?
     private var observedNumberPitch: Double?
 
+    /// FR-107 조합 재선택 감시 — 선택이 흔들리면 백분율을 깎되, 안정되면 회복한다.
+    /// 누적 카운터로 두면 한 번 흔들린 세션이 영영 회복하지 못한다(팽창 래칫과 같은 실수)
+    private var lastSelectionSignature: String?
+    private(set) var selectionChanges = 0
+    private var framesSinceSelectionChange = Int.max
+
     // MARK: - Update
 
     mutating func markNeighborSighted() {
@@ -133,6 +139,221 @@ struct GridEstimator: Sendable {
         neighborSighted = false
         observedZonePitch = nil
         observedNumberPitch = nil
+        lastSelectionSignature = nil
+        selectionChanges = 0
+        framesSinceSelectionChange = Int.max
+    }
+
+    /// 다중 표지판 후보를 포함한 관측 집합 (FR-107) — 코드 하나가 복수 인스턴스를 가질 수 있다
+    struct GridCandidate: Equatable, Sendable {
+        let codeRaw: String
+        let zoneIndex: Int?
+        let numberValue: Int?
+        let instances: [SignInstance]
+    }
+
+    /// FR-107: 표지판 인스턴스를 **조합의 기하 일관성**으로 골라 추정한다.
+    ///
+    /// 코드마다 독립적으로 "가장 최근 인스턴스"를 고르면 서로 다른 열이 섞여도 잔차가 0으로 나온다 —
+    /// 실측 주차장은 11.5m 간격 평행 2열이라 잘못된 조합이 피치 12.95m(정상 20.98m)를 만들고
+    /// 목표가 13.8m 어긋난 채 모든 게이트를 통과했다(PR#58 리뷰). 그래서 조합 단위로 적합해 잔차 최소를 고른다.
+    mutating func estimate(
+        candidates: [GridCandidate],
+        targetZoneIndex: Int?,
+        targetNumber: Int?,
+        nowSeconds: Double,
+        devicePosition: SIMD2<Double>? = nil
+    ) -> GridEstimate {
+        let picks = Self.selectPicks(from: candidates, nowSeconds: nowSeconds, devicePosition: devicePosition)
+        let chosen = picks.map(\.observation)
+        // 선택 "조합"이 바뀔 때만 센다 — 좌표는 표본이 늘 때마다 미세하게 움직이므로 위치로 세면
+        // 매 프레임이 변경으로 잡혀 백분율이 바닥에 붙는다. 다중 인스턴스 코드의 인덱스만 본다 (FR-107)
+        let signature = picks
+            .filter(\.isAmbiguous)
+            .map { "\($0.observation.codeRaw)#\($0.index)" }
+            .joined(separator: "|")
+        if let previous = lastSelectionSignature, previous != signature {
+            selectionChanges += 1
+            framesSinceSelectionChange = 0
+        } else if framesSinceSelectionChange != Int.max {
+            framesSinceSelectionChange += 1
+        }
+        lastSelectionSignature = signature
+        return estimate(observations: chosen, targetZoneIndex: targetZoneIndex, targetNumber: targetNumber)
+    }
+
+    /// 조합 평가 — 결정적(코드명 정렬)이라 리플레이가 같은 결과를 낸다.
+    ///
+    /// PR#60 리뷰가 두 가지를 실측으로 보였다:
+    /// ① 정확결정계에서는 **모든 조합의 잔차가 0**이라 "잔차 최소"가 아무것도 고르지 못한다
+    ///    (260801 89회·260919 44회·J22 26회). 그 구간에서 동점 조합 간 목표가 7.9~16.0m 갈렸고,
+    ///    부등호 방향만 바꿔도 가동률이 ±13~20pt 흔들렸다 — 즉 기존 결과는 구현 부산물이었다.
+    /// ② 표본 수 프리필터는 정답 클러스터를 버리는 경우가 있었다(H22 G22).
+    /// 그래서 표본 수를 **버리는 기준이 아니라 동점 판정 신호**로 옮기고, 동점 순서를 명시한다.
+    /// 선택 결과 — 어느 인스턴스를 골랐는지(인덱스)까지 남긴다(조합 변경 감지·디버그용)
+    struct InstancePick: Equatable, Sendable {
+        let observation: GridObservation
+        let index: Int
+        let isAmbiguous: Bool
+    }
+
+    static func selectInstances(
+        from candidates: [GridCandidate],
+        nowSeconds: Double,
+        devicePosition: SIMD2<Double>? = nil
+    ) -> [GridObservation] {
+        selectPicks(from: candidates, nowSeconds: nowSeconds, devicePosition: devicePosition)
+            .map(\.observation)
+    }
+
+    static func selectPicks(
+        from candidates: [GridCandidate],
+        nowSeconds: Double,
+        devicePosition: SIMD2<Double>? = nil
+    ) -> [InstancePick] {
+        let sorted = candidates.sorted { $0.codeRaw < $1.codeRaw }
+        let usable = sorted.compactMap { candidate -> (GridCandidate, [SignInstance])? in
+            candidate.instances.isEmpty ? nil : (candidate, candidate.instances)
+        }
+        guard !usable.isEmpty else { return [] }
+
+        func pick(_ candidate: GridCandidate, _ index: Int, _ count: Int) -> InstancePick {
+            InstancePick(observation: observation(candidate, candidate.instances[index]),
+                         index: index, isAmbiguous: count > 1)
+        }
+        func observation(_ candidate: GridCandidate, _ instance: SignInstance) -> GridObservation {
+            GridObservation(
+                codeRaw: candidate.codeRaw,
+                zoneIndex: candidate.zoneIndex,
+                numberValue: candidate.numberValue,
+                position: instance.position,
+                ageSeconds: max(0, nowSeconds - instance.lastSeen)
+            )
+        }
+
+        // 조합 수 — 곱셈 오버플로를 상한 검사보다 먼저 막는다(리뷰: 크래시 경로)
+        var combinationCount = 1
+        var explodes = false
+        for (_, instances) in usable {
+            let (product, overflow) = combinationCount.multipliedReportingOverflow(by: instances.count)
+            if overflow || product > ParkingTuning.instanceCombinationLimit {
+                explodes = true
+                break
+            }
+            combinationCount = product
+        }
+
+        guard combinationCount > 1 || explodes else {
+            return usable.map { pick($0.0, 0, 1) }
+        }
+        guard !explodes else {
+            return greedySelection(usable, pick: pick, devicePosition: devicePosition)
+        }
+
+        var best: (score: SelectionScore, picks: [InstancePick])?
+        for index in 0..<combinationCount {
+            var remainder = index
+            var picked: [InstancePick] = []
+            var samples = 0
+            picked.reserveCapacity(usable.count)
+            for (candidate, instances) in usable {
+                let choice = remainder % instances.count
+                remainder /= instances.count
+                picked.append(pick(candidate, choice, instances.count))
+                samples += instances[choice].samples
+            }
+            let score = SelectionScore(picked.map(\.observation), samples: samples,
+                                       devicePosition: devicePosition)
+            if best == nil || score.isBetter(than: best!.score) {
+                best = (score, picked)
+            }
+        }
+        return best?.picks ?? []
+    }
+
+    /// 조합 폭발 시 — 무게중심 최근접(리뷰 실측: 260919를 40.8%→30.8%로 떨어뜨리고 열 혼합을 조장)
+    /// 대신 **탐욕적 증분 선택**. 단일 인스턴스 코드를 앵커로 두고, 다중 코드는 앵커 집합과의
+    /// 적합 잔차가 최소인 인스턴스를 차례로 고른다 — 전수 평가와 같은 기준을 쓰므로 방향이 일치한다.
+    private static func greedySelection(
+        _ usable: [(GridCandidate, [SignInstance])],
+        pick: (GridCandidate, Int, Int) -> InstancePick,
+        devicePosition: SIMD2<Double>?
+    ) -> [InstancePick] {
+        var chosen: [InstancePick] = usable.filter { $0.1.count == 1 }.map { pick($0.0, 0, 1) }
+        let ambiguous = usable.filter { $0.1.count > 1 }.sorted { $0.1.count < $1.1.count }
+        for (candidate, instances) in ambiguous {
+            var bestPick: (SelectionScore, InstancePick)?
+            for index in instances.indices {
+                let trial = chosen.map(\.observation) + [pick(candidate, index, instances.count).observation]
+                let score = SelectionScore(trial, samples: instances[index].samples,
+                                           devicePosition: devicePosition)
+                if bestPick == nil || score.isBetter(than: bestPick!.0) {
+                    bestPick = (score, pick(candidate, index, instances.count))
+                }
+            }
+            if let best = bestPick?.1 { chosen.append(best) }
+        }
+        return chosen.sorted { $0.observation.codeRaw < $1.observation.codeRaw }
+    }
+
+    /// 조합 품질 — 잔차가 의미를 갖는 구간에서는 잔차로, 축퇴 구간에서는 명시적 동점 규칙으로 고른다
+    private struct SelectionScore {
+        let producesTarget: Bool
+        let residual: Double
+        let residualInformative: Bool
+        let span: Double
+        let samples: Int
+        let deviceDistance: Double
+
+        init(_ observations: [GridObservation], samples: Int, devicePosition: SIMD2<Double>?) {
+            let zones = Set(observations.compactMap(\.zoneIndex))
+            let numbers = Set(observations.compactMap(\.numberValue))
+            var fitted = false
+            var residual = Double.greatestFiniteMagnitude
+            var informative = false
+
+            if observations.count >= 3, let (affine, _) = GridEstimator.fitAffine(observations) {
+                residual = affine.residualRMS(over: observations)
+                informative = observations.count >= ParkingTuning.residualInformativeMinCountAffine
+                fitted = true
+            } else if zones.count <= 1, numbers.count >= 2,
+                      let fit = GridEstimator.fitLine(observations, index: { $0.numberValue }) {
+                residual = fit.residualRMS
+                informative = observations.count >= ParkingTuning.residualInformativeMinCount1D
+                fitted = true
+            } else if numbers.count <= 1, zones.count >= 2,
+                      let fit = GridEstimator.fitLine(observations, index: { $0.zoneIndex }) {
+                residual = fit.residualRMS
+                informative = observations.count >= ParkingTuning.residualInformativeMinCount1D
+                fitted = true
+            }
+
+            self.producesTarget = fitted
+            self.residual = residual
+            self.residualInformative = informative && fitted
+            self.span = GridEstimator.span(of: observations)
+            self.samples = samples
+            if let devicePosition {
+                let distances = observations.map { simd_distance($0.position, devicePosition) }
+                self.deviceDistance = distances.isEmpty ? 0 : distances.reduce(0, +) / Double(distances.count)
+            } else {
+                self.deviceDistance = 0
+            }
+        }
+
+        /// 우선순위: ① 목표 산출 가능 ② (잔차가 의미 있을 때) 잔차 ③ 관측 스팬 ④ 표본 수 ⑤ 기기 근접
+        /// ⑤까지 동점이면 열거 순서(코드명 정렬)가 결정 — 전 단계가 결정적이라 리플레이가 재현된다
+        func isBetter(than other: SelectionScore) -> Bool {
+            if producesTarget != other.producesTarget { return producesTarget }
+            if residualInformative, other.residualInformative,
+               abs(residual - other.residual) > 1e-6 {
+                return residual < other.residual
+            }
+            if abs(span - other.span) > 1e-6 { return span > other.span }
+            if samples != other.samples { return samples > other.samples }
+            if abs(deviceDistance - other.deviceDistance) > 1e-6 { return deviceDistance < other.deviceDistance }
+            return false
+        }
     }
 
     /// 누적 관측 전체로 재추정 (매 관측 갱신마다 호출 — FR-011)
@@ -154,7 +375,7 @@ struct GridEstimator: Sendable {
 
         // 2D 아핀 시도 (비공선 3개 이상) → 실패 시 1D 축으로 단계 하강
         if usable.count >= 3,
-           let (affine, normalMatrix) = fitAffine(usable) {
+           let (affine, normalMatrix) = Self.fitAffine(usable) {
             referencePitch = affine.spacingEstimate
             // 두 축을 실제로 추정했으므로 세션 값으로 기억 (FR-101 — 1D로 내려가도 재사용)
             observedZonePitch = simd_length(affine.zoneVec)
@@ -217,7 +438,7 @@ struct GridEstimator: Sendable {
 
         // 같은 구역, 번호만 다름 → 번호축
         if zones.count <= 1, numbers.count >= 2 {
-            guard let fit = fitLine(usable, index: { $0.numberValue }) else {
+            guard let fit = Self.fitLine(usable, index: { $0.numberValue }) else {
                 return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
             }
             referencePitch = simd_length(fit.direction)
@@ -262,7 +483,7 @@ struct GridEstimator: Sendable {
 
         // 같은 번호, 구역만 다름 → 구역축
         if numbers.count <= 1, zones.count >= 2 {
-            guard let fit = fitLine(usable, index: { $0.zoneIndex }) else {
+            guard let fit = Self.fitLine(usable, index: { $0.zoneIndex }) else {
                 return makeResult(stage: .searching, target: nil, residual: 0, count: usable.count)
             }
             referencePitch = simd_length(fit.direction)
@@ -400,6 +621,12 @@ struct GridEstimator: Sendable {
         // ⑤ 축 간격이 실측 정상 범위 밖이면 감점(차단은 FR-105 부조리 범위에서만)
         if !stepNormal { score *= 0.7 }
 
+        // ⑤-b FR-107: 인스턴스 조합이 방금 바뀌었으면 불확실성 신호로 깎되, 안정되면 회복한다
+        if framesSinceSelectionChange < ParkingTuning.selectionStabilityFrames {
+            let recency = 1.0 - Double(framesSinceSelectionChange) / Double(ParkingTuning.selectionStabilityFrames)
+            score *= 1.0 - 0.3 * recency
+        }
+
         // ⑥ FR-104 최상위 구간 AND 게이트 — 관측 수·잔차 정보·인접 목격을 모두 만족해야 70% 위로 간다.
         //    (PR#59 리뷰: 인접 목격이 가산일 뿐이라 5점·잔차만으로 80%에 도달하던 문제)
         let topTierAllowed = count >= ParkingTuning.observationsForTop && residualInformative && neighborSighted
@@ -450,7 +677,7 @@ struct GridEstimator: Sendable {
 
 
     /// FR-106 기준량 — 랜드마크 간 최대 이격
-    private static func span(of observations: [GridObservation]) -> Double {
+    fileprivate static func span(of observations: [GridObservation]) -> Double {
         guard observations.count >= 2 else { return 0 }
         var maximum = 0.0
         for i in 0..<observations.count {
@@ -472,7 +699,7 @@ struct GridEstimator: Sendable {
     // MARK: - 아핀 피팅 (3+ 비공선)
 
     /// p ≈ origin + zoneIndex·zoneVec + number·numVec — x/y 성분이 분리되므로 3x3 정규방정식 2회
-    private struct AffineFit {
+    fileprivate struct AffineFit {
         let origin: SIMD2<Double>
         let zoneVec: SIMD2<Double>
         let numVec: SIMD2<Double>
@@ -498,7 +725,7 @@ struct GridEstimator: Sendable {
     }
 
     /// 반환에 정규방정식 행렬 M 포함 — G1 외삽 레버 계산용 (설계 개정 v2)
-    private func fitAffine(_ observations: [GridObservation]) -> (AffineFit, [[Double]])? {
+    fileprivate static func fitAffine(_ observations: [GridObservation]) -> (AffineFit, [[Double]])? {
         let points = observations.compactMap { obs -> (z: Double, n: Double, p: SIMD2<Double>)? in
             guard let z = obs.zoneIndex, let n = obs.numberValue else { return nil }
             return (Double(z), Double(n), obs.position)
@@ -556,7 +783,7 @@ struct GridEstimator: Sendable {
 
     // MARK: - 1D 최소제곱
 
-    private struct LineFit {
+    fileprivate struct LineFit {
         let base: SIMD2<Double>       // 인덱스 평균 위치
         let meanIndex: Double
         let direction: SIMD2<Double>  // 인덱스 1스텝당 변위
@@ -576,7 +803,7 @@ struct GridEstimator: Sendable {
         }
     }
 
-    private func fitLine(
+    fileprivate static func fitLine(
         _ observations: [GridObservation],
         index: (GridObservation) -> Int?
     ) -> LineFit? {

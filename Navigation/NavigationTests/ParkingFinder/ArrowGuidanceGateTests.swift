@@ -30,11 +30,13 @@ struct ArrowGuidanceGateTests {
         // 스팬 상대 기준 도입 후 남는 8개만이 정당한 화살표이며, SC-101 목표(60%)는 P3 클러스터의 몫이다
         let result = try replay("parking-20260919-180117-find")
         #expect(result.arrowShown > 0, "화살표 0회")
-        #expect(result.arrowAvailability > 0.05,
+        // P3 표지판 클러스터 도입으로 6.7% → 40.8% (제외하던 '3'행이 인스턴스로 살아나 스팬이 커졌다)
+        #expect(result.arrowAvailability > 0.35,
                 "가동률 \(Int(result.arrowAvailability * 100))%")
     }
 
-    @Test(.disabled("P3 표지판 클러스터 도입 후 활성화 — 현재는 모호 제외로 관측·스팬이 부족하다"))
+    // 비-화살표 구간의 병목은 관측 공백(5.8%)이 아니라 스팬 상한(43.3%)이다 — 목표치를 현장 검증 후 재검토
+    @Test(.disabled("SC-101 목표 60% 미달: P3 클러스터 후 40.0%"))
     func meetsArrowAvailabilityTarget() throws {
         let result = try replay("parking-20260919-180117-find")
         #expect(result.arrowAvailability >= 0.6, "SC-101 미달: \(result.arrowAvailability)")
@@ -45,7 +47,8 @@ struct ArrowGuidanceGateTests {
         // (1차 구현에서는 스텝 수 기반 누적이 이 세션들을 4.5%/15.4%까지 죽였다 — 근거가 뒤집혀 있었다)
         for name in ["parking-20260801-111450-find", "parking-20260911-102531-find"] {
             let result = try replay(name)
-            #expect(result.arrowAvailability > 0.25,
+            // H22는 표본 수 프리필터 때문에 29.8%까지 떨어졌다가 제거 후 49.1%로 복귀 (PR#60 리뷰)
+            #expect(result.arrowAvailability > 0.3,
                     "\(name) 가동률 \(Int(result.arrowAvailability * 100))%")
         }
     }
@@ -53,12 +56,12 @@ struct ArrowGuidanceGateTests {
     /// SC-103의 실질 방어선 — 어느 세션에서도 화살표가 관측 배치 규모를 넘어 표시되지 않는다.
     /// 1차 구현에는 화살표 거리에 대한 회귀 방지가 전무했다(J21 77.7m·260919 69.2m가 전부 통과).
     @Test func neverShowsArrowBeyondObservationSpan() throws {
+        // 프레임 단위 비율로 본다 — 최대거리와 최소스팬을 프레임 넘나들며 비교하면 위반이 없어도 초과로 보인다
         for name in allFixtures {
             let result = try replay(name)
             guard result.arrowShown > 0 else { continue }
-            let limit = result.minSpanWhenShown * ParkingTuning.displayDistanceSpanFactor
-            #expect(result.maxDistanceWhenShown <= limit + 0.01,
-                    "\(name): 최대 표시 거리 \(result.maxDistanceWhenShown)m > 스팬 기준 \(limit)m")
+            #expect(result.maxDistanceSpanRatio <= ParkingTuning.displayDistanceSpanFactor + 0.01,
+                    "\(name): 거리/스팬 최대 \(result.maxDistanceSpanRatio)")
         }
     }
 
