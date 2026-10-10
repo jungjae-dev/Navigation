@@ -32,7 +32,7 @@ final class DevToolsSettings {
     let predictiveDisplayEnabled: CurrentValueSubject<Bool, Never>
     /// 내 차 찾기 디버그 시각화·레코딩 (DR-005 — 출시 빌드 포함, 기본 off)
     let parkingDebugEnabled: CurrentValueSubject<Bool, Never>
-    /// 주행 음성 안내 — 기능 미완성으로 개발자 토글 뒤에 둔다, 기본 off (261010). 완성 시 일반 설정 "음성 안내" 섹션으로 복귀
+    /// 주행 음성 안내 — 문구·타이밍 미완성이라 일반 설정 대신 여기서만 켠다, 기본 off
     let voiceGuidanceEnabled: CurrentValueSubject<Bool, Never>
     /// 설정 화면의 "개발자" 섹션 노출 여부 — 앱 버전 행 7회 탭으로 해금, 기본 off
     let devToolsUnlocked: CurrentValueSubject<Bool, Never>

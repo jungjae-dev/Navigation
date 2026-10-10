@@ -454,7 +454,7 @@ extension DevToolsViewController: UITableViewDataSource {
                 config.text = "음성 안내 (실험)"
                 config.secondaryText = "주행 중 TTS 안내 재생 — 기능 미완성"
                 config.image = UIImage(systemName: "speaker.wave.2.fill")
-                config.imageProperties.tintColor = .systemTeal
+                config.imageProperties.tintColor = Theme.Colors.primary
 
                 let toggle = UISwitch()
                 toggle.isOn = DevToolsSettings.shared.voiceGuidanceEnabled.value

@@ -187,14 +187,6 @@ final class NavigationViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 음성 안내 개발자 토글 — off 전환 시 재생 중인 안내도 즉시 끊는다
-        DevToolsSettings.shared.voiceGuidanceEnabled
-            .receive(on: DispatchQueue.main)
-            .sink { enabled in
-                if !enabled { VoiceTTSPlayer.shared.stop() }
-            }
-            .store(in: &cancellables)
-
         // 현재 guide 값이 있으면 즉시 동기 적용 — .receive(on: DispatchQueue.main)의 비동기 딜레이 보완
         if let current = guide.value {
             handleGuide(current)
@@ -281,7 +273,6 @@ final class NavigationViewController: UIViewController {
             updateMapMatchDebugVisualization(guide)
         }
 
-        // 음성 재생 — 개발자 토글 뒤 (기본 off)
         if DevToolsSettings.shared.voiceGuidanceEnabled.value, let voiceCommand = guide.voiceCommand {
             VoiceTTSPlayer.shared.enqueue(voiceCommand)
         }

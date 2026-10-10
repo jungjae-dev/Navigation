@@ -10,8 +10,7 @@ final class SettingsViewController: UIViewController {
     /// `devTools`는 반드시 마지막 케이스여야 함 — `numberOfSections`가 잠금 상태에서
     /// `allCases.count - 1`로 마지막 섹션 하나만 잘라내는 방식으로 숨기기 때문.
     /// 이 뒤에 케이스를 추가하면 엉뚱한 섹션이 숨겨지고 개발자 섹션은 계속 노출된다.
-    /// 음성 안내 섹션은 기능 미완성으로 숨김 — 개발자 도구 "음성 안내 (실험)" 토글이 대신한다 (261010).
-    /// 복원 시 `case voice`를 되살리고 VoiceRow 분기를 세 switch에 다시 추가
+    /// 음성 안내 섹션 없음 — 기능 미완성이라 개발자 도구 토글(DevToolsSettings.voiceGuidanceEnabled)로만 켠다
     private enum Section: Int, CaseIterable {
         case transport = 0
         case map = 1
@@ -24,11 +23,6 @@ final class SettingsViewController: UIViewController {
 
     private enum DevToolsRow: Int, CaseIterable {
         case open = 0
-    }
-
-    private enum VoiceRow: Int, CaseIterable {
-        case enabled = 0
-        case speed = 1
     }
 
     private enum TransportRow: Int, CaseIterable {
@@ -145,16 +139,12 @@ final class SettingsViewController: UIViewController {
     // MARK: - Binding
 
     private func bindViewModel() {
-        Publishers.CombineLatest3(
-            viewModel.voiceEnabled,
-            viewModel.voiceSpeed,
-            viewModel.mapType
-        )
-        .receive(on: DispatchQueue.main)
-        .sink { [weak self] _, _, _ in
-            self?.tableView.reloadData()
-        }
-        .store(in: &cancellables)
+        viewModel.mapType
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
 
         Publishers.CombineLatest(
             viewModel.favoriteCount,
@@ -186,30 +176,8 @@ final class SettingsViewController: UIViewController {
 
     // MARK: - Actions
 
-    @objc private func voiceSwitchChanged(_ sender: UISwitch) {
-        viewModel.setVoiceEnabled(sender.isOn)
-    }
-
     @objc private func hapticSwitchChanged(_ sender: UISwitch) {
         viewModel.setHapticEnabled(sender.isOn)
-    }
-
-
-    private func showVoiceSpeedPicker() {
-        let alert = UIAlertController(title: "음성 속도", message: nil, preferredStyle: .actionSheet)
-
-        for speed in SettingsViewModel.VoiceSpeed.allCases {
-            let action = UIAlertAction(title: speed.displayName, style: .default) { [weak self] _ in
-                self?.viewModel.setVoiceSpeed(speed)
-            }
-            if speed == viewModel.voiceSpeed.value {
-                action.setValue(true, forKey: "checked")
-            }
-            alert.addAction(action)
-        }
-
-        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
-        present(alert, animated: true)
     }
 
     private func showMapTypePicker() {
