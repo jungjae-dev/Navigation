@@ -10,18 +10,21 @@ final class VoiceTTSPlayer: NSObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var queue: [VoiceCommand] = []
     private(set) var isMuted = false
+    /// 오디오 세션은 첫 재생 직전에 활성화 — 싱글턴 생성만으로 .playback 세션이 켜져 타 앱 음악이 덕킹되는 것 방지
+    private var isAudioSessionConfigured = false
 
     // MARK: - Init
 
     private override init() {
         super.init()
         synthesizer.delegate = self
-        configureAudioSession()
     }
 
     // MARK: - Audio Session
 
     private func configureAudioSession() {
+        guard !isAudioSessionConfigured else { return }
+        isAudioSessionConfigured = true
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
@@ -69,6 +72,7 @@ final class VoiceTTSPlayer: NSObject {
     private func playNextIfIdle() {
         guard !synthesizer.isSpeaking, let next = queue.first else { return }
         queue.removeFirst()
+        configureAudioSession()
 
         let utterance = AVSpeechUtterance(string: next.text)
         utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")

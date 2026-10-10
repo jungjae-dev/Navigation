@@ -10,15 +10,16 @@ final class SettingsViewController: UIViewController {
     /// `devTools`는 반드시 마지막 케이스여야 함 — `numberOfSections`가 잠금 상태에서
     /// `allCases.count - 1`로 마지막 섹션 하나만 잘라내는 방식으로 숨기기 때문.
     /// 이 뒤에 케이스를 추가하면 엉뚱한 섹션이 숨겨지고 개발자 섹션은 계속 노출된다.
+    /// 음성 안내 섹션은 기능 미완성으로 숨김 — 개발자 도구 "음성 안내 (실험)" 토글이 대신한다 (261010).
+    /// 복원 시 `case voice`를 되살리고 VoiceRow 분기를 세 switch에 다시 추가
     private enum Section: Int, CaseIterable {
-        case voice = 0
-        case transport = 1
-        case map = 2
-        case vehicle = 3
-        case haptic = 4
-        case data = 5
-        case info = 6
-        case devTools = 7
+        case transport = 0
+        case map = 1
+        case vehicle = 2
+        case haptic = 3
+        case data = 4
+        case info = 5
+        case devTools = 6
     }
 
     private enum DevToolsRow: Int, CaseIterable {
@@ -514,7 +515,6 @@ extension SettingsViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let sec = Section(rawValue: section) else { return 0 }
         switch sec {
-        case .voice: return VoiceRow.allCases.count
         case .transport: return TransportRow.allCases.count
         case .map: return MapRow.allCases.count
         case .vehicle: return VehicleRow.allCases.count
@@ -528,7 +528,6 @@ extension SettingsViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard let sec = Section(rawValue: section) else { return nil }
         switch sec {
-        case .voice: return "음성 안내"
         case .transport: return "이동수단"
         case .map: return "지도"
         case .vehicle: return "차량 아이콘"
@@ -554,29 +553,6 @@ extension SettingsViewController: UITableViewDataSource {
         guard let sec = Section(rawValue: indexPath.section) else { return cell }
 
         switch sec {
-        case .voice:
-            guard let row = VoiceRow(rawValue: indexPath.row) else { return cell }
-            switch row {
-            case .enabled:
-                config.text = "음성 안내"
-                config.image = UIImage(systemName: "speaker.wave.2.fill")
-                config.imageProperties.tintColor = Theme.Colors.primary
-
-                let toggle = UISwitch()
-                toggle.isOn = viewModel.voiceEnabled.value
-                toggle.onTintColor = Theme.Colors.primary
-                toggle.addTarget(self, action: #selector(voiceSwitchChanged), for: .valueChanged)
-                cell.accessoryView = toggle
-                cell.selectionStyle = .none
-
-            case .speed:
-                config.text = "음성 속도"
-                config.secondaryText = viewModel.voiceSpeed.value.displayName
-                config.image = UIImage(systemName: "gauge.with.dots.needle.33percent")
-                config.imageProperties.tintColor = Theme.Colors.primary
-                cell.accessoryType = .disclosureIndicator
-            }
-
         case .transport:
             guard let row = TransportRow(rawValue: indexPath.row) else { return cell }
             switch row {
@@ -723,12 +699,6 @@ extension SettingsViewController: UITableViewDelegate {
         guard let sec = Section(rawValue: indexPath.section) else { return }
 
         switch sec {
-        case .voice:
-            guard let row = VoiceRow(rawValue: indexPath.row) else { return }
-            if row == .speed {
-                showVoiceSpeedPicker()
-            }
-
         case .transport:
             guard let row = TransportRow(rawValue: indexPath.row) else { return }
             if row == .defaultMode {

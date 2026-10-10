@@ -20,6 +20,7 @@ final class DevToolsSettings {
         static let mapMatchDebugEnabled = "devtools_mapmatch_debug_enabled"
         static let predictiveDisplayEnabled = "devtools_predictive_display_enabled"
         static let parkingDebugEnabled = "devtools_parking_debug_enabled"
+        static let voiceGuidanceEnabled = "devtools_voice_guidance_enabled"
         static let devToolsUnlocked = "devtools_unlocked"
     }
 
@@ -31,6 +32,8 @@ final class DevToolsSettings {
     let predictiveDisplayEnabled: CurrentValueSubject<Bool, Never>
     /// 내 차 찾기 디버그 시각화·레코딩 (DR-005 — 출시 빌드 포함, 기본 off)
     let parkingDebugEnabled: CurrentValueSubject<Bool, Never>
+    /// 주행 음성 안내 — 기능 미완성으로 개발자 토글 뒤에 둔다, 기본 off (261010). 완성 시 일반 설정 "음성 안내" 섹션으로 복귀
+    let voiceGuidanceEnabled: CurrentValueSubject<Bool, Never>
     /// 설정 화면의 "개발자" 섹션 노출 여부 — 앱 버전 행 7회 탭으로 해금, 기본 off
     let devToolsUnlocked: CurrentValueSubject<Bool, Never>
 
@@ -47,6 +50,7 @@ final class DevToolsSettings {
         let predictiveRaw = defaults.object(forKey: Keys.predictiveDisplayEnabled) as? Bool ?? true
         self.predictiveDisplayEnabled = CurrentValueSubject(predictiveRaw)
         self.parkingDebugEnabled = CurrentValueSubject(defaults.bool(forKey: Keys.parkingDebugEnabled))
+        self.voiceGuidanceEnabled = CurrentValueSubject(defaults.bool(forKey: Keys.voiceGuidanceEnabled))
         self.devToolsUnlocked = CurrentValueSubject(defaults.bool(forKey: Keys.devToolsUnlocked))
     }
 
@@ -70,6 +74,11 @@ final class DevToolsSettings {
     func setParkingDebugEnabled(_ enabled: Bool) {
         parkingDebugEnabled.send(enabled)
         defaults.set(enabled, forKey: Keys.parkingDebugEnabled)
+    }
+
+    func setVoiceGuidanceEnabled(_ enabled: Bool) {
+        voiceGuidanceEnabled.send(enabled)
+        defaults.set(enabled, forKey: Keys.voiceGuidanceEnabled)
     }
 
     func setDevToolsUnlocked(_ unlocked: Bool) {
