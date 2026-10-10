@@ -38,6 +38,7 @@ final class DevToolsViewController: UIViewController {
         case mapMatchVisualization = 1
         case predictiveDisplay = 2
         case parkingDebug = 3
+        case voiceGuidance = 4
     }
 
     // MARK: - UI
@@ -183,6 +184,10 @@ final class DevToolsViewController: UIViewController {
 
     @objc private func parkingDebugSwitchChanged(_ sender: UISwitch) {
         DevToolsSettings.shared.setParkingDebugEnabled(sender.isOn)
+    }
+
+    @objc private func voiceGuidanceSwitchChanged(_ sender: UISwitch) {
+        DevToolsSettings.shared.setVoiceGuidanceEnabled(sender.isOn)
     }
 
     // MARK: - Parking Logs Export (DR-003, T042)
@@ -442,6 +447,19 @@ extension DevToolsViewController: UITableViewDataSource {
                 toggle.isOn = DevToolsSettings.shared.parkingDebugEnabled.value
                 toggle.onTintColor = Theme.Colors.primary
                 toggle.addTarget(self, action: #selector(parkingDebugSwitchChanged), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
+
+            case .voiceGuidance:
+                config.text = "음성 안내 (실험)"
+                config.secondaryText = "주행 중 TTS 안내 재생 — 기능 미완성"
+                config.image = UIImage(systemName: "speaker.wave.2.fill")
+                config.imageProperties.tintColor = Theme.Colors.primary
+
+                let toggle = UISwitch()
+                toggle.isOn = DevToolsSettings.shared.voiceGuidanceEnabled.value
+                toggle.onTintColor = Theme.Colors.primary
+                toggle.addTarget(self, action: #selector(voiceGuidanceSwitchChanged), for: .valueChanged)
                 cell.accessoryView = toggle
                 cell.selectionStyle = .none
             }

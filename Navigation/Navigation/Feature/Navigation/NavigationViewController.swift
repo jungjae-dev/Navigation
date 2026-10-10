@@ -273,8 +273,7 @@ final class NavigationViewController: UIViewController {
             updateMapMatchDebugVisualization(guide)
         }
 
-        // 음성 재생
-        if let voiceCommand = guide.voiceCommand {
+        if DevToolsSettings.shared.voiceGuidanceEnabled.value, let voiceCommand = guide.voiceCommand {
             VoiceTTSPlayer.shared.enqueue(voiceCommand)
         }
 
